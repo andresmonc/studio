@@ -50,6 +50,7 @@ profile.cov
 # Compiled binaries
 server/management/management
 server/management/bin/
+/bin/
 server/management/server
 *.exe
 *.exe~

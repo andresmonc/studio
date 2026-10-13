@@ -1,6 +1,8 @@
 package model
 
 import (
+	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,6 +36,25 @@ func TestNewPaginatedResponse(t *testing.T) {
 			assert.Equal(t, []string{"a"}, resp.Data)
 		})
 	}
+}
+
+func TestNewPaginatedResponseNilItemsMarshalAsEmptyArray(t *testing.T) {
+	b, err := json.Marshal(NewPaginatedResponse[string](nil, 0, 1, 10))
+	assert.NoError(t, err)
+	assert.JSONEq(t, `{"data":[],"total":0,"page":1,"pageSize":10,"totalPages":0}`, string(b))
+}
+
+func TestNewPaginatedResponseHugeTotalDoesNotOverflow(t *testing.T) {
+	resp := NewPaginatedResponse([]string{}, math.MaxInt, 1, 10)
+	assert.Equal(t, math.MaxInt/10+1, resp.TotalPages)
+}
+
+func TestValidationErrorsErr(t *testing.T) {
+	var none ValidationErrors
+	assert.NoError(t, none.Err())
+
+	errs := ValidationErrors{{Field: "name", Message: "required"}}
+	assert.Equal(t, errs, errs.Err())
 }
 
 func TestValidationErrorsError(t *testing.T) {

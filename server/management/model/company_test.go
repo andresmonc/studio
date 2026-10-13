@@ -14,8 +14,8 @@ func TestCompanyRole_IsValid(t *testing.T) {
 	}{
 		{"admin", CompanyRoleAdmin, true},
 		{"member", CompanyRoleMember, true},
-		{"editor removed", CompanyRole("editor"), false},
-		{"viewer removed", CompanyRole("viewer"), false},
+		{"editor is not a company role", CompanyRole("editor"), false},
+		{"viewer is not a company role", CompanyRole("viewer"), false},
 		{"empty", CompanyRole(""), false},
 	}
 	for _, tt := range tests {
@@ -36,6 +36,9 @@ func TestCompanyRole_AtLeast(t *testing.T) {
 		{"admin >= admin", CompanyRoleAdmin, CompanyRoleAdmin, true},
 		{"member >= member", CompanyRoleMember, CompanyRoleMember, true},
 		{"member < admin", CompanyRoleMember, CompanyRoleAdmin, false},
+		{"empty < member", CompanyRole(""), CompanyRoleMember, false},
+		{"admin vs unknown", CompanyRoleAdmin, CompanyRole("owner"), false},
+		{"empty vs empty", CompanyRole(""), CompanyRole(""), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
