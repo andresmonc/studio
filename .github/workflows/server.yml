@@ -7,15 +7,15 @@ on:
       - 'server/**'
       - '.github/workflows/server.yml'
       - 'codecov.yml'
+      - 'Makefile'
+      - '.golangci.yml'
   pull_request:
     paths:
       - 'server/**'
       - '.github/workflows/server.yml'
       - 'codecov.yml'
-
-defaults:
-  run:
-    working-directory: server/management
+      - 'Makefile'
+      - '.golangci.yml'
 
 jobs:
   build-test:
@@ -29,13 +29,13 @@ jobs:
           cache-dependency-path: server/management/go.sum
 
       - name: Vet
-        run: go vet ./...
+        run: make vet
 
       - name: Build
-        run: go build ./...
+        run: make build
 
       - name: Test
-        run: go test -covermode=count -coverprofile=coverage.out ./...
+        run: make test
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
@@ -45,3 +45,16 @@ jobs:
           disable_search: true
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: server/management/go.mod
+          cache-dependency-path: server/management/go.sum
+
+      - name: Lint
+        run: make lint
