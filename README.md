@@ -1,6 +1,7 @@
 # GO Feature Flag Studio
 
 ![Status: Work in progress](https://img.shields.io/badge/status-work%20in%20progress-orange)
+[![codecov](https://codecov.io/gh/go-feature-flag/studio/graph/badge.svg)](https://codecov.io/gh/go-feature-flag/studio)
 
 > 🚧 **We are currently building this.** The Studio is under active development:
 > features, APIs and the data model can change at any time, and it is not ready
