@@ -38,7 +38,7 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 	reader, err := autoexport.NewMetricReader(ctx, autoexport.WithFallbackMetricReader(
 		func(context.Context) (sdkmetric.Reader, error) { return sdkmetric.NewManualReader(), nil }))
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, spanExp.Shutdown(ctx))
 	}
 
 	tp := sdktrace.NewTracerProvider(sdktrace.WithBatcher(spanExp), sdktrace.WithResource(res))
