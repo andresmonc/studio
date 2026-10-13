@@ -26,9 +26,14 @@ func NewQueryBuilderWithOffset(offset int) *QueryBuilder {
 	return &QueryBuilder{offset: offset}
 }
 
+// Add binds value and appends a condition. condFmt receives the placeholder
+// index: use exactly one $%d (or repeat $%[1]d) and write a literal % as %%.
+// condFmt must be a constant or a whitelisted column, never user input: only
+// value is parameterized. Each condition is parenthesized so an OR inside it
+// cannot escape the surrounding AND chain.
 func (qb *QueryBuilder) Add(condFmt string, value any) {
 	qb.args = append(qb.args, value)
-	qb.conditions = append(qb.conditions, fmt.Sprintf(condFmt, qb.offset+len(qb.args)))
+	qb.conditions = append(qb.conditions, "("+fmt.Sprintf(condFmt, qb.offset+len(qb.args))+")")
 }
 
 func (qb *QueryBuilder) Build() (string, []any) {

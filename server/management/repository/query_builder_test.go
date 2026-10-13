@@ -1,52 +1,71 @@
 package repository
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestQueryBuilder_Empty(t *testing.T) {
-	qb := NewQueryBuilder()
-	where, args := qb.Build()
-	assert.Equal(t, "", where)
-	assert.Empty(t, args)
-}
-
-func TestQueryBuilder_Build(t *testing.T) {
-	qb := NewQueryBuilder()
-	qb.Add("a = $%d", 1)
-	qb.Add("b = $%d", "x")
-	where, args := qb.Build()
-	assert.True(t, strings.HasPrefix(where, " AND "), where)
-	assert.Contains(t, where, "a = $1")
-	assert.Contains(t, where, "b = $2")
-	assert.Equal(t, []any{1, "x"}, args)
-}
-
-// With an offset, placeholder numbering starts after the leading positional
-// args already bound in the query (e.g. flag list binds flagset_id as $1, so
-// the filter conditions must start at $2). Regression test for a bug where a
-// name/disabled filter bound to the flagset id instead of the filter value.
-func TestQueryBuilder_WithOffset(t *testing.T) {
-	qb := NewQueryBuilderWithOffset(1)
-	qb.Add("f.name ILIKE $%d", "%x%")
-	qb.Add("f.disabled = $%d", true)
-	where, args := qb.Build()
-	assert.Contains(t, where, "f.name ILIKE $2")
-	assert.Contains(t, where, "f.disabled = $3")
-	assert.Equal(t, []any{"%x%", true}, args)
-}
-
-// A single bound argument can be referenced multiple times via an explicit
-// index verb ($%[1]d). The audit-log tenant scope relies on this to bind one
-// company id into both sides of an OR without duplicating the argument.
-func TestQueryBuilder_SelfReferencingArg(t *testing.T) {
-	qb := NewQueryBuilder()
-	qb.Add("x = $%d", "first")
-	qb.Add("(a = $%[1]d OR b IN (SELECT id FROM t WHERE c = $%[1]d))", "co-1")
-	where, args := qb.Build()
-	assert.Contains(t, where, "(a = $2 OR b IN (SELECT id FROM t WHERE c = $2))")
-	assert.Equal(t, []any{"first", "co-1"}, args)
+func TestQueryBuilder(t *testing.T) {
+	type add struct {
+		cond  string
+		value any
+	}
+	tests := []struct {
+		name      string
+		offset    int
+		adds      []add
+		wantWhere string
+		wantArgs  []any
+	}{
+		{
+			name:      "empty",
+			wantWhere: "",
+		},
+		{
+			name:      "conditions joined with AND",
+			adds:      []add{{"a = $%d", 1}, {"b = $%d", "x"}},
+			wantWhere: " AND (a = $1) AND (b = $2)",
+			wantArgs:  []any{1, "x"},
+		},
+		{
+			// Placeholders start after args already bound before the builder's conditions.
+			name:      "offset",
+			offset:    1,
+			adds:      []add{{"f.name ILIKE $%d", "%x%"}, {"f.disabled = $%d", true}},
+			wantWhere: " AND (f.name ILIKE $2) AND (f.disabled = $3)",
+			wantArgs:  []any{"%x%", true},
+		},
+		{
+			name:      "self-referencing arg",
+			adds:      []add{{"x = $%d", "first"}, {"a = $%[1]d OR b IN (SELECT id FROM t WHERE c = $%[1]d)", "co-1"}},
+			wantWhere: " AND (x = $1) AND (a = $2 OR b IN (SELECT id FROM t WHERE c = $2))",
+			wantArgs:  []any{"first", "co-1"},
+		},
+		{
+			// An OR must not escape a leading scope like `WHERE flagset_id = $1`.
+			name:      "OR is parenthesized",
+			offset:    1,
+			adds:      []add{{"a = $%d OR b = $%[1]d", "v"}},
+			wantWhere: " AND (a = $2 OR b = $2)",
+			wantArgs:  []any{"v"},
+		},
+		{
+			name:      "literal percent",
+			adds:      []add{{"name LIKE 'a%%' AND id = $%d", 7}},
+			wantWhere: " AND (name LIKE 'a%' AND id = $1)",
+			wantArgs:  []any{7},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			qb := NewQueryBuilderWithOffset(tt.offset)
+			for _, a := range tt.adds {
+				qb.Add(a.cond, a.value)
+			}
+			where, args := qb.Build()
+			assert.Equal(t, tt.wantWhere, where)
+			assert.Equal(t, tt.wantArgs, args)
+		})
+	}
 }
