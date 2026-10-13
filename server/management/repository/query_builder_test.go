@@ -59,7 +59,7 @@ func TestQueryBuilder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			qb := NewQueryBuilderWithOffset(tt.offset)
+			qb := NewQueryBuilder(tt.offset)
 			for _, a := range tt.adds {
 				qb.Add(a.cond, a.value)
 			}
@@ -68,4 +68,29 @@ func TestQueryBuilder(t *testing.T) {
 			assert.Equal(t, tt.wantArgs, args)
 		})
 	}
+}
+
+func TestQueryBuilder_ArgForPagination(t *testing.T) {
+	qb := NewQueryBuilder(1)
+	qb.Add("a = $%d", "x")
+	limit := qb.Arg(10)
+	offset := qb.Arg(20)
+	where, args := qb.Build()
+	assert.Equal(t, " AND (a = $2)", where)
+	assert.Equal(t, "$3", limit)
+	assert.Equal(t, "$4", offset)
+	assert.Equal(t, []any{"x", 10, 20}, args)
+}
+
+func TestQueryBuilder_BuildReturnsCopy(t *testing.T) {
+	qb := NewQueryBuilder(0)
+	qb.Add("a = $%d", 1)
+	_, args := qb.Build()
+	args[0] = "mutated"
+	_, again := qb.Build()
+	assert.Equal(t, []any{1}, again)
+}
+
+func TestNewQueryBuilder_NegativeOffsetPanics(t *testing.T) {
+	assert.Panics(t, func() { NewQueryBuilder(-1) })
 }
