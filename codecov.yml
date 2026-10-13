@@ -2,6 +2,18 @@
 fixes:
   - "github.com/gofeatureflag/studio/::"
 
+# The global statuses otherwise fall back to Codecov's defaults (target: auto,
+# no threshold), which fail any PR that lowers coverage at all.
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: 80%
+
 flag_management:
   default_rules:
     carryforward: true
@@ -22,3 +34,8 @@ comment:
   require_changes: false
   require_base: true
   require_head: true
+
+# Test-only helpers: exercised by other packages' tests, so per-package Go
+# coverage always reports them at 0%.
+ignore:
+  - "server/management/internal/testutil/**"

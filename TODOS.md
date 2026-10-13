@@ -34,8 +34,17 @@ Left open while reviewing `EvaluateFlag` in `server/management/model/evaluation.
 
 Left open after the review of `server/management/db/migrations/0001_init.sql`.
 
-- [ ] **Apply and test the migrations.** The goose annotations are there, but goose isn't in `go.mod`, nothing embeds `db/migrations`, and CI has no Postgres, so nothing applies or tests the schema. Add a Postgres 18 service to CI (or testcontainers), a test that runs Up, Down and Up, and a parity test that runs the `InferFlagType` table cases through the generated `flag_versions.flag_type` column (lax jsonpath mode once typed `["a"]` as `string`).
+- [ ] **Test the migration round-trip and embed it.** The repository tests apply Up through testcontainers, but nothing runs Down and Up again, nothing embeds `db/migrations` for production, and no parity test runs the `InferFlagType` table cases through the generated `flag_versions.flag_type` column (lax jsonpath mode once typed `["a"]` as `string`).
 - [ ] **Document the Postgres 18 minimum.** `uuidv7()` and `VIRTUAL` generated columns need PG 18 and `JSON_EXISTS` needs PG 17; the config accepts any DSN and an older server fails at migration time with an obscure error.
 - [ ] **Clear members before deleting a company.** `users.company_id` has no `ON DELETE` action, because `SET NULL` would leave `company_role` behind and break `users_company_role_pair`. The company delete in the repository has to set both fields to NULL on its members in the same transaction, or the delete fails.
 - [ ] **Always set `audit_log.company_id`.** The audit table has no foreign keys, so `AuditScope` can't reach a deleted team's company through a join. Every entry written inside a company must carry `company_id` directly, or company admins lose it from their audit view.
 - [ ] **Add a company join date if the UI shows one.** `CompanyMember.CreatedAt` can only come from `users.created_at`, so "joined" would mean "account created". Add a `company_joined_at` column when a screen needs the real date.
+
+## Repository
+
+Left open after the review of the DB harness and user repo.
+
+- [ ] **Narrow `isNoRows`.** It also maps pg 22P02 (invalid input) to "not found", which is right for a malformed uuid in `GetByID` but would hide a bad cast in any other query that reuses it. Validate the uuid in `GetByID` and keep `isNoRows` to `pgx.ErrNoRows`.
+- [ ] **Return `ErrNotFound` from lookups.** `GetByID`/`GetByEmail` return `(nil, nil)` when nothing matches, so every caller must nil-check the user. Change it before the first caller lands.
+- [ ] **Truncate every table in the test harness.** `allTables` in `internal/testutil/postgres.go` is hard-coded; a new table without a foreign key to it keeps rows between tests. Build the `TRUNCATE` from `pg_tables` (minus `goose_db_version`). The unused `harness.terminate` field goes too, or gets called from a `TestMain` helper for runs with Ryuk disabled.
+- [ ] **Use a params struct for `UpsertFromOIDC`.** Its four positional strings (email, name, avatarURL, sub) let a swapped email and sub compile. Cover `avatarURL`, `LastLoginAt` and `UpdatedAt` in the tests while there.
