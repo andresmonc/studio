@@ -21,10 +21,10 @@ type Flagset struct {
 	// EvaluationContextEnrichment is a free-form object merged into every
 	// evaluation context for flags in this flagset (enrichment value wins on
 	// key collision).
-	EvaluationContextEnrichment json.RawMessage `db:"evaluation_context_enrichment" json:"evaluationContextEnrichment,omitempty" swaggertype:"object"`
+	EvaluationContextEnrichment json.RawMessage `db:"evaluation_context_enrichment" json:"evaluationContextEnrichment,omitempty" swaggertype:"object"` //nolint:lll // struct tags cannot be wrapped
 	// DefaultTestingEvaluationContext is the evaluation context proposed by
 	// default in the UI's flag test/evaluate panel for flags in this flagset.
-	DefaultTestingEvaluationContext json.RawMessage `db:"default_testing_evaluation_context" json:"defaultTestingEvaluationContext,omitempty" swaggertype:"object"`
+	DefaultTestingEvaluationContext json.RawMessage `db:"default_testing_evaluation_context" json:"defaultTestingEvaluationContext,omitempty" swaggertype:"object"` //nolint:lll // struct tags cannot be wrapped
 	CreatedAt                       time.Time       `db:"created_at" json:"createdAt"`
 	UpdatedAt                       time.Time       `db:"updated_at" json:"updatedAt"`
 }
