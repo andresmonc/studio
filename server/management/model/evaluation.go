@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/thomaspoignant/go-feature-flag/modules/core/evaluation"
 	"github.com/thomaspoignant/go-feature-flag/modules/core/ffcontext"
@@ -49,11 +50,14 @@ type EvaluationResult struct {
 // Evaluation problems (missing targeting key, type mismatch, …) are reported in
 // the result's Reason/ErrorCode rather than as an error — that is what a test
 // endpoint should surface. A non-nil error is returned only when the stored
-// payload itself cannot be parsed.
-func EvaluateFlag(flagName string, payload, enrichment json.RawMessage, disabled bool, req *EvaluateFlagRequest) (*EvaluationResult, error) {
+// payload itself cannot be parsed: that is corrupt server data, not a caller
+// mistake, so it is a plain error (500) rather than ValidationErrors (400).
+func EvaluateFlag(
+	flagName string, payload, enrichment json.RawMessage, disabled bool, req *EvaluateFlagRequest,
+) (*EvaluationResult, error) {
 	dto, err := ParseFlagPayload(payload)
 	if err != nil {
-		return nil, ValidationErrors{{Field: "payload", Message: "invalid payload JSON"}}
+		return nil, fmt.Errorf("parse stored flag payload: %w", err)
 	}
 	internalFlag := dto.Convert()
 	// Mirror production: a flag disabled at the management layer resolves to the
@@ -79,10 +83,10 @@ func EvaluateFlag(flagName string, payload, enrichment json.RawMessage, disabled
 
 	flagType := InferFlagType(payload)
 	// any covers every flag value type (bool, string, number, object), so a
-	// single generic call handles all flags. expectedType only governs the
-	// float64->int coercion for integer flags.
-	res, _ := evaluation.Evaluate[any](
-		&internalFlag, flagName, evalCtx, flagCtx, coreExpectedType(flagType), nil)
+	// single generic call handles all flags and the type-mismatch error Evaluate
+	// can return is impossible. The core only reads expectedType to coerce
+	// float64->int when it is "int", which InferFlagType returns for integer flags.
+	res, _ := evaluation.Evaluate[any](&internalFlag, flagName, evalCtx, flagCtx, flagType, nil)
 
 	return &EvaluationResult{
 		Value:         res.Value,
@@ -97,24 +101,4 @@ func EvaluateFlag(flagName string, payload, enrichment json.RawMessage, disabled
 		Metadata:      res.Metadata,
 		FlagType:      flagType,
 	}, nil
-}
-
-// coreExpectedType maps an inferred flag type (see InferFlagType) to the
-// expectedType string the core Evaluate function understands: int->"int",
-// float->"float", string->"string", boolean->"bool", and everything else
-// (json/unknown) -> "object". Only "int" is functionally significant (it
-// triggers float64->int coercion of the value); the rest are informational.
-func coreExpectedType(inferred string) string {
-	switch inferred {
-	case "int":
-		return "int"
-	case "float":
-		return "float"
-	case "string":
-		return "string"
-	case "boolean":
-		return "bool"
-	default:
-		return "object"
-	}
 }

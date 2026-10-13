@@ -10,17 +10,16 @@ const (
 	RoleViewer Role = "viewer"
 )
 
+// roleRank is the single source of truth for valid team roles and their order.
+var roleRank = map[Role]int{RoleViewer: 1, RoleEditor: 2, RoleAdmin: 3}
+
 func (r Role) IsValid() bool {
-	switch r {
-	case RoleAdmin, RoleEditor, RoleViewer:
-		return true
-	}
-	return false
+	_, ok := roleRank[r]
+	return ok
 }
 
-func (r Role) AtLeast(min Role) bool {
-	rank := map[Role]int{RoleViewer: 1, RoleEditor: 2, RoleAdmin: 3}
-	return rank[r] >= rank[min]
+func (r Role) AtLeast(required Role) bool {
+	return roleRank[required] > 0 && roleRank[r] >= roleRank[required]
 }
 
 type Team struct {
@@ -61,9 +60,9 @@ type UpdateTeamRequest struct {
 
 type AddMemberRequest struct {
 	Email string `json:"email" validate:"required" example:"jane@acme.com"`
-	Role  Role   `json:"role" validate:"required" example:"editor"`
+	Role  Role   `json:"role" validate:"required,oneof=admin editor viewer" enums:"admin,editor,viewer" example:"editor"`
 }
 
 type UpdateMemberRequest struct {
-	Role Role `json:"role" validate:"required" example:"viewer"`
+	Role Role `json:"role" validate:"required,oneof=admin editor viewer" enums:"admin,editor,viewer" example:"viewer"`
 }

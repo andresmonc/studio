@@ -9,17 +9,16 @@ const (
 	CompanyRoleMember CompanyRole = "member"
 )
 
+// companyRoleRank is the single source of truth for valid company roles and their order.
+var companyRoleRank = map[CompanyRole]int{CompanyRoleMember: 1, CompanyRoleAdmin: 2}
+
 func (r CompanyRole) IsValid() bool {
-	switch r {
-	case CompanyRoleAdmin, CompanyRoleMember:
-		return true
-	}
-	return false
+	_, ok := companyRoleRank[r]
+	return ok
 }
 
-func (r CompanyRole) AtLeast(min CompanyRole) bool {
-	rank := map[CompanyRole]int{CompanyRoleMember: 1, CompanyRoleAdmin: 2}
-	return rank[r] >= rank[min]
+func (r CompanyRole) AtLeast(required CompanyRole) bool {
+	return companyRoleRank[required] > 0 && companyRoleRank[r] >= companyRoleRank[required]
 }
 
 // AsTeamRole maps a company role to the equivalent team role for inheritance.
@@ -42,12 +41,13 @@ type Company struct {
 }
 
 type CompanyMember struct {
-	ID        string      `json:"id"` // = UserID; gives refine a row key
-	CompanyID string      `json:"companyId"`
-	UserID    string      `json:"userId"`
-	Email     string      `json:"email"`
-	Name      string      `json:"name"`
-	Role      CompanyRole `json:"role"`
+	ID        string      `db:"id" json:"id"` // = UserID; gives refine a row key
+	CompanyID string      `db:"company_id" json:"companyId"`
+	UserID    string      `db:"user_id" json:"userId"`
+	Email     string      `db:"email" json:"email"`
+	Name      string      `db:"name" json:"name"`
+	Role      CompanyRole `db:"role" json:"role"`
+	CreatedAt time.Time   `db:"created_at" json:"createdAt"`
 }
 
 type CompanyMembership struct {
@@ -68,9 +68,9 @@ type UpdateCompanyRequest struct {
 
 type AddCompanyMemberRequest struct {
 	Email string      `json:"email" validate:"required" example:"jane@acme.com"`
-	Role  CompanyRole `json:"role" validate:"required" example:"member"`
+	Role  CompanyRole `json:"role" validate:"required,oneof=admin member" enums:"admin,member" example:"member"`
 }
 
 type UpdateCompanyMemberRequest struct {
-	Role CompanyRole `json:"role" validate:"required" example:"admin"`
+	Role CompanyRole `json:"role" validate:"required,oneof=admin member" enums:"admin,member" example:"admin"`
 }

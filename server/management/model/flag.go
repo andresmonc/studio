@@ -3,10 +3,15 @@ package model
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"maps"
 	"math"
+	"slices"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	coredto "github.com/thomaspoignant/go-feature-flag/modules/core/dto"
@@ -14,15 +19,17 @@ import (
 )
 
 type Flag struct {
-	ID               string          `db:"id" json:"id"`
-	FlagsetID        string          `db:"flagset_id" json:"flagsetId"`
-	Name             string          `db:"name" json:"name"`
-	CurrentVersionID *string         `db:"current_version_id" json:"currentVersionId,omitempty"`
-	CurrentVersion   *int            `json:"currentVersion,omitempty"`
-	Disabled         bool            `db:"disabled" json:"disabled"`
-	Payload          json.RawMessage `json:"payload,omitempty" swaggertype:"object"`
-	CreatedAt        time.Time       `db:"created_at" json:"createdAt"`
-	UpdatedAt        time.Time       `db:"updated_at" json:"updatedAt"`
+	ID               string  `db:"id" json:"id"`
+	FlagsetID        string  `db:"flagset_id" json:"flagsetId"`
+	Name             string  `db:"name" json:"name"`
+	CurrentVersionID *string `db:"current_version_id" json:"currentVersionId,omitempty"`
+	CurrentVersion   *int    `db:"current_version" json:"currentVersion,omitempty"`
+	// Disabled is the source of truth for the flag's on/off state; payloads may
+	// not set a top-level disable (see ValidateFlagPayload).
+	Disabled  bool            `db:"disabled" json:"disabled"`
+	Payload   json.RawMessage `db:"payload" json:"payload,omitempty" swaggertype:"object"`
+	CreatedAt time.Time       `db:"created_at" json:"createdAt"`
+	UpdatedAt time.Time       `db:"updated_at" json:"updatedAt"`
 }
 
 type FlagListItem struct {
@@ -51,11 +58,18 @@ type UpdateFlagRequest struct {
 
 // ParseFlagPayload unmarshals a raw flag payload into the go-feature-flag DTO so it
 // can be validated. The raw bytes (not the re-marshaled DTO) are what gets stored,
-// to preserve object key order.
+// to preserve object key order. Unknown fields are rejected at every level, so a
+// typo in a field name fails instead of being silently dropped; metadata and
+// variation values are free-form.
 func ParseFlagPayload(raw json.RawMessage) (coredto.DTO, error) {
 	var dto coredto.DTO
-	if err := json.Unmarshal(raw, &dto); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&dto); err != nil {
 		return dto, err
+	}
+	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
+		return dto, errors.New("unexpected data after the flag payload")
 	}
 	return dto, nil
 }
@@ -132,47 +146,72 @@ type ProgressiveSummary struct {
 	To               float64 `json:"to"`
 }
 
+// Flag types returned by InferFlagType.
+const (
+	flagTypeUnknown = "unknown"
+	flagTypeBoolean = "boolean"
+	flagTypeString  = "string"
+	flagTypeInt     = "int"
+	flagTypeFloat   = "float"
+	flagTypeJSON    = "json"
+)
+
 // InferFlagType derives a flag's type from its version payload variations.
 // Type is not stored explicitly: it is the JSON type of the variation values.
 // Numbers are split into "int" and "float" (GOFF distinguishes the two): a
-// numeric flag is "int" only when every variation value is integral.
+// numeric flag is "int" only when every variation value is integral. Variations
+// of mixed types (which ValidateFlagPayload rejects) yield "unknown", so the
+// result never depends on map iteration order.
 func InferFlagType(payload json.RawMessage) string {
 	if len(payload) == 0 {
-		return "unknown"
+		return flagTypeUnknown
 	}
 	var p struct {
-		Variations map[string]json.RawMessage `json:"variations"`
+		Variations map[string]*any `json:"variations"`
 	}
-	if err := json.Unmarshal(payload, &p); err != nil || len(p.Variations) == 0 {
-		return "unknown"
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return flagTypeUnknown
 	}
-	numeric, allInt := false, true
-	for _, raw := range p.Variations {
+	return variationsType(p.Variations)
+}
+
+// variationsType is InferFlagType over decoded variation values.
+func variationsType(variations map[string]*any) string {
+	if len(variations) == 0 {
+		return flagTypeUnknown
+	}
+	typ := ""
+	for _, p := range variations {
 		var v any
-		if err := json.Unmarshal(raw, &v); err != nil {
-			continue
+		if p != nil {
+			v = *p
 		}
+		t := flagTypeJSON
 		switch x := v.(type) {
 		case bool:
-			return "boolean"
+			t = flagTypeBoolean
 		case string:
-			return "string"
+			t = flagTypeString
 		case float64:
-			numeric = true
+			t = flagTypeInt
 			if x != math.Trunc(x) {
-				allInt = false
+				t = flagTypeFloat
 			}
+		}
+		switch {
+		case typ == "" || typ == t:
+			typ = t
+		case isNumberType(typ) && isNumberType(t):
+			typ = flagTypeFloat // int and float variations mix into float
 		default:
-			return "json"
+			return flagTypeUnknown
 		}
 	}
-	if numeric {
-		if allInt {
-			return "int"
-		}
-		return "float"
-	}
-	return "unknown"
+	return typ
+}
+
+func isNumberType(t string) bool {
+	return t == flagTypeInt || t == flagTypeFloat
 }
 
 // FlagSummaryFromPayload extracts, for the team-wide flags list, the ordered
@@ -188,7 +227,9 @@ func InferFlagType(payload json.RawMessage) string {
 // static split, so distribution stays empty and its initial→end variations are
 // returned as progressive instead (the webui renders that as a rocket indicator).
 // A disabled or empty default yields neither.
-func FlagSummaryFromPayload(payload json.RawMessage) (variations []string, distribution map[string]float64, ruleCount int, progressive *ProgressiveSummary) {
+func FlagSummaryFromPayload(payload json.RawMessage) (
+	variations []string, distribution map[string]float64, ruleCount int, progressive *ProgressiveSummary,
+) {
 	if len(payload) == 0 {
 		return nil, nil, 0, nil
 	}
@@ -199,14 +240,8 @@ func FlagSummaryFromPayload(payload json.RawMessage) (variations []string, distr
 			Variation          *string            `json:"variation"`
 			Percentage         map[string]float64 `json:"percentage"`
 			ProgressiveRollout *struct {
-				Initial *struct {
-					Variation  *string  `json:"variation"`
-					Percentage *float64 `json:"percentage"`
-				} `json:"initial"`
-				End *struct {
-					Variation  *string  `json:"variation"`
-					Percentage *float64 `json:"percentage"`
-				} `json:"end"`
+				Initial *progressiveStep `json:"initial"`
+				End     *progressiveStep `json:"end"`
 			} `json:"progressiveRollout"`
 		} `json:"defaultRule"`
 	}
@@ -241,26 +276,34 @@ func FlagSummaryFromPayload(payload json.RawMessage) (variations []string, distr
 			// percentage anchors; default from=0/to=100 when a step omits its
 			// percentage (mirrors the webui ruleOutcome defaults).
 			s := &ProgressiveSummary{From: 0, To: 100}
-			if pr.Initial != nil {
-				if pr.Initial.Variation != nil {
-					s.InitialVariation = *pr.Initial.Variation
-				}
-				if pr.Initial.Percentage != nil {
-					s.From = *pr.Initial.Percentage
-				}
-			}
-			if pr.End != nil {
-				if pr.End.Variation != nil {
-					s.EndVariation = *pr.End.Variation
-				}
-				if pr.End.Percentage != nil {
-					s.To = *pr.End.Percentage
-				}
-			}
+			s.InitialVariation, s.From = pr.Initial.resolve(s.From)
+			s.EndVariation, s.To = pr.End.resolve(s.To)
 			progressive = s
 		}
 	}
 	return variations, distribution, ruleCount, progressive
+}
+
+// progressiveStep is one anchor (initial or end) of a progressive rollout.
+type progressiveStep struct {
+	Variation  *string  `json:"variation"`
+	Percentage *float64 `json:"percentage"`
+}
+
+// resolve returns the step's variation name and percentage, falling back to
+// defaultPct when the step or its percentage is absent.
+func (s *progressiveStep) resolve(defaultPct float64) (variation string, pct float64) {
+	pct = defaultPct
+	if s == nil {
+		return "", pct
+	}
+	if s.Variation != nil {
+		variation = *s.Variation
+	}
+	if s.Percentage != nil {
+		pct = *s.Percentage
+	}
+	return variation, pct
 }
 
 // FlagTagsFromPayload extracts the flag's tags from payload.metadata.tags. Only
@@ -317,15 +360,15 @@ func dedupeTags(raw []json.RawMessage) []string {
 // avoid writing an invalid value.
 func OpenFeatureFlagType(payload json.RawMessage) string {
 	switch InferFlagType(payload) {
-	case "boolean":
-		return "boolean"
-	case "string":
-		return "string"
-	case "int":
+	case flagTypeBoolean:
+		return flagTypeBoolean
+	case flagTypeString:
+		return flagTypeString
+	case flagTypeInt:
 		return "integer"
-	case "float":
-		return "float"
-	case "json":
+	case flagTypeFloat:
+		return flagTypeFloat
+	case flagTypeJSON:
 		return "object"
 	default:
 		return ""
@@ -365,16 +408,9 @@ func SetFlagTypeMetadata(payload json.RawMessage) (json.RawMessage, error) {
 			meta = parsed
 		}
 	}
-	typeBytes, err := json.Marshal(ofType)
-	if err != nil {
-		return nil, err
-	}
+	typeBytes, _ := json.Marshal(ofType) // marshaling a string cannot fail
 	meta.set(FlagTypeMetadataKey, typeBytes)
-	metaBytes, err := json.Marshal(meta)
-	if err != nil {
-		return nil, err
-	}
-	root.set("metadata", metaBytes)
+	root.set("metadata", meta.encode())
 	return json.Marshal(root)
 }
 
@@ -392,7 +428,7 @@ func NormalizeFlagTags(payload json.RawMessage) (json.RawMessage, error) {
 	}
 	root, err := parseOrderedObject(payload)
 	if err != nil {
-		return payload, nil
+		return payload, nil //nolint:nilerr // malformed payload is left for validation
 	}
 	metaRaw, ok := root.get("metadata")
 	if !ok {
@@ -400,7 +436,7 @@ func NormalizeFlagTags(payload json.RawMessage) (json.RawMessage, error) {
 	}
 	meta, err := parseOrderedObject(metaRaw)
 	if err != nil {
-		return payload, nil
+		return payload, nil //nolint:nilerr // non-object metadata is left for validation
 	}
 	tagsRaw, ok := meta.get("tags")
 	if !ok {
@@ -408,7 +444,7 @@ func NormalizeFlagTags(payload json.RawMessage) (json.RawMessage, error) {
 	}
 	var arr []json.RawMessage
 	if err := json.Unmarshal(tagsRaw, &arr); err != nil {
-		return payload, nil // not an array — leave for validation
+		return payload, nil //nolint:nilerr // not an array — leave for validation
 	}
 	norm := dedupeTags(arr)
 
@@ -418,10 +454,7 @@ func NormalizeFlagTags(payload json.RawMessage) (json.RawMessage, error) {
 	for _, k := range meta.keys {
 		if k == "tags" {
 			if len(norm) > 0 {
-				b, err := json.Marshal(norm)
-				if err != nil {
-					return nil, err
-				}
+				b, _ := json.Marshal(norm) // marshaling a []string cannot fail
 				newMeta.set("tags", b)
 			}
 			continue
@@ -429,11 +462,7 @@ func NormalizeFlagTags(payload json.RawMessage) (json.RawMessage, error) {
 		v, _ := meta.get(k)
 		newMeta.set(k, v)
 	}
-	metaBytes, err := json.Marshal(newMeta)
-	if err != nil {
-		return nil, err
-	}
-	root.set("metadata", metaBytes)
+	root.set("metadata", newMeta.encode())
 	return json.Marshal(root)
 }
 
@@ -455,31 +484,32 @@ func ValidateFlagTags(payload json.RawMessage) ValidationErrors {
 		} `json:"metadata"`
 	}
 	if err := json.Unmarshal(payload, &p); err != nil || p.Metadata == nil || p.Metadata.Tags == nil {
-		return nil
+		return nil //nolint:nilerr // malformed payload is rejected by ParseFlagPayload
 	}
 	var arr []json.RawMessage
 	if err := json.Unmarshal(*p.Metadata.Tags, &arr); err != nil {
-		return nil // non-array legacy scalar — leave it alone (D4:A)
+		return nil //nolint:nilerr // non-array legacy scalar — leave it alone (D4:A)
 	}
+	const field = "payload.metadata.tags"
 	var errs ValidationErrors
 	if len(arr) > 50 {
-		errs = append(errs, ValidationError{Field: "payload.metadata.tags", Message: "at most 50 tags per flag"})
+		errs = append(errs, ValidationError{Field: field, Message: "at most 50 tags per flag"})
 	}
 	for _, raw := range arr {
 		var s string
 		if err := json.Unmarshal(raw, &s); err != nil {
-			errs = append(errs, ValidationError{Field: "payload.metadata.tags", Message: "each tag must be a string"})
+			errs = append(errs, ValidationError{Field: field, Message: "each tag must be a string"})
 			continue
 		}
 		t := strings.TrimSpace(s)
 		if t == "" {
-			errs = append(errs, ValidationError{Field: "payload.metadata.tags", Message: "tags must not be empty"})
+			errs = append(errs, ValidationError{Field: field, Message: "tags must not be empty"})
 		}
 		if utf8.RuneCountInString(t) > 50 {
-			errs = append(errs, ValidationError{Field: "payload.metadata.tags", Message: "each tag must be at most 50 characters"})
+			errs = append(errs, ValidationError{Field: field, Message: "each tag must be at most 50 characters"})
 		}
 		if strings.ContainsRune(t, ',') {
-			errs = append(errs, ValidationError{Field: "payload.metadata.tags", Message: "tags must not contain commas"})
+			errs = append(errs, ValidationError{Field: field, Message: "tags must not contain commas"})
 		}
 	}
 	return errs
@@ -512,10 +542,7 @@ func parseOrderedObject(data []byte) (*orderedObject, error) {
 		if err != nil {
 			return nil, err
 		}
-		key, ok := keyTok.(string)
-		if !ok {
-			return nil, fmt.Errorf("expected string object key")
-		}
+		key, _ := keyTok.(string) // the decoder only yields strings in key position
 		var raw json.RawMessage
 		if err := dec.Decode(&raw); err != nil {
 			return nil, err
@@ -541,70 +568,262 @@ func (o *orderedObject) set(key string, value json.RawMessage) {
 }
 
 func (o *orderedObject) MarshalJSON() ([]byte, error) {
+	return o.encode(), nil
+}
+
+// encode writes the object with its keys in insertion order. Values are spliced
+// in verbatim; json.Marshal on the enclosing document compacts and validates them.
+func (o *orderedObject) encode() json.RawMessage {
 	var buf bytes.Buffer
 	buf.WriteByte('{')
 	for i, k := range o.keys {
 		if i > 0 {
 			buf.WriteByte(',')
 		}
-		keyBytes, err := json.Marshal(k)
-		if err != nil {
-			return nil, err
-		}
+		keyBytes, _ := json.Marshal(k) // marshaling a string cannot fail
 		buf.Write(keyBytes)
 		buf.WriteByte(':')
 		buf.Write(o.values[k])
 	}
 	buf.WriteByte('}')
-	return buf.Bytes(), nil
+	return buf.Bytes()
 }
 
 func ValidateFlagName(name string) ValidationErrors {
+	const field = "name"
 	var errs ValidationErrors
 	if name == "" {
-		errs = append(errs, ValidationError{Field: "name", Message: "flag name is required"})
+		errs = append(errs, ValidationError{Field: field, Message: "flag name is required"})
 	}
-	if len(name) > 200 {
-		errs = append(errs, ValidationError{Field: "name", Message: "flag name max 200 chars"})
+	if utf8.RuneCountInString(name) > 200 {
+		errs = append(errs, ValidationError{Field: field, Message: "flag name max 200 characters"})
+	}
+	if strings.IndexFunc(name, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
+		errs = append(errs, ValidationError{
+			Field:   field,
+			Message: "flag name must not contain whitespace or control characters",
+		})
 	}
 	return errs
 }
 
+// ValidateFlagPayload checks a flag payload with GOFF's own validation
+// (InternalFlag.IsValid) plus studio rules that are deliberately stricter:
+//   - A percentage split needs every share within [0, 100] and a total of 100.
+//     GOFF buckets relative to the total, so it also accepts {"a": 1, "b": 1} as
+//     a 50/50 split; the studio requires the explicit form so a split always
+//     reads as the traffic it serves.
+//   - A targeting rule needs a query even when disabled. GOFF skips disabled
+//     rules, but enabling one must not turn the flag invalid.
+//   - A progressive rollout needs an initial and an end step, both dated, the end
+//     after the initial, with percentages within [0, 100]. GOFF accepts the rest
+//     and then fails every evaluation.
+//   - An experimentation must end after it starts.
+//   - A boolean flag has at most 2 variations.
+//   - A top-level disable is rejected: Flag.Disabled is the source of truth and
+//     the export writes disable from it. Scheduled steps may still set disable.
+//   - Every scheduledRollout step needs a date, and the flag as GOFF evaluates it
+//     once the step applies must pass all of the above and keep the flag's type.
+//
+// The rule-count and query-size bounds apply to the authored rules and to every
+// scheduled step.
 func ValidateFlagPayload(p coredto.DTO) ValidationErrors {
+	authored := cloneFlag(p.Convert())
+	errs := validateFlag("payload", authored)
+	if p.Disable != nil {
+		errs = append(errs, ValidationError{
+			Field:   "payload.disable",
+			Message: "disable is not allowed in the payload; use the flag's disabled state",
+		})
+	}
+	if len(errs) > 0 || authored.Scheduled == nil {
+		return errs
+	}
+	flagType := variationsType(authored.GetVariations())
+	for i, step := range *authored.Scheduled {
+		prefix := fmt.Sprintf("payload.scheduledRollout[%d]", i)
+		if step.Date == nil {
+			errs = append(errs, ValidationError{Field: prefix + ".date", Message: "date is required"})
+			continue
+		}
+		// Bound the step's own rules first: GOFF's merge can drop them from the
+		// evaluated flag, but they are still parsed and stored.
+		stepErrs := validateTargetingCost(prefix, step.GetRules())
+		if len(stepErrs) == 0 {
+			at := flagAt(authored, *step.Date)
+			stepErrs = validateFlag(prefix, at)
+			if t := variationsType(at.GetVariations()); len(stepErrs) == 0 && t != flagType {
+				stepErrs = ValidationErrors{{
+					Field:   prefix + ".variations",
+					Message: fmt.Sprintf("flag type is immutable: step changes it from %s to %s", flagType, t),
+				}}
+			}
+		}
+		errs = append(errs, stepErrs...)
+	}
+	return errs
+}
+
+// validateFlag checks one evaluable state of a flag: as authored, or as it
+// stands once a scheduled step applies. Field names are rooted at prefix.
+func validateFlag(prefix string, f flag.InternalFlag) ValidationErrors {
 	var errs ValidationErrors
-	if p.Variations == nil || len(*p.Variations) < 2 {
-		errs = append(errs, ValidationError{Field: "payload.variations", Message: "at least 2 variations are required"})
+	if n := len(f.GetVariations()); n < 2 {
+		errs = append(errs, ValidationError{Field: prefix + ".variations", Message: "at least 2 variations are required"})
+	} else if n > 2 && variationsType(f.GetVariations()) == flagTypeBoolean {
+		errs = append(errs, ValidationError{
+			Field:   prefix + ".variations",
+			Message: "a boolean flag has at most 2 variations",
+		})
 	}
-	if p.DefaultRule == nil {
-		errs = append(errs, ValidationError{Field: "payload.defaultRule", Message: "defaultRule is required"})
+	if f.DefaultRule == nil {
+		errs = append(errs, ValidationError{Field: prefix + ".defaultRule", Message: "defaultRule is required"})
 	} else {
-		if p.DefaultRule.Percentages != nil {
-			var sum float64
-			for _, v := range *p.DefaultRule.Percentages {
-				sum += v
-			}
-			if sum > 0 && (sum < 99.999 || sum > 100.001) {
-				errs = append(errs, ValidationError{Field: "payload.defaultRule.percentage", Message: fmt.Sprintf("percentages must sum to 100, got %.2f", sum)})
-			}
-		}
+		errs = append(errs, validateRuleOutcome(prefix+".defaultRule", *f.DefaultRule)...)
 	}
-	if p.Rules != nil {
-		if len(*p.Rules) > maxTargetingRules {
-			errs = append(errs, ValidationError{Field: "payload.targeting", Message: fmt.Sprintf("at most %d targeting rules", maxTargetingRules)})
+	errs = append(errs, validateTargetingCost(prefix, f.GetRules())...)
+	for i, r := range f.GetRules() {
+		field := fmt.Sprintf("%s.targeting[%d]", prefix, i)
+		if r.GetQuery() == "" {
+			errs = append(errs, ValidationError{Field: field + ".query", Message: "query is required for targeting rules"})
 		}
-		for i, r := range *p.Rules {
-			field := fmt.Sprintf("payload.targeting[%d].query", i)
-			switch {
-			case r.Query == nil || *r.Query == "":
-				errs = append(errs, ValidationError{Field: field, Message: "query is required for targeting rules"})
-			case len(*r.Query) > maxQueryLen:
-				errs = append(errs, ValidationError{Field: field, Message: fmt.Sprintf("query max %d chars", maxQueryLen)})
-			case r.GetQueryFormat() == flag.JSONLogicQueryFormat && usesJSONLogicReduce(*r.Query):
-				errs = append(errs, ValidationError{Field: field, Message: "jsonlogic reduce is not allowed"})
-			}
+		errs = append(errs, validateRuleOutcome(field, r)...)
+	}
+	if x := f.Experimentation; x != nil && x.Start != nil && x.End != nil && !x.End.After(*x.Start) {
+		errs = append(errs, ValidationError{Field: prefix + ".experimentation.end", Message: "end must be after start"})
+	}
+	// GOFF's own validation catches what the relay proxy would reject: mixed
+	// variation types, rule outcomes naming a missing variation, and invalid
+	// queries. It runs last so the cost bounds above hold before queries are parsed.
+	if len(errs) == 0 {
+		if err := f.IsValid(); err != nil {
+			errs = append(errs, ValidationError{Field: prefix, Message: err.Error()})
 		}
 	}
 	return errs
+}
+
+// validateTargetingCost enforces the rule-count and query-size bounds.
+func validateTargetingCost(prefix string, rules []flag.Rule) ValidationErrors {
+	var errs ValidationErrors
+	if len(rules) > maxTargetingRules {
+		errs = append(errs, ValidationError{
+			Field:   prefix + ".targeting",
+			Message: fmt.Sprintf("at most %d targeting rules", maxTargetingRules),
+		})
+	}
+	for i, r := range rules {
+		field := fmt.Sprintf("%s.targeting[%d].query", prefix, i)
+		switch q := r.GetQuery(); {
+		case utf8.RuneCountInString(q) > maxQueryLen:
+			errs = append(errs, ValidationError{Field: field, Message: fmt.Sprintf("query max %d characters", maxQueryLen)})
+		case r.GetQueryFormat() == flag.JSONLogicQueryFormat && usesJSONLogicReduce(q):
+			errs = append(errs, ValidationError{Field: field, Message: "jsonlogic reduce is not allowed"})
+		}
+	}
+	return errs
+}
+
+// validateRuleOutcome checks a rule's percentage split and progressive rollout.
+func validateRuleOutcome(field string, r flag.Rule) ValidationErrors {
+	var errs ValidationErrors
+	if r.Percentages != nil {
+		errs = append(errs, validatePercentages(field+".percentage", *r.Percentages)...)
+	}
+	if r.ProgressiveRollout != nil {
+		errs = append(errs, validateProgressiveRollout(field+".progressiveRollout", *r.ProgressiveRollout)...)
+	}
+	return errs
+}
+
+// validatePercentages checks a traffic split: every share within [0, 100] and
+// a total of 100 (stricter than GOFF, see ValidateFlagPayload).
+func validatePercentages(field string, pcts map[string]float64) ValidationErrors {
+	var sum float64
+	for _, name := range slices.Sorted(maps.Keys(pcts)) {
+		v := pcts[name]
+		if v < 0 || v > 100 {
+			return ValidationErrors{{Field: field, Message: fmt.Sprintf("percentage for %q must be between 0 and 100", name)}}
+		}
+		sum += v
+	}
+	if sum < 99.999 || sum > 100.001 {
+		return ValidationErrors{{Field: field, Message: fmt.Sprintf("percentages must sum to 100, got %.2f", sum)}}
+	}
+	return nil
+}
+
+// validateProgressiveRollout requires both steps, dated, the end after the
+// initial, and percentages within [0, 100]. Variation names and the initial ≤ end
+// percentage order are left to GOFF's IsValid.
+func validateProgressiveRollout(field string, pr flag.ProgressiveRollout) ValidationErrors {
+	if pr.Initial == nil || pr.End == nil {
+		return ValidationErrors{{Field: field, Message: "initial and end are required"}}
+	}
+	var errs ValidationErrors
+	for _, s := range []struct {
+		name string
+		step *flag.ProgressiveRolloutStep
+	}{{"initial", pr.Initial}, {"end", pr.End}} {
+		if s.step.Date == nil {
+			errs = append(errs, ValidationError{Field: field + "." + s.name + ".date", Message: "date is required"})
+		}
+		if p := s.step.Percentage; p != nil && (*p < 0 || *p > 100) {
+			errs = append(errs, ValidationError{
+				Field:   field + "." + s.name + ".percentage",
+				Message: "percentage must be between 0 and 100",
+			})
+		}
+	}
+	if pr.Initial.Date != nil && pr.End.Date != nil && !pr.End.Date.After(*pr.Initial.Date) {
+		errs = append(errs, ValidationError{Field: field + ".end.date", Message: "end date must be after initial date"})
+	}
+	return errs
+}
+
+// flagAt returns the flag as GOFF evaluates it at date: every scheduled step
+// dated at or before date merged in, in order. It mirrors core v0.7.1's
+// unexported InternalFlag.applyScheduledRolloutSteps, including merging each
+// step's targeting into the authored rules rather than the previous step's
+// result. Keep it in sync when bumping the core module.
+func flagAt(f flag.InternalFlag, date time.Time) flag.InternalFlag {
+	at := cloneFlag(f)
+	for _, step := range *f.Scheduled {
+		if step.Date == nil || step.Date.After(date) {
+			continue
+		}
+		// Merge into a fresh copy: MergeSetOfRules mutates the rules it is given.
+		authored := cloneFlag(f)
+		at.Rules = flag.MergeSetOfRules(authored.GetRules(), step.GetRules())
+		if step.Disable != nil {
+			at.Disable = step.Disable
+		}
+		if step.DefaultRule != nil {
+			at.DefaultRule.MergeRules(*step.DefaultRule)
+		}
+		maps.Copy(at.GetVariations(), step.GetVariations())
+		if x := step.Experimentation; x != nil {
+			if at.Experimentation == nil {
+				at.Experimentation = &flag.ExperimentationRollout{}
+			}
+			if x.Start != nil {
+				at.Experimentation.Start = x.Start
+			}
+			if x.End != nil {
+				at.Experimentation.End = x.End
+			}
+		}
+	}
+	return at
+}
+
+// cloneFlag deep-copies a flag through JSON, as GOFF does before applying
+// scheduled steps, so merging never mutates the caller's maps.
+func cloneFlag(f flag.InternalFlag) flag.InternalFlag {
+	var c flag.InternalFlag
+	b, _ := json.Marshal(f) // a flag decoded from JSON always re-encodes
+	_ = json.Unmarshal(b, &c)
+	return c
 }
 
 // Bounds on targeting-rule evaluation cost (security audit finding #3). Rules
@@ -649,7 +868,7 @@ func usesJSONLogicReduce(query string) bool {
 func ValidateFlagTypeUnchanged(current, next json.RawMessage) ValidationErrors {
 	cur := InferFlagType(current)
 	nxt := InferFlagType(next)
-	if cur != "unknown" && nxt != "unknown" && cur != nxt {
+	if cur != flagTypeUnknown && nxt != flagTypeUnknown && cur != nxt {
 		return ValidationErrors{{
 			Field:   "payload.variations",
 			Message: fmt.Sprintf("flag type is immutable: cannot change from %s to %s", cur, nxt),

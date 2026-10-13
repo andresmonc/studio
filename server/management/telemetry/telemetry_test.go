@@ -48,30 +48,34 @@ func serviceName(t *testing.T) string {
 }
 
 func TestSetup(t *testing.T) {
-	shutdown, err := setup(t, nil)
-	require.NoError(t, err)
-	require.NotNil(t, shutdown)
+	tests := []struct {
+		name            string
+		env             map[string]string
+		wantErr         bool
+		wantServiceName string
+	}{
+		{name: "defaults", wantServiceName: "goff-management"},
+		{name: "service name from env", env: map[string]string{"OTEL_SERVICE_NAME": "custom"}, wantServiceName: "custom"},
+		{name: "invalid traces exporter", env: map[string]string{"OTEL_TRACES_EXPORTER": "bogus"}, wantErr: true},
+		{name: "invalid metrics exporter", env: map[string]string{"OTEL_METRICS_EXPORTER": "bogus"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			shutdown, err := setup(t, tt.env)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, shutdown)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, shutdown)
 
-	assert.IsType(t, &sdktrace.TracerProvider{}, otel.GetTracerProvider())
-	assert.IsType(t, &sdkmetric.MeterProvider{}, otel.GetMeterProvider())
-	assert.Subset(t, otel.GetTextMapPropagator().Fields(), []string{"traceparent", "baggage"})
-	assert.Equal(t, "goff-management", serviceName(t))
+			assert.IsType(t, &sdktrace.TracerProvider{}, otel.GetTracerProvider())
+			assert.IsType(t, &sdkmetric.MeterProvider{}, otel.GetMeterProvider())
+			assert.Subset(t, otel.GetTextMapPropagator().Fields(), []string{"traceparent", "baggage"})
+			assert.Equal(t, tt.wantServiceName, serviceName(t))
 
-	assert.NoError(t, shutdown(context.Background()))
-}
-
-func TestSetup_ServiceNameFromEnv(t *testing.T) {
-	_, err := setup(t, map[string]string{"OTEL_SERVICE_NAME": "custom"})
-	require.NoError(t, err)
-	assert.Equal(t, "custom", serviceName(t))
-}
-
-func TestSetup_InvalidExporter(t *testing.T) {
-	for _, k := range []string{"OTEL_TRACES_EXPORTER", "OTEL_METRICS_EXPORTER"} {
-		t.Run(k, func(t *testing.T) {
-			shutdown, err := setup(t, map[string]string{k: "bogus"})
-			assert.Error(t, err)
-			assert.Nil(t, shutdown)
+			assert.NoError(t, shutdown(context.Background()))
 		})
 	}
 }

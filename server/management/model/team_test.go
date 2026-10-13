@@ -41,6 +41,9 @@ func TestRole_AtLeast(t *testing.T) {
 		{"viewer >= viewer", RoleViewer, RoleViewer, true},
 		{"viewer < editor", RoleViewer, RoleEditor, false},
 		{"viewer < admin", RoleViewer, RoleAdmin, false},
+		{"empty < viewer", Role(""), RoleViewer, false},
+		{"admin vs unknown", RoleAdmin, Role("owner"), false},
+		{"empty vs empty", Role(""), Role(""), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

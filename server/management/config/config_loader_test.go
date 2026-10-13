@@ -11,147 +11,166 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadDefaults(t *testing.T) {
-	cfg, err := Load(nil)
-	require.NoError(t, err)
-	// Values come straight from Default().
-	assert.Equal(t, 8080, cfg.Server.Port)
-	assert.Equal(t, 15*time.Second, cfg.Server.ShutdownTimeout)
-	assert.False(t, cfg.Server.EnableSwagger)
-	assert.Equal(t, int32(20), cfg.DB.MaxConns)
-	assert.Equal(t, []string{"openid", "profile", "email"}, cfg.OIDC.Scopes)
-	assert.Equal(t, "info", cfg.Log.Level)
-	assert.Equal(t, "json", cfg.Log.Format)
-}
+// camelCaseYAML is spelled with the struct's camelCase koanf tags; it must not
+// shadow the lowercase keys produced by env vars and flags.
+const camelCaseYAML = "server:\n  multiCompany: false\nauth:\n  cookieSecure: false\n  jwtSecret: yamlsecret\n  adminEmails:\n    - yaml@example.test\n"
 
-func TestLoadEnvOverride(t *testing.T) {
-	t.Setenv("GOFF_MGMT_SERVER_PORT", "9090")
-	t.Setenv("GOFF_MGMT_DB_URL", "postgres://env/db")
-	t.Setenv("GOFF_MGMT_LOG_LEVEL", "debug")
+// listsAndDurationsYAML exercises koanf's decode hooks (comma split,
+// time.ParseDuration), not the plain scalar path ports and booleans take.
+const listsAndDurationsYAML = "server:\n  shutdownTimeout: 30s\noidc:\n  scopes:\n    - openid\n    - groups\nauth:\n  adminEmails:\n    - a@example.test\n    - b@example.test\n"
 
-	cfg, err := Load(nil)
-	require.NoError(t, err)
-	assert.Equal(t, 9090, cfg.Server.Port)
-	assert.Equal(t, "postgres://env/db", cfg.DB.URL)
-	assert.Equal(t, "debug", cfg.Log.Level)
-}
+func TestLoad(t *testing.T) {
+	tests := []struct {
+		name string
+		// yaml, when set, is written to a temp file and passed via --config.
+		yaml string
+		env  map[string]string
+		// args nil and no yaml means Load(nil): no flag set at all.
+		args    []string
+		wantErr string
+		// want edits Default() into the expected config.
+		want func(c *Config)
+	}{
+		{
+			name: "defaults",
+			want: func(c *Config) {},
+		},
+		{
+			name: "env overrides defaults",
+			env: map[string]string{
+				"GOFF_MGMT_SERVER_PORT":         "9090",
+				"GOFF_MGMT_DB_URL":              "postgres://env/db",
+				"GOFF_MGMT_LOG_LEVEL":           "debug",
+				"GOFF_MGMT_SERVER_MULTICOMPANY": "true",
+			},
+			want: func(c *Config) {
+				c.Server.Port = 9090
+				c.DB.URL = "postgres://env/db"
+				c.Log.Level = "debug"
+				c.Server.MultiCompany = true
+			},
+		},
+		{
+			name: "flags override defaults",
+			args: []string{"--server.port", "7000", "--db.url", "postgres://flag/db", "--server.multicompany"},
+			want: func(c *Config) {
+				c.Server.Port = 7000
+				c.DB.URL = "postgres://flag/db"
+				c.Server.MultiCompany = true
+			},
+		},
+		{
+			name: "flag overrides env",
+			env:  map[string]string{"GOFF_MGMT_SERVER_PORT": "9090"},
+			args: []string{"--server.port", "7000"},
+			want: func(c *Config) { c.Server.Port = 7000 },
+		},
+		{
+			name: "config file",
+			yaml: "server:\n  port: 6543\ndb:\n  url: postgres://file/db\nlog:\n  level: warn\n",
+			want: func(c *Config) {
+				c.Server.Port = 6543
+				c.DB.URL = "postgres://file/db"
+				c.Log.Level = "warn"
+			},
+		},
+		{
+			name:    "missing config file",
+			args:    []string{"--config", "/no/such/file.yaml"},
+			wantErr: "load config file",
+		},
+		{
+			name:    "invalid value fails unmarshal",
+			env:     map[string]string{"GOFF_MGMT_SERVER_PORT": "notaport"},
+			wantErr: "unmarshal config",
+		},
+		{
+			name: "env overrides config file",
+			yaml: "server:\n  port: 6543\n",
+			env:  map[string]string{"GOFF_MGMT_SERVER_PORT": "9090"},
+			want: func(c *Config) { c.Server.Port = 9090 },
+		},
+		{
+			name: "camelCase file keys override defaults",
+			yaml: camelCaseYAML,
+			want: func(c *Config) {
+				c.Auth.CookieSecure = false
+				c.Auth.JWTSecret = "yamlsecret"
+				c.Auth.AdminEmails = []string{"yaml@example.test"}
+			},
+		},
+		{
+			name: "env and flags override camelCase file keys",
+			yaml: camelCaseYAML,
+			env: map[string]string{
+				"GOFF_MGMT_AUTH_COOKIESECURE": "true",
+				"GOFF_MGMT_AUTH_JWTSECRET":    "envsecret",
+				"GOFF_MGMT_AUTH_ADMINEMAILS":  "env@example.test",
+			},
+			args: []string{"--server.multicompany"},
+			want: func(c *Config) {
+				c.Server.MultiCompany = true
+				c.Auth.CookieSecure = true
+				c.Auth.JWTSecret = "envsecret"
+				c.Auth.AdminEmails = []string{"env@example.test"}
+			},
+		},
+		{
+			name: "lists and durations from file",
+			yaml: listsAndDurationsYAML,
+			want: func(c *Config) {
+				c.Server.ShutdownTimeout = 30 * time.Second
+				c.OIDC.Scopes = []string{"openid", "groups"}
+				c.Auth.AdminEmails = []string{"a@example.test", "b@example.test"}
+			},
+		},
+		{
+			name: "comma-separated lists and durations from env",
+			yaml: listsAndDurationsYAML,
+			env: map[string]string{
+				"GOFF_MGMT_SERVER_SHUTDOWNTIMEOUT": "15s",
+				"GOFF_MGMT_AUTH_SESSIONMAXAGE":     "2h",
+				"GOFF_MGMT_OIDC_SCOPES":            "openid,email,groups",
+				"GOFF_MGMT_AUTH_ADMINEMAILS":       "c@example.test,d@example.test",
+			},
+			want: func(c *Config) {
+				c.Server.ShutdownTimeout = 15 * time.Second
+				c.Auth.SessionMaxAge = 2 * time.Hour
+				c.OIDC.Scopes = []string{"openid", "email", "groups"}
+				c.Auth.AdminEmails = []string{"c@example.test", "d@example.test"}
+			},
+		},
+	}
 
-func TestLoadFlagOverride(t *testing.T) {
-	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	RegisterFlags(fs)
-	require.NoError(t, fs.Parse([]string{"--server.port", "7000", "--db.url", "postgres://flag/db"}))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
 
-	cfg, err := Load(fs)
-	require.NoError(t, err)
-	assert.Equal(t, 7000, cfg.Server.Port)
-	assert.Equal(t, "postgres://flag/db", cfg.DB.URL)
-}
+			var fs *pflag.FlagSet
+			if tt.args != nil || tt.yaml != "" {
+				fs = pflag.NewFlagSet("test", pflag.ContinueOnError)
+				RegisterFlags(fs)
+				args := tt.args
+				if tt.yaml != "" {
+					path := filepath.Join(t.TempDir(), "config.yaml")
+					require.NoError(t, os.WriteFile(path, []byte(tt.yaml), 0o600))
+					args = append([]string{"--config", path}, args...)
+				}
+				require.NoError(t, fs.Parse(args))
+			}
 
-func TestLoadFlagOverridesEnv(t *testing.T) {
-	t.Setenv("GOFF_MGMT_SERVER_PORT", "9090")
-
-	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	RegisterFlags(fs)
-	require.NoError(t, fs.Parse([]string{"--server.port", "7000"}))
-
-	cfg, err := Load(fs)
-	require.NoError(t, err)
-	assert.Equal(t, 7000, cfg.Server.Port, "explicit flag should win over env")
-}
-
-func TestLoadConfigFile(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.yaml")
-	content := []byte("server:\n  port: 6543\ndb:\n  url: postgres://file/db\nlog:\n  level: warn\n")
-	require.NoError(t, os.WriteFile(path, content, 0o600))
-
-	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	RegisterFlags(fs)
-	require.NoError(t, fs.Parse([]string{"--config", path}))
-
-	cfg, err := Load(fs)
-	require.NoError(t, err)
-	assert.Equal(t, 6543, cfg.Server.Port)
-	assert.Equal(t, "postgres://file/db", cfg.DB.URL)
-	assert.Equal(t, "warn", cfg.Log.Level)
-}
-
-func TestLoadConfigFileMissing(t *testing.T) {
-	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	RegisterFlags(fs)
-	require.NoError(t, fs.Parse([]string{"--config", "/no/such/file.yaml"}))
-
-	_, err := Load(fs)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "load config file")
-}
-
-func TestLoadEnvOverridesFile(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("server:\n  port: 6543\n"), 0o600))
-	t.Setenv("GOFF_MGMT_SERVER_PORT", "9090")
-
-	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	RegisterFlags(fs)
-	require.NoError(t, fs.Parse([]string{"--config", path}))
-
-	cfg, err := Load(fs)
-	require.NoError(t, err)
-	assert.Equal(t, 9090, cfg.Server.Port, "env should win over config file")
-}
-
-func TestLoadMultiCompany(t *testing.T) {
-	cfg, err := Load(nil)
-	require.NoError(t, err)
-	assert.False(t, cfg.Server.MultiCompany, "mono company is the default")
-
-	t.Setenv("GOFF_MGMT_SERVER_MULTICOMPANY", "true")
-	cfg, err = Load(nil)
-	require.NoError(t, err)
-	assert.True(t, cfg.Server.MultiCompany)
-}
-
-func TestLoadMultiCompanyFlag(t *testing.T) {
-	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	RegisterFlags(fs)
-	require.NoError(t, fs.Parse([]string{"--server.multicompany"}))
-
-	cfg, err := Load(fs)
-	require.NoError(t, err)
-	assert.True(t, cfg.Server.MultiCompany)
-}
-
-// A YAML file spelled with the struct's camelCase koanf tags must not shadow
-// the lowercase keys produced by env vars and flags.
-func TestLoadEnvAndFlagOverrideCamelCaseFile(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.yaml")
-	content := []byte("server:\n  multiCompany: false\nauth:\n  cookieSecure: false\n  jwtSecret: yamlsecret\n  adminEmails:\n    - yaml@example.test\n")
-	require.NoError(t, os.WriteFile(path, content, 0o600))
-
-	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	RegisterFlags(fs)
-	require.NoError(t, fs.Parse([]string{"--config", path}))
-
-	cfg, err := Load(fs)
-	require.NoError(t, err)
-	assert.False(t, cfg.Server.MultiCompany)
-	assert.False(t, cfg.Auth.CookieSecure, "camelCase file value should override default")
-	assert.Equal(t, "yamlsecret", cfg.Auth.JWTSecret)
-	assert.Equal(t, []string{"yaml@example.test"}, cfg.Auth.AdminEmails)
-
-	t.Setenv("GOFF_MGMT_AUTH_COOKIESECURE", "true")
-	t.Setenv("GOFF_MGMT_AUTH_JWTSECRET", "envsecret")
-	t.Setenv("GOFF_MGMT_AUTH_ADMINEMAILS", "env@example.test")
-	fs = pflag.NewFlagSet("test", pflag.ContinueOnError)
-	RegisterFlags(fs)
-	require.NoError(t, fs.Parse([]string{"--config", path, "--server.multicompany"}))
-
-	cfg, err = Load(fs)
-	require.NoError(t, err)
-	assert.True(t, cfg.Server.MultiCompany, "flag should win over camelCase file key")
-	assert.True(t, cfg.Auth.CookieSecure, "env should win over camelCase file key")
-	assert.Equal(t, "envsecret", cfg.Auth.JWTSecret)
-	assert.Equal(t, []string{"env@example.test"}, cfg.Auth.AdminEmails)
+			cfg, err := Load(fs)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			want := Default()
+			tt.want(&want)
+			assert.Equal(t, want, *cfg)
+		})
+	}
 }
