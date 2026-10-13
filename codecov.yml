@@ -1,0 +1,24 @@
+# Go coverage reports use the module path, which differs from the repo layout.
+fixes:
+  - "github.com/gofeatureflag/flag-management-system/::"
+
+flag_management:
+  default_rules:
+    carryforward: true
+    statuses:
+      - type: project
+        target: auto
+        threshold: 1%
+      - type: patch
+        target: 80%
+  individual_flags:
+    - name: server
+      paths:
+        - server/
+
+comment:
+  layout: "diff, flags, files"
+  behavior: default
+  require_changes: false
+  require_base: true
+  require_head: true
