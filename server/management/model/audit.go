@@ -48,6 +48,8 @@ func (t AuditTargetType) IsValid() bool {
 }
 
 type AuditEntry struct {
+	// ID is a bigserial rather than a UUID: audit rows are append-only and
+	// ordering by ID matches insertion order.
 	ID          int64           `db:"id" json:"id"`
 	OccurredAt  time.Time       `db:"occurred_at" json:"occurredAt"`
 	ActorUserID *string         `db:"actor_user_id" json:"actorUserId,omitempty"`
@@ -64,25 +66,30 @@ type AuditEntry struct {
 	Metadata    json.RawMessage `db:"metadata" json:"metadata,omitempty" swaggertype:"object"`
 }
 
-type AuditFilters struct {
-	// ScopeCompanyID, when set, restricts results to entries belonging to that
+// AuditScope restricts audit queries to what the caller may see. It is derived
+// server-side from the authenticated user and must never be bound from client
+// input; keeping it out of AuditFilters makes that mix-up impossible.
+type AuditScope struct {
+	// CompanyID, when set, restricts results to entries belonging to that
 	// company (directly via company_id, or indirectly via a team owned by the
-	// company). It is enforced server-side for non-super-admins and must never
-	// be derived from client input.
-	ScopeCompanyID *string
-	// ScopeMemberUserID, when set, further restricts results to the teams that
-	// user is an explicit member of, plus company-level events. It is enforced
-	// server-side for company members who are not company admins and must
-	// never be derived from client input.
-	ScopeMemberUserID *string
-	CompanyID         *string
-	TeamID            *string
-	FlagsetID         *string
-	FlagID            *string
-	ActorID           *string
-	Action            *AuditAction
-	From              *time.Time
-	To                *time.Time
-	Page              int
-	PageSize          int
+	// company). Set for non-super-admins.
+	CompanyID *string
+	// MemberUserID, when set, further restricts results to the teams that user
+	// is an explicit member of, plus company-level events. Set for company
+	// members who are not company admins.
+	MemberUserID *string
+}
+
+// AuditFilters holds the client-supplied filters of an audit query.
+type AuditFilters struct {
+	CompanyID   *string
+	TeamID      *string
+	FlagsetID   *string
+	FlagID      *string
+	ActorUserID *string
+	Action      *AuditAction
+	From        *time.Time
+	To          *time.Time
+	Page        int
+	PageSize    int
 }

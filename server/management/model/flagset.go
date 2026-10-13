@@ -23,13 +23,15 @@ func (f FileFormat) IsValid() bool {
 }
 
 type Flagset struct {
-	ID                string          `db:"id" json:"id"`
-	TeamID            string          `db:"team_id" json:"teamId"`
-	Name              string          `db:"name" json:"name"`
-	Description       string          `db:"description" json:"description"`
-	APIKeyCount       int             `json:"apiKeyCount"`
-	FlagCount         int             `json:"flagCount"`
-	EnabledFlagCount  int             `json:"enabledFlagCount"`
+	ID          string `db:"id" json:"id"`
+	TeamID      string `db:"team_id" json:"teamId"`
+	Name        string `db:"name" json:"name"`
+	Description string `db:"description" json:"description"`
+	// APIKeyCount, FlagCount and EnabledFlagCount are computed by the query;
+	// their db tags name the SELECT aliases.
+	APIKeyCount       int             `db:"api_key_count" json:"apiKeyCount"`
+	FlagCount         int             `db:"flag_count" json:"flagCount"`
+	EnabledFlagCount  int             `db:"enabled_flag_count" json:"enabledFlagCount"`
 	PollingIntervalMs *int            `db:"polling_interval_ms" json:"pollingIntervalMs,omitempty"`
 	FileFormat        *FileFormat     `db:"file_format" json:"fileFormat,omitempty"`
 	Retrievers        json.RawMessage `db:"retrievers" json:"retrievers,omitempty" swaggertype:"object"`
@@ -50,7 +52,7 @@ type CreateFlagsetRequest struct {
 	Name                            string          `json:"name" validate:"required" example:"production"`
 	Description                     string          `json:"description"`
 	PollingIntervalMs               *int            `json:"pollingIntervalMs,omitempty" example:"60000"`
-	FileFormat                      *FileFormat     `json:"fileFormat,omitempty" enums:"yaml,json,toml"`
+	FileFormat                      *FileFormat     `json:"fileFormat,omitempty" enums:"yaml,json,toml" example:"yaml"`
 	Retrievers                      json.RawMessage `json:"retrievers,omitempty" swaggertype:"object"`
 	Exporters                       json.RawMessage `json:"exporters,omitempty" swaggertype:"object"`
 	Notifiers                       json.RawMessage `json:"notifiers,omitempty" swaggertype:"object"`
@@ -63,8 +65,8 @@ type CreateFlagsetRequest struct {
 type UpdateFlagsetRequest struct {
 	Name              *string              `json:"name,omitempty"`
 	Description       *string              `json:"description,omitempty"`
-	PollingIntervalMs Nullable[int]        `json:"pollingIntervalMs" swaggertype:"integer"`
-	FileFormat        Nullable[FileFormat] `json:"fileFormat" swaggertype:"string" enums:"yaml,json,toml"`
+	PollingIntervalMs Nullable[int]        `json:"pollingIntervalMs" swaggertype:"integer" example:"60000"`
+	FileFormat        Nullable[FileFormat] `json:"fileFormat" swaggertype:"string" enums:"yaml,json,toml" example:"yaml"`
 
 	Retrievers                      json.RawMessage `json:"retrievers,omitempty" swaggertype:"object"`
 	Exporters                       json.RawMessage `json:"exporters,omitempty" swaggertype:"object"`
@@ -74,15 +76,16 @@ type UpdateFlagsetRequest struct {
 }
 
 type FlagsetAPIKey struct {
-	ID            string    `db:"id" json:"id"`
-	FlagsetID     string    `db:"flagset_id" json:"flagsetId"`
-	Label         string    `db:"label" json:"label"`
-	APIKey        string    `db:"api_key" json:"apiKey"`
-	CreatedBy     *string   `db:"created_by" json:"createdBy,omitempty"`
-	CreatedByName string    `json:"createdByName,omitempty"`
+	ID        string  `db:"id" json:"id"`
+	FlagsetID string  `db:"flagset_id" json:"flagsetId"`
+	Label     string  `db:"label" json:"label"`
+	APIKey    string  `db:"api_key" json:"apiKey"`
+	CreatedBy *string `db:"created_by" json:"createdBy,omitempty"`
+	// CreatedByName is joined from users; nil once the creator is deleted.
+	CreatedByName *string   `db:"created_by_name" json:"createdByName,omitempty"`
 	CreatedAt     time.Time `db:"created_at" json:"createdAt"`
 }
 
 type CreateAPIKeyRequest struct {
-	Label string `json:"label"`
+	Label string `json:"label" validate:"required" example:"relay-proxy-prod"`
 }
