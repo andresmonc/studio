@@ -5,6 +5,48 @@ import (
 	"time"
 )
 
+type AuditAction string
+
+const (
+	AuditActionCreate   AuditAction = "create"
+	AuditActionUpdate   AuditAction = "update"
+	AuditActionDelete   AuditAction = "delete"
+	AuditActionRollback AuditAction = "rollback"
+)
+
+// auditActions is the single source of truth for valid audit actions.
+var auditActions = map[AuditAction]struct{}{
+	AuditActionCreate: {}, AuditActionUpdate: {}, AuditActionDelete: {}, AuditActionRollback: {},
+}
+
+func (a AuditAction) IsValid() bool {
+	_, ok := auditActions[a]
+	return ok
+}
+
+type AuditTargetType string
+
+const (
+	AuditTargetCompany       AuditTargetType = "company"
+	AuditTargetCompanyMember AuditTargetType = "company_member"
+	AuditTargetTeam          AuditTargetType = "team"
+	AuditTargetTeamMember    AuditTargetType = "team_member"
+	AuditTargetFlagset       AuditTargetType = "flagset"
+	AuditTargetAPIKey        AuditTargetType = "api_key"
+	AuditTargetFlag          AuditTargetType = "flag"
+)
+
+// auditTargetTypes is the single source of truth for valid audit target types.
+var auditTargetTypes = map[AuditTargetType]struct{}{
+	AuditTargetCompany: {}, AuditTargetCompanyMember: {}, AuditTargetTeam: {}, AuditTargetTeamMember: {},
+	AuditTargetFlagset: {}, AuditTargetAPIKey: {}, AuditTargetFlag: {},
+}
+
+func (t AuditTargetType) IsValid() bool {
+	_, ok := auditTargetTypes[t]
+	return ok
+}
+
 type AuditEntry struct {
 	ID          int64           `db:"id" json:"id"`
 	OccurredAt  time.Time       `db:"occurred_at" json:"occurredAt"`
@@ -14,8 +56,8 @@ type AuditEntry struct {
 	TeamID      *string         `db:"team_id" json:"teamId,omitempty"`
 	FlagsetID   *string         `db:"flagset_id" json:"flagsetId,omitempty"`
 	FlagID      *string         `db:"flag_id" json:"flagId,omitempty"`
-	Action      string          `db:"action" json:"action"`
-	TargetType  string          `db:"target_type" json:"targetType"`
+	Action      AuditAction     `db:"action" json:"action"`
+	TargetType  AuditTargetType `db:"target_type" json:"targetType"`
 	TargetID    string          `db:"target_id" json:"targetId"`
 	Before      json.RawMessage `db:"before" json:"before,omitempty" swaggertype:"object"`
 	After       json.RawMessage `db:"after" json:"after,omitempty" swaggertype:"object"`
@@ -38,7 +80,7 @@ type AuditFilters struct {
 	FlagsetID         *string
 	FlagID            *string
 	ActorID           *string
-	Action            *string
+	Action            *AuditAction
 	From              *time.Time
 	To                *time.Time
 	Page              int

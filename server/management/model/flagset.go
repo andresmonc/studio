@@ -5,6 +5,23 @@ import (
 	"time"
 )
 
+// FileFormat is the format the relay proxy uses to read a flagset's flag file.
+type FileFormat string
+
+const (
+	FileFormatYAML FileFormat = "yaml"
+	FileFormatJSON FileFormat = "json"
+	FileFormatTOML FileFormat = "toml"
+)
+
+// fileFormats is the single source of truth for valid file formats.
+var fileFormats = map[FileFormat]struct{}{FileFormatYAML: {}, FileFormatJSON: {}, FileFormatTOML: {}}
+
+func (f FileFormat) IsValid() bool {
+	_, ok := fileFormats[f]
+	return ok
+}
+
 type Flagset struct {
 	ID                string          `db:"id" json:"id"`
 	TeamID            string          `db:"team_id" json:"teamId"`
@@ -14,7 +31,7 @@ type Flagset struct {
 	FlagCount         int             `json:"flagCount"`
 	EnabledFlagCount  int             `json:"enabledFlagCount"`
 	PollingIntervalMs *int            `db:"polling_interval_ms" json:"pollingIntervalMs,omitempty"`
-	FileFormat        *string         `db:"file_format" json:"fileFormat,omitempty"`
+	FileFormat        *FileFormat     `db:"file_format" json:"fileFormat,omitempty"`
 	Retrievers        json.RawMessage `db:"retrievers" json:"retrievers,omitempty" swaggertype:"object"`
 	Exporters         json.RawMessage `db:"exporters" json:"exporters,omitempty" swaggertype:"object"`
 	Notifiers         json.RawMessage `db:"notifiers" json:"notifiers,omitempty" swaggertype:"object"`
@@ -32,8 +49,8 @@ type Flagset struct {
 type CreateFlagsetRequest struct {
 	Name                            string          `json:"name" validate:"required" example:"production"`
 	Description                     string          `json:"description"`
-	PollingIntervalMs               *int            `json:"pollingIntervalMs,omitempty"`
-	FileFormat                      *string         `json:"fileFormat,omitempty"`
+	PollingIntervalMs               *int            `json:"pollingIntervalMs,omitempty" example:"60000"`
+	FileFormat                      *FileFormat     `json:"fileFormat,omitempty" enums:"yaml,json,toml"`
 	Retrievers                      json.RawMessage `json:"retrievers,omitempty" swaggertype:"object"`
 	Exporters                       json.RawMessage `json:"exporters,omitempty" swaggertype:"object"`
 	Notifiers                       json.RawMessage `json:"notifiers,omitempty" swaggertype:"object"`
@@ -41,11 +58,14 @@ type CreateFlagsetRequest struct {
 	DefaultTestingEvaluationContext json.RawMessage `json:"defaultTestingEvaluationContext,omitempty" swaggertype:"object"`
 }
 
+// UpdateFlagsetRequest is a partial update: absent fields are left unchanged.
+// Send null for PollingIntervalMs or FileFormat to reset it to the default.
 type UpdateFlagsetRequest struct {
-	Name                            *string         `json:"name,omitempty"`
-	Description                     *string         `json:"description,omitempty"`
-	PollingIntervalMs               *int            `json:"pollingIntervalMs,omitempty"`
-	FileFormat                      *string         `json:"fileFormat,omitempty"`
+	Name              *string              `json:"name,omitempty"`
+	Description       *string              `json:"description,omitempty"`
+	PollingIntervalMs Nullable[int]        `json:"pollingIntervalMs" swaggertype:"integer"`
+	FileFormat        Nullable[FileFormat] `json:"fileFormat" swaggertype:"string" enums:"yaml,json,toml"`
+
 	Retrievers                      json.RawMessage `json:"retrievers,omitempty" swaggertype:"object"`
 	Exporters                       json.RawMessage `json:"exporters,omitempty" swaggertype:"object"`
 	Notifiers                       json.RawMessage `json:"notifiers,omitempty" swaggertype:"object"`
