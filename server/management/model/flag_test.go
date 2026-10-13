@@ -441,93 +441,139 @@ func TestInferFlagType(t *testing.T) {
 }
 
 func TestFlagSummaryFromPayload(t *testing.T) {
-	t.Run("single-variation default serves 100%", func(t *testing.T) {
-		vars, dist, rules, prog := FlagSummaryFromPayload(json.RawMessage(
-			`{"variations":{"on":true,"off":false},"defaultRule":{"variation":"on"}}`))
-		assert.Equal(t, []string{"on", "off"}, vars)
-		assert.Equal(t, map[string]float64{"on": 100}, dist)
-		assert.Equal(t, 0, rules)
-		assert.Nil(t, prog)
-	})
-
-	t.Run("percentage default keeps the split and drops zero weights", func(t *testing.T) {
-		vars, dist, rules, prog := FlagSummaryFromPayload(json.RawMessage(
-			`{"variations":{"a":"x","b":"y","c":"z"},"defaultRule":{"percentage":{"a":60,"b":40,"c":0}}}`))
-		assert.Equal(t, []string{"a", "b", "c"}, vars)
-		assert.Equal(t, map[string]float64{"a": 60, "b": 40}, dist)
-		assert.Equal(t, 0, rules)
-		assert.Nil(t, prog)
-	})
-
-	t.Run("targeting rules are counted", func(t *testing.T) {
-		_, _, rules, _ := FlagSummaryFromPayload(json.RawMessage(
-			`{"variations":{"a":"x","b":"y"},"targeting":[{"query":"a eq 1","variation":"a"},{"query":"b eq 2","variation":"b"}],"defaultRule":{"variation":"a"}}`))
-		assert.Equal(t, 2, rules)
-	})
-
-	t.Run("variation order follows payload document order", func(t *testing.T) {
-		vars, _, _, _ := FlagSummaryFromPayload(json.RawMessage(
-			`{"variations":{"zebra":"z","alpha":"a","mid":"m"}}`))
-		assert.Equal(t, []string{"zebra", "alpha", "mid"}, vars)
-	})
-
-	t.Run("progressive-rollout default has no split but reports initial→end", func(t *testing.T) {
-		vars, dist, _, prog := FlagSummaryFromPayload(json.RawMessage(
-			`{"variations":{"a":"x","b":"y"},"defaultRule":{"progressiveRollout":{"initial":{"variation":"a","percentage":0},"end":{"variation":"b","percentage":100}}}}`))
-		assert.Equal(t, []string{"a", "b"}, vars)
-		assert.Empty(t, dist)
-		assert.Equal(t, &ProgressiveSummary{InitialVariation: "a", EndVariation: "b", From: 0, To: 100}, prog)
-	})
-
-	t.Run("progressive-rollout default defaults missing percentages to 0/100", func(t *testing.T) {
-		_, _, _, prog := FlagSummaryFromPayload(json.RawMessage(
-			`{"variations":{"a":"x","b":"y"},"defaultRule":{"progressiveRollout":{"initial":{"variation":"a"},"end":{"variation":"b"}}}}`))
-		assert.Equal(t, &ProgressiveSummary{InitialVariation: "a", EndVariation: "b", From: 0, To: 100}, prog)
-	})
-
-	t.Run("progressive-rollout default with a missing step uses its default", func(t *testing.T) {
-		_, _, _, prog := FlagSummaryFromPayload(json.RawMessage(
-			`{"variations":{"a":"x","b":"y"},"defaultRule":{"progressiveRollout":{"initial":{"variation":"a","percentage":10}}}}`))
-		assert.Equal(t, &ProgressiveSummary{InitialVariation: "a", From: 10, To: 100}, prog)
-	})
-
-	t.Run("empty and invalid payloads yield zero values", func(t *testing.T) {
-		for _, p := range []string{``, `not-json`, `{}`} {
-			vars, dist, rules, prog := FlagSummaryFromPayload(json.RawMessage(p))
-			assert.Nil(t, vars)
-			assert.Nil(t, dist)
-			assert.Equal(t, 0, rules)
-			assert.Nil(t, prog)
-		}
-	})
-}
-
-func TestParseFlagPayload(t *testing.T) {
-	dto, err := ParseFlagPayload(json.RawMessage(`{"variations":{"on":true,"off":false},"defaultRule":{"variation":"on"}}`))
-	assert.NoError(t, err)
-	assert.Len(t, *dto.Variations, 2)
-	assert.Equal(t, "on", *dto.DefaultRule.VariationResult)
-
-	_, err = ParseFlagPayload(json.RawMessage(`not json`))
-	assert.Error(t, err)
-
-	_, err = ParseFlagPayload(json.RawMessage(`{"variations":{"on":true},"metadata":{"anything":{"goes":1}}}`))
-	assert.NoError(t, err, "metadata keys are free-form")
-
-	for name, payload := range map[string]string{
-		"unknown top-level field":      `{"rules":[]}`,
-		"unknown rule field":           `{"targeting":[{"query":"a eq 1","varation":"on"}]}`,
-		"unknown default rule field":   `{"defaultRule":{"variaton":"on"}}`,
-		"unknown scheduled step field": `{"scheduledRollout":[{"date":"2030-01-01T00:00:00Z","dfaultRule":{}}]}`,
-		"trailing data":                `{"variations":{"on":true}}{}`,
-	} {
-		_, err := ParseFlagPayload(json.RawMessage(payload))
-		assert.Error(t, err, name)
+	tests := []struct {
+		name      string
+		payload   string
+		wantVars  []string
+		wantDist  map[string]float64
+		wantRules int
+		wantProg  *ProgressiveSummary
+	}{
+		{
+			name:     "single-variation default serves 100%",
+			payload:  `{"variations":{"on":true,"off":false},"defaultRule":{"variation":"on"}}`,
+			wantVars: []string{"on", "off"},
+			wantDist: map[string]float64{"on": 100},
+		},
+		{
+			name:     "percentage default keeps the split and drops zero weights",
+			payload:  `{"variations":{"a":"x","b":"y","c":"z"},"defaultRule":{"percentage":{"a":60,"b":40,"c":0}}}`,
+			wantVars: []string{"a", "b", "c"},
+			wantDist: map[string]float64{"a": 60, "b": 40},
+		},
+		{
+			name: "targeting rules are counted",
+			payload: `{"variations":{"a":"x","b":"y"},"targeting":[{"query":"a eq 1","variation":"a"},` +
+				`{"query":"b eq 2","variation":"b"}],"defaultRule":{"variation":"a"}}`,
+			wantVars:  []string{"a", "b"},
+			wantDist:  map[string]float64{"a": 100},
+			wantRules: 2,
+		},
+		{
+			name:     "variation order follows payload document order",
+			payload:  `{"variations":{"zebra":"z","alpha":"a","mid":"m"}}`,
+			wantVars: []string{"zebra", "alpha", "mid"},
+		},
+		{
+			name: "progressive-rollout default has no split but reports initial→end",
+			payload: `{"variations":{"a":"x","b":"y"},"defaultRule":{"progressiveRollout":` +
+				`{"initial":{"variation":"a","percentage":0},"end":{"variation":"b","percentage":100}}}}`,
+			wantVars: []string{"a", "b"},
+			wantProg: &ProgressiveSummary{InitialVariation: "a", EndVariation: "b", From: 0, To: 100},
+		},
+		{
+			name: "progressive-rollout default defaults missing percentages to 0/100",
+			payload: `{"variations":{"a":"x","b":"y"},"defaultRule":{"progressiveRollout":` +
+				`{"initial":{"variation":"a"},"end":{"variation":"b"}}}}`,
+			wantVars: []string{"a", "b"},
+			wantProg: &ProgressiveSummary{InitialVariation: "a", EndVariation: "b", From: 0, To: 100},
+		},
+		{
+			name: "progressive-rollout default with a missing step uses its default",
+			payload: `{"variations":{"a":"x","b":"y"},"defaultRule":{"progressiveRollout":` +
+				`{"initial":{"variation":"a","percentage":10}}}}`,
+			wantVars: []string{"a", "b"},
+			wantProg: &ProgressiveSummary{InitialVariation: "a", From: 10, To: 100},
+		},
+		{name: "empty payload yields zero values", payload: ``},
+		{name: "invalid payload yields zero values", payload: `not-json`},
+		{name: "empty object yields zero values", payload: `{}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vars, dist, rules, prog := FlagSummaryFromPayload(json.RawMessage(tt.payload))
+			assert.Equal(t, tt.wantVars, vars)
+			assert.Equal(t, tt.wantDist, dist)
+			assert.Equal(t, tt.wantRules, rules)
+			assert.Equal(t, tt.wantProg, prog)
+		})
 	}
 }
 
-func TestUsesJSONLogicReduceUnparseable(t *testing.T) {
-	assert.False(t, usesJSONLogicReduce(`{"reduce":`))
+func TestParseFlagPayload(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload string
+		want    coredto.DTO
+		wantErr bool
+	}{
+		{
+			name:    "valid",
+			payload: `{"variations":{"on":true,"off":false},"defaultRule":{"variation":"on"}}`,
+			want: coredto.DTO{
+				Variations:  &map[string]*any{"on": any3(true), "off": any3(false)},
+				DefaultRule: &flag.Rule{VariationResult: new("on")},
+			},
+		},
+		{
+			name:    "metadata keys are free-form",
+			payload: `{"variations":{"on":true},"metadata":{"anything":{"goes":1}}}`,
+			want: coredto.DTO{
+				Variations: &map[string]*any{"on": any3(true)},
+				Metadata:   &map[string]any{"anything": map[string]any{"goes": float64(1)}},
+			},
+		},
+		{name: "not json", payload: `not json`, wantErr: true},
+		{name: "unknown top-level field", payload: `{"rules":[]}`, wantErr: true},
+		{name: "unknown rule field", payload: `{"targeting":[{"query":"a eq 1","varation":"on"}]}`, wantErr: true},
+		{name: "unknown default rule field", payload: `{"defaultRule":{"variaton":"on"}}`, wantErr: true},
+		{
+			name:    "unknown scheduled step field",
+			payload: `{"scheduledRollout":[{"date":"2030-01-01T00:00:00Z","dfaultRule":{}}]}`,
+			wantErr: true,
+		},
+		{name: "trailing data", payload: `{"variations":{"on":true}}{}`, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dto, err := ParseFlagPayload(json.RawMessage(tt.payload))
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, dto)
+		})
+	}
+}
+
+func TestUsesJSONLogicReduce(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+		want  bool
+	}{
+		{"top-level reduce", `{"reduce":[{"var":"a"},{"+":[1,2]},0]}`, true},
+		{"nested reduce", `{"and":[{"==":[1,1]},{"reduce":[[],{},0]}]}`, true},
+		{"reduce as a string value is not a match", `{"==":[{"var":"op"},"reduce"]}`, false},
+		{"no reduce", `{"==":[{"var":"a"},1]}`, false},
+		{"unparseable", `{"reduce":`, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, usesJSONLogicReduce(tt.query))
+		})
+	}
 }
 
 func TestOpenFeatureFlagType(t *testing.T) {
@@ -552,98 +598,95 @@ func TestOpenFeatureFlagType(t *testing.T) {
 }
 
 func TestSetFlagTypeMetadata(t *testing.T) {
-	t.Run("adds metadata block when absent", func(t *testing.T) {
-		in := `{"variations":{"on":true,"off":false},"defaultRule":{"variation":"on"}}`
-		out, err := SetFlagTypeMetadata(json.RawMessage(in))
-		assert.NoError(t, err)
-		assert.JSONEq(t, `{"variations":{"on":true,"off":false},"defaultRule":{"variation":"on"},"metadata":{"flagType":"boolean"}}`, string(out))
-	})
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "adds metadata block when absent",
+			in:   `{"variations":{"on":true,"off":false},"defaultRule":{"variation":"on"}}`,
+			want: `{"variations":{"on":true,"off":false},"defaultRule":{"variation":"on"},"metadata":{"flagType":"boolean"}}`,
+		},
+		{
+			name: "int maps to integer",
+			in:   `{"variations":{"a":1,"b":2}}`,
+			want: `{"variations":{"a":1,"b":2},"metadata":{"flagType":"integer"}}`,
+		},
+		{
+			// flagType is appended after the existing keys, which keep their order.
+			name: "preserves existing metadata keys and their order",
+			in:   `{"variations":{"a":"x","b":"y"},"metadata":{"owner":"team-a","description":"d"}}`,
+			want: `{"variations":{"a":"x","b":"y"},"metadata":{"owner":"team-a","description":"d","flagType":"string"}}`,
+		},
+		{
+			// flagType keeps its original position; only the value changes.
+			name: "overwrites a stale flagType authoritatively",
+			in:   `{"variations":{"on":true,"off":false},"metadata":{"flagType":"string","owner":"team-a"}}`,
+			want: `{"variations":{"on":true,"off":false},"metadata":{"flagType":"boolean","owner":"team-a"}}`,
+		},
+		{
+			name: "unknown type is a no-op",
+			in:   `{"defaultRule":{"variation":"on"}}`,
+			want: `{"defaultRule":{"variation":"on"}}`,
+		},
+		{
+			name: "null metadata is replaced with an object",
+			in:   `{"variations":{"a":"x","b":"y"},"metadata":null}`,
+			want: `{"variations":{"a":"x","b":"y"},"metadata":{"flagType":"string"}}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := SetFlagTypeMetadata(json.RawMessage(tt.in))
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, string(out))
 
-	t.Run("int maps to integer", func(t *testing.T) {
-		out, err := SetFlagTypeMetadata(json.RawMessage(`{"variations":{"a":1,"b":2}}`))
-		assert.NoError(t, err)
-		assert.Contains(t, string(out), `"flagType":"integer"`)
-	})
-
-	t.Run("preserves existing metadata keys and their order", func(t *testing.T) {
-		in := `{"variations":{"a":"x","b":"y"},"metadata":{"owner":"team-a","description":"d"}}`
-		out, err := SetFlagTypeMetadata(json.RawMessage(in))
-		assert.NoError(t, err)
-		// flagType is appended after the existing keys, which keep their order.
-		assert.Equal(t,
-			`{"variations":{"a":"x","b":"y"},"metadata":{"owner":"team-a","description":"d","flagType":"string"}}`,
-			string(out))
-	})
-
-	t.Run("overwrites a stale flagType authoritatively", func(t *testing.T) {
-		in := `{"variations":{"on":true,"off":false},"metadata":{"flagType":"string","owner":"team-a"}}`
-		out, err := SetFlagTypeMetadata(json.RawMessage(in))
-		assert.NoError(t, err)
-		// flagType keeps its original position; only the value changes.
-		assert.Equal(t,
-			`{"variations":{"on":true,"off":false},"metadata":{"flagType":"boolean","owner":"team-a"}}`,
-			string(out))
-	})
-
-	t.Run("unknown type is a no-op", func(t *testing.T) {
-		in := `{"defaultRule":{"variation":"on"}}`
-		out, err := SetFlagTypeMetadata(json.RawMessage(in))
-		assert.NoError(t, err)
-		assert.Equal(t, in, string(out))
-	})
-
-	t.Run("null metadata is replaced with an object", func(t *testing.T) {
-		in := `{"variations":{"a":"x","b":"y"},"metadata":null}`
-		out, err := SetFlagTypeMetadata(json.RawMessage(in))
-		assert.NoError(t, err)
-		assert.JSONEq(t, `{"variations":{"a":"x","b":"y"},"metadata":{"flagType":"string"}}`, string(out))
-	})
-
-	t.Run("is idempotent", func(t *testing.T) {
-		in := `{"variations":{"on":true,"off":false}}`
-		first, err := SetFlagTypeMetadata(json.RawMessage(in))
-		assert.NoError(t, err)
-		second, err := SetFlagTypeMetadata(first)
-		assert.NoError(t, err)
-		assert.Equal(t, string(first), string(second))
-	})
+			again, err := SetFlagTypeMetadata(out)
+			assert.NoError(t, err)
+			assert.Equal(t, string(out), string(again), "must be idempotent")
+		})
+	}
 }
 
 func TestParseOrderedObject(t *testing.T) {
-	t.Run("preserves key order", func(t *testing.T) {
-		obj, err := parseOrderedObject([]byte(`{"b":1,"a":2,"c":3}`))
-		assert.NoError(t, err)
-		assert.Equal(t, []string{"b", "a", "c"}, obj.keys)
-		out, err := json.Marshal(obj)
-		assert.NoError(t, err)
-		assert.Equal(t, `{"b":1,"a":2,"c":3}`, string(out))
-	})
-
-	t.Run("get returns missing keys as not-ok", func(t *testing.T) {
-		obj, err := parseOrderedObject([]byte(`{"a":1}`))
-		assert.NoError(t, err)
-		_, ok := obj.get("missing")
-		assert.False(t, ok)
-		v, ok := obj.get("a")
-		assert.True(t, ok)
-		assert.Equal(t, json.RawMessage("1"), v)
-	})
-
-	errCases := []struct {
-		name  string
-		input string
+	tests := []struct {
+		name       string
+		input      string
+		wantKeys   []string
+		wantValues []string
+		wantErr    bool
 	}{
-		{"empty input", ``},
-		{"not an object", `[1,2,3]`},
-		{"scalar", `42`},
-		{"malformed value", `{"a":}`},
-		{"truncated", `{"a":1`},
-		{"trailing comma", `{"a":1,}`},
+		{name: "preserves key order", input: `{"b":1,"a":2,"c":3}`,
+			wantKeys: []string{"b", "a", "c"}, wantValues: []string{"1", "2", "3"}},
+		{name: "single key", input: `{"a":1}`, wantKeys: []string{"a"}, wantValues: []string{"1"}},
+		{name: "empty input", input: ``, wantErr: true},
+		{name: "not an object", input: `[1,2,3]`, wantErr: true},
+		{name: "scalar", input: `42`, wantErr: true},
+		{name: "malformed value", input: `{"a":}`, wantErr: true},
+		{name: "truncated", input: `{"a":1`, wantErr: true},
+		{name: "trailing comma", input: `{"a":1,}`, wantErr: true},
 	}
-	for _, tc := range errCases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := parseOrderedObject([]byte(tc.input))
-			assert.Error(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			obj, err := parseOrderedObject([]byte(tt.input))
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantKeys, obj.keys)
+			for i, k := range tt.wantKeys {
+				v, ok := obj.get(k)
+				assert.True(t, ok, k)
+				assert.Equal(t, json.RawMessage(tt.wantValues[i]), v)
+			}
+			_, ok := obj.get("missing")
+			assert.False(t, ok)
+
+			out, err := json.Marshal(obj)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.input, string(out), "round trip keeps key order")
 		})
 	}
 }
@@ -703,32 +746,37 @@ func TestFlagTagsFromPayload(t *testing.T) {
 }
 
 func TestNormalizeFlagTags(t *testing.T) {
-	// Rewrites metadata.tags to a canonical set while preserving key order and
-	// leaving other metadata untouched.
-	out, err := NormalizeFlagTags(json.RawMessage(
-		`{"variations":{"on":true,"off":false},"metadata":{"owner":"me","tags":["Prod","prod","  beta  ",""],"description":"d"}}`))
-	assert.NoError(t, err)
-	// tags collapse to ["Prod","beta"], key order preserved (owner, tags, description).
-	assert.JSONEq(t, `{"variations":{"on":true,"off":false},"metadata":{"owner":"me","tags":["Prod","beta"],"description":"d"}}`, string(out))
-	// Order check: owner before tags before description.
-	s := string(out)
-	assert.Less(t, strings.Index(s, `"owner"`), strings.Index(s, `"tags"`))
-	assert.Less(t, strings.Index(s, `"tags"`), strings.Index(s, `"description"`))
-
-	// Empty result drops the tags key entirely.
-	out, err = NormalizeFlagTags(json.RawMessage(`{"metadata":{"owner":"me","tags":["   ",""]}}`))
-	assert.NoError(t, err)
-	assert.NotContains(t, string(out), "tags")
-	assert.Contains(t, string(out), "owner")
-
-	// Absent tags / metadata / malformed payload are returned unchanged, no error.
-	for _, p := range []string{
-		`{"metadata":{"owner":"me"}}`, `{"variations":{}}`, `not json`, ``,
-		`{"metadata":"x"}`, `{"metadata":{"tags":"x"}}`,
-	} {
-		out, err := NormalizeFlagTags(json.RawMessage(p))
-		assert.NoError(t, err)
-		assert.Equal(t, p, string(out))
+	tests := []struct {
+		name    string
+		payload string
+		want    string
+	}{
+		{
+			// tags collapse to ["Prod","beta"]; key order (owner, tags,
+			// description) and other metadata are preserved.
+			name: "rewrites tags to a canonical set",
+			payload: `{"variations":{"on":true,"off":false},` +
+				`"metadata":{"owner":"me","tags":["Prod","prod","  beta  ",""],"description":"d"}}`,
+			want: `{"variations":{"on":true,"off":false},"metadata":{"owner":"me","tags":["Prod","beta"],"description":"d"}}`,
+		},
+		{
+			name:    "empty result drops the tags key",
+			payload: `{"metadata":{"owner":"me","tags":["   ",""]}}`,
+			want:    `{"metadata":{"owner":"me"}}`,
+		},
+		{name: "absent tags unchanged", payload: `{"metadata":{"owner":"me"}}`, want: `{"metadata":{"owner":"me"}}`},
+		{name: "absent metadata unchanged", payload: `{"variations":{}}`, want: `{"variations":{}}`},
+		{name: "malformed payload unchanged", payload: `not json`, want: `not json`},
+		{name: "empty payload unchanged", payload: ``, want: ``},
+		{name: "non-object metadata unchanged", payload: `{"metadata":"x"}`, want: `{"metadata":"x"}`},
+		{name: "non-array tags unchanged", payload: `{"metadata":{"tags":"x"}}`, want: `{"metadata":{"tags":"x"}}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := NormalizeFlagTags(json.RawMessage(tt.payload))
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, string(out))
+		})
 	}
 }
 

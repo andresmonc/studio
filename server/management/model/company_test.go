@@ -49,6 +49,17 @@ func TestCompanyRole_AtLeast(t *testing.T) {
 
 func TestCompanyRole_AsTeamRole(t *testing.T) {
 	// Only a company admin inherits a team role; a member inherits nothing.
-	assert.Equal(t, RoleAdmin, CompanyRoleAdmin.AsTeamRole())
-	assert.Equal(t, Role(""), CompanyRoleMember.AsTeamRole())
+	tests := []struct {
+		name string
+		role CompanyRole
+		want Role
+	}{
+		{"admin inherits team admin", CompanyRoleAdmin, RoleAdmin},
+		{"member inherits nothing", CompanyRoleMember, Role("")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.role.AsTeamRole())
+		})
+	}
 }

@@ -21,3 +21,11 @@ Found while reviewing `server/management/model` after team/company roles (#53).
 - [ ] **Account for the JSON shape changes in API consumers.** `CompanyMember` now serializes `createdAt`, and `UpdateCompanyRequest`/`UpdateTeamRequest` no longer accept `email`/`role` (they moved to the `Add*MemberRequest` structs). Nothing uses these yet, but any client or handler written against the old shapes needs updating.
 - [ ] **Fill two test gaps.** No `AtLeast` test checks that an unknown role (e.g. `Role("owner").AtLeast(RoleViewer)`) is denied. `TestNewMeResponse` doesn't cover a user with `CompanyID` set but `CompanyRole` nil, which would return `company.role: ""`; the comment on `User` says that state can't happen, but nothing enforces it.
 - [ ] **Rename `User.Role()`.** It returns a `CompanyRole`, while `Role` is also the name of the team role type, so callers can mix the two up. Something like `CompanyRoleOrEmpty()` is clearer.
+
+## Flag evaluation
+
+Left open while reviewing `EvaluateFlag` in `server/management/model/evaluation.go` (#16).
+
+- [ ] **Guard against a nil request.** `EvaluateFlag` reads `req.EvaluationContext` without a nil check, so a nil `*EvaluateFlagRequest` panics. The only caller always passes a request today; add a check (or take the struct by value) if another caller shows up.
+- [ ] **Stop silently ignoring a badly formed enrichment.** If the flagset's `evaluationContextEnrichment` isn't a JSON object, the `json.Unmarshal` error is dropped and the flag is evaluated without enrichment. Flagset validation on the later branch should block this; confirm it does once that lands, or return an error here.
+- [ ] **Test a percentage rule with no targeting key.** Nice to have: it only exercises the core engine's behaviour, not code in this package.

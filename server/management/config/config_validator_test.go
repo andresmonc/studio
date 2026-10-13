@@ -22,35 +22,13 @@ func validConfig() Config {
 }
 
 func TestConfigValidate(t *testing.T) {
-	t.Run("valid config passes", func(t *testing.T) {
-		c := validConfig()
-		assert.NoError(t, c.Validate())
-	})
-
-	t.Run("max port passes", func(t *testing.T) {
-		c := validConfig()
-		c.Server.Port = 65535
-		assert.NoError(t, c.Validate())
-	})
-
-	t.Run("reports all errors at once", func(t *testing.T) {
-		c := validConfig()
-		c.DB.URL = ""
-		c.OIDC.ClientID = ""
-		c.Auth.JWTSecret = ""
-		err := c.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "db.url")
-		assert.Contains(t, err.Error(), "oidc.clientId")
-		assert.Contains(t, err.Error(), "auth.jwtSecret is required")
-		assert.NotContains(t, err.Error(), "at least 32 chars")
-	})
-
 	tests := []struct {
 		name    string
 		mutate  func(c *Config)
-		wantMsg string
+		wantMsg string // empty means Validate must pass
 	}{
+		{"valid config passes", func(c *Config) {}, ""},
+		{"max port passes", func(c *Config) { c.Server.Port = 65535 }, ""},
 		{"port zero", func(c *Config) { c.Server.Port = 0 }, "server.port"},
 		{"port negative", func(c *Config) { c.Server.Port = -1 }, "server.port"},
 		{"port above max", func(c *Config) { c.Server.Port = 65536 }, "server.port"},
@@ -79,8 +57,37 @@ func TestConfigValidate(t *testing.T) {
 			c := validConfig()
 			tt.mutate(&c)
 			err := c.Validate()
+			if tt.wantMsg == "" {
+				assert.NoError(t, err)
+				return
+			}
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantMsg)
+		})
+	}
+}
+
+func TestConfigValidateReportsAllErrors(t *testing.T) {
+	c := validConfig()
+	c.DB.URL = ""
+	c.OIDC.ClientID = ""
+	c.Auth.JWTSecret = ""
+	err := c.Validate()
+	require.Error(t, err)
+
+	tests := []struct {
+		msg  string
+		want bool
+	}{
+		{"db.url", true},
+		{"oidc.clientId", true},
+		{"auth.jwtSecret is required", true},
+		// A blank secret reports "required" only, not also "too short".
+		{"at least 32 chars", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.msg, func(t *testing.T) {
+			assert.Equal(t, tt.want, strings.Contains(err.Error(), tt.msg))
 		})
 	}
 }
