@@ -1,0 +1,53 @@
+name: changelog
+
+# Regenerate the per-component changelogs from conventional commits on every
+# push to main, then commit the result back. Contributors never edit changelogs
+# by hand — this keeps server/management/CHANGELOG.md and webui/CHANGELOG.md
+# in sync with history automatically.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'webui/**'
+      - 'cliff.toml'
+      - '.github/workflows/changelog.yml'
+
+permissions:
+  contents: write
+
+# Avoid overlapping runs racing on the auto-commit.
+concurrency:
+  group: changelog-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git-cliff needs full history
+
+      - name: Generate server changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --include-path 'server/**'
+        env:
+          OUTPUT: server/management/CHANGELOG.md
+
+      - name: Generate webui changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --include-path 'webui/**'
+        env:
+          OUTPUT: webui/CHANGELOG.md
+
+      - name: Commit updated changelogs
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'chore(changelog): update [skip ci]'
+          file_pattern: 'server/management/CHANGELOG.md webui/CHANGELOG.md'

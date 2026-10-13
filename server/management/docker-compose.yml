@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: goff-mgmt-postgres
+    environment:
+      POSTGRES_DB: goff_mgmt
+      POSTGRES_USER: goff
+      POSTGRES_PASSWORD: goff
+    ports:
+      - "5432:5432"
+    volumes:
+      - goff_mgmt_pg:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goff -d goff_mgmt"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: goff-mgmt-keycloak
+    command:
+      - start-dev
+      - --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./scripts/keycloak-realm.json:/opt/keycloak/data/import/realm.json:ro
+
+  # OpenTelemetry backend in one container: OTLP collector (4317 gRPC, 4318 HTTP)
+  # feeding Prometheus (metrics), Tempo (traces) and Loki, browsed in Grafana on
+  # http://localhost:3000 (anonymous admin, datasources pre-provisioned).
+  otel-lgtm:
+    image: grafana/otel-lgtm:0.36.0
+    container_name: goff-mgmt-otel-lgtm
+    ports:
+      - "3000:3000"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - goff_mgmt_otel:/data
+
+volumes:
+  goff_mgmt_pg:
+  goff_mgmt_otel:

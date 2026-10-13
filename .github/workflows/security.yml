@@ -1,0 +1,97 @@
+name: security
+
+# Vulnerability scanning for both components plus the repo as a whole.
+# Runs on every push to main and on PRs that touch dependencies or this
+# workflow, and on a weekly schedule so newly disclosed CVEs in pinned
+# dependencies get caught even when nothing changed.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'webui/**'
+      - '.github/workflows/security.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'webui/**'
+      - '.github/workflows/security.yml'
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Go: scan dependencies AND call graph. govulncheck only reports vulns that
+  # are actually reachable from our code, so it has a low false-positive rate.
+  govulncheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server/management
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/management/go.mod
+          cache-dependency-path: server/management/go.sum
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        run: govulncheck ./...
+
+  # webui: audit the locked npm dependency tree. Reported at high/critical, but
+  # kept non-blocking (continue-on-error) because most outstanding advisories
+  # are in dev/build-only transitive deps whose fixes require major upgrades.
+  # The findings stay visible in the job log; promote to a hard failure once the
+  # tree is clean by removing continue-on-error.
+  npm-audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: webui/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: webui/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit dependencies
+        continue-on-error: true
+        run: pnpm audit --audit-level=high
+
+  # Repo-wide secret scan. Catches credentials/tokens accidentally committed to
+  # any tracked file. We run the gitleaks binary directly rather than the
+  # official action, which requires a paid license on org-owned repos.
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks scans the full git history
+
+      - name: Run gitleaks
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          ./gitleaks detect --source . --config .gitleaks.toml --redact --verbose --no-banner
