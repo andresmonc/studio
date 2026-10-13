@@ -1,6 +1,6 @@
 # Go coverage reports use the module path, which differs from the repo layout.
 fixes:
-  - "github.com/gofeatureflag/flag-management-system/::"
+  - "github.com/gofeatureflag/studio/::"
 
 flag_management:
   default_rules:
