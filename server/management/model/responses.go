@@ -1,6 +1,9 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 type APIResponse struct {
 	Message string              `json:"message,omitempty"`
@@ -16,16 +19,21 @@ type PaginatedResponse[T any] struct {
 	TotalPages int `json:"totalPages"`
 }
 
+const maxPageSize = 200
+
 // ClampPage normalizes pagination input: page < 1 → 1, pageSize < 1 → 50 (default),
-// pageSize > 200 → 200 (cap).
+// pageSize > 200 → 200 (cap). page is capped so (page-1)*pageSize, the SQL
+// offset, cannot overflow: a huge page reads as an empty page, not an error.
 func ClampPage(page, pageSize int) (int, int) {
 	if page < 1 {
 		page = 1
+	} else if page > math.MaxInt/maxPageSize {
+		page = math.MaxInt / maxPageSize
 	}
 	if pageSize < 1 {
 		pageSize = 50
-	} else if pageSize > 200 {
-		pageSize = 200
+	} else if pageSize > maxPageSize {
+		pageSize = maxPageSize
 	}
 	return page, pageSize
 }

@@ -26,6 +26,7 @@ func TestNewPaginatedResponse(t *testing.T) {
 		{"oversized page size caps at 200", 450, 1, 999, 3, 1, 200},
 		{"page below 1 clamps to 1", 10, 0, 10, 1, 1, 10},
 		{"huge total does not overflow", math.MaxInt, 1, 10, math.MaxInt/10 + 1, 1, 10},
+		{"huge page caps so the offset cannot overflow", 10, math.MaxInt, 50, 1, math.MaxInt / 200, 50},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

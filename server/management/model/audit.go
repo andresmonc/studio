@@ -70,9 +70,8 @@ type AuditEntry struct {
 // server-side from the authenticated user and must never be bound from client
 // input; keeping it out of AuditFilters makes that mix-up impossible.
 type AuditScope struct {
-	// CompanyID, when set, restricts results to entries belonging to that
-	// company (directly via company_id, or indirectly via a team owned by the
-	// company). Set for non-super-admins.
+	// CompanyID, when set, restricts results to entries whose company_id is
+	// that company. Set for non-super-admins.
 	CompanyID *string
 	// MemberUserID, when set, further restricts results to the teams that user
 	// is an explicit member of, plus company-level events. Set for company
