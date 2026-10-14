@@ -42,9 +42,9 @@ type TeamMember struct {
 }
 
 type TeamMembership struct {
-	TeamID   string `json:"teamId"`
-	TeamName string `json:"teamName"`
-	Role     Role   `json:"role"`
+	TeamID   string `json:"teamId"   db:"team_id"`
+	TeamName string `json:"teamName" db:"team_name"`
+	Role     Role   `json:"role"     db:"role"`
 }
 
 type CreateTeamRequest struct {

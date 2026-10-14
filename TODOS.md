@@ -42,9 +42,11 @@ Left open after the review of `server/management/db/migrations/0001_init.sql`.
 
 ## Repository
 
-Left open after the review of the DB harness and user repo.
+Left open after the reviews of the DB harness, user repo and team repo.
 
-- [ ] **Narrow `isNoRows`.** It also maps pg 22P02 (invalid input) to "not found", which is right for a malformed uuid in `GetByID` but would hide a bad cast in any other query that reuses it. Validate the uuid in `GetByID` and keep `isNoRows` to `pgx.ErrNoRows`.
-- [ ] **Return `ErrNotFound` from lookups.** `GetByID`/`GetByEmail` return `(nil, nil)` when nothing matches, so every caller must nil-check the user. Change it before the first caller lands.
+- [ ] **Narrow `isNoRows`.** It also maps pg 22P02 (invalid input) to "not found", which is right for a malformed uuid in `GetByID` but would hide a bad cast in any other query that reuses it (`TeamRepo.GetRole` now relies on it too). Validate the uuid in the lookups and keep `isNoRows` to `pgx.ErrNoRows`.
+- [ ] **Return `ErrNotFound` from lookups.** `UserRepo.GetByID`/`GetByEmail`, `CompanyRepo.GetByID`/`First`/`Membership` and `TeamRepo.GetByID` return `(nil, nil)` when nothing matches, and `TeamRepo.GetRole` returns `("", nil)`, so every caller must nil-check the result. Change it before the first caller lands.
+- [ ] **Stop `TeamRepo.AddMember` from overwriting roles.** It upserts, so adding an existing admin as viewer silently demotes them. Make it a plain insert that returns a conflict error and leave role changes to `UpdateMemberRole`, or rename it `SetMember` like the company repo if the upsert is intended.
+- [ ] **Map an unknown company in `TeamRepo.Create`.** A `companyID` that doesn't exist hits the `teams.company_id` foreign key (23503) and comes back as a raw `*pgconn.PgError`; map it to `ErrNotFound` so the handler can return 404 instead of 500.
 - [ ] **Truncate every table in the test harness.** `allTables` in `internal/testutil/postgres.go` is hard-coded; a new table without a foreign key to it keeps rows between tests. Build the `TRUNCATE` from `pg_tables` (minus `goose_db_version`). The unused `harness.terminate` field goes too, or gets called from a `TestMain` helper for runs with Ryuk disabled.
 - [ ] **Use a params struct for `UpsertFromOIDC`.** Its four positional strings (email, name, avatarURL, sub) let a swapped email and sub compile. Cover `avatarURL`, `LastLoginAt` and `UpdatedAt` in the tests while there.
