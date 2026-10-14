@@ -196,7 +196,7 @@ func TestCompanyRepoCreateWithAdmin(t *testing.T) {
 		return n
 	}
 
-	c, m, err := repo.CreateWithAdmin(ctx, "Acme", "", founder.ID)
+	c, m, err := repo.CreateWithAdmin(ctx, "Acme", "", founder.ID, false)
 	require.NoError(t, err)
 	assert.Equal(t, c.ID, m.CompanyID)
 	assert.Equal(t, model.CompanyRoleAdmin, m.Role)
@@ -210,7 +210,7 @@ func TestCompanyRepoCreateWithAdmin(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := repo.CreateWithAdmin(ctx, "Beta", "", tt.adminID)
+			_, _, err := repo.CreateWithAdmin(ctx, "Beta", "", tt.adminID, false)
 			assert.ErrorIs(t, err, repository.ErrConflictOrNotFound)
 			assert.Equal(t, 1, countCompanies(), "no company left behind")
 		})
@@ -218,6 +218,22 @@ func TestCompanyRepoCreateWithAdmin(t *testing.T) {
 
 	cancelled, cancel := context.WithCancel(ctx)
 	cancel()
-	_, _, err = repo.CreateWithAdmin(cancelled, "Gamma", "", founder.ID)
+	_, _, err = repo.CreateWithAdmin(cancelled, "Gamma", "", founder.ID, false)
 	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestCompanyRepoCreateWithAdminAttachUnassigned(t *testing.T) {
+	db := testutil.StartPostgres(t)
+	repo := repository.NewCompanyRepo(db)
+	ctx := t.Context()
+	early := testutil.SeedUser(t, db, "early@acme.com", "E", false)
+
+	c, admin, err := repo.CreateWithAdmin(ctx, "Acme", "", "", true)
+	require.NoError(t, err)
+	assert.Nil(t, admin, "no admin requested")
+	mem, err := repo.Membership(ctx, early.ID)
+	require.NoError(t, err)
+	require.NotNil(t, mem, "a user who logged in before the company existed joins it")
+	assert.Equal(t, c.ID, mem.CompanyID)
+	assert.Equal(t, model.CompanyRoleMember, mem.Role)
 }

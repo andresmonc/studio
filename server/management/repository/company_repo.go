@@ -144,14 +144,17 @@ func (r *CompanyRepo) SetMember(
 		ErrConflictOrNotFound, companyID, role, userID)
 }
 
-// CreateWithAdmin creates a company and makes adminID its admin in one
-// transaction, so a failed assignment leaves no empty company behind. The
-// admin must not belong to any company yet (ErrConflictOrNotFound otherwise).
+// CreateWithAdmin creates a company in one transaction and, unless adminID is
+// "", makes that user its admin, so a failed assignment leaves no empty
+// company behind. The admin must not belong to any company yet
+// (ErrConflictOrNotFound otherwise). attachUnassigned also makes every user
+// without a company a member: in mono company mode everyone belongs to the
+// single company, including those who logged in before it existed.
 func (r *CompanyRepo) CreateWithAdmin(
-	ctx context.Context, displayName, description, adminID string,
+	ctx context.Context, displayName, description, adminID string, attachUnassigned bool,
 ) (*model.Company, *model.CompanyMember, error) {
 	var c model.Company
-	var m model.CompanyMember
+	var admin *model.CompanyMember
 	err := pgx.BeginFunc(ctx, r.db.Pool, func(tx pgx.Tx) error {
 		err := scanCompany(tx.QueryRow(ctx,
 			`INSERT INTO companies (display_name, description) VALUES ($1, $2) RETURNING `+companyCols,
@@ -159,20 +162,31 @@ func (r *CompanyRepo) CreateWithAdmin(
 		if err != nil {
 			return err
 		}
-		err = tx.QueryRow(ctx, `
-			UPDATE users SET company_id = $1, company_role = 'admin', updated_at = NOW()
-			WHERE id = $2 AND company_id IS NULL
-			RETURNING `+companyMemberCols, c.ID, adminID,
-		).Scan(&m.ID, &m.CompanyID, &m.UserID, &m.Email, &m.Name, &m.Role, &m.CreatedAt)
-		if isNoRows(err) {
-			return ErrConflictOrNotFound
+		if adminID != "" {
+			var m model.CompanyMember
+			err = tx.QueryRow(ctx, `
+				UPDATE users SET company_id = $1, company_role = 'admin', updated_at = NOW()
+				WHERE id = $2 AND company_id IS NULL
+				RETURNING `+companyMemberCols, c.ID, adminID,
+			).Scan(&m.ID, &m.CompanyID, &m.UserID, &m.Email, &m.Name, &m.Role, &m.CreatedAt)
+			if isNoRows(err) {
+				return ErrConflictOrNotFound
+			}
+			if err != nil {
+				return err
+			}
+			admin = &m
+		}
+		if attachUnassigned {
+			_, err = tx.Exec(ctx, `UPDATE users SET company_id = $1, company_role = 'member', updated_at = NOW()
+				WHERE company_id IS NULL`, c.ID)
 		}
 		return err
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	return &c, &m, nil
+	return &c, admin, nil
 }
 
 // UpdateMemberRole sets an existing member's role and returns the previous one.

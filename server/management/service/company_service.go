@@ -41,9 +41,10 @@ func ensureNoCompany(ctx context.Context, companies *repository.CompanyRepo) err
 	return nil
 }
 
-// Create adds a company without members: it is super-admin only, and the
+// Create adds a company without an admin: it is super-admin only, and the
 // super admin then adds the first admin. Onboarding creates the company
-// together with its admin instead.
+// together with its admin instead. In mono company mode every user without a
+// company joins it as a member.
 func (s *CompanyService) Create(
 	ctx context.Context, actorID string, req *model.CreateCompanyRequest,
 ) (*model.Company, error) {
@@ -55,7 +56,7 @@ func (s *CompanyService) Create(
 			return nil, err
 		}
 	}
-	c, err := s.companies.Create(ctx, req.DisplayName, req.Description)
+	c, _, err := s.companies.CreateWithAdmin(ctx, req.DisplayName, req.Description, "", s.mono)
 	if err != nil {
 		return nil, err
 	}

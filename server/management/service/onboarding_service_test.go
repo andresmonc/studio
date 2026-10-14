@@ -29,7 +29,7 @@ func TestOnboardingCreateCompanyForNewUser(t *testing.T) {
 
 	t.Run("happy path: user becomes company admin with audit", func(t *testing.T) {
 		u := testutil.SeedUser(t, db, "founder@acme.com", "Founder", false)
-		c, err := svc.CreateCompanyForNewUser(ctx, u.ID, &model.CreateCompanyRequest{
+		c, err := svc.CreateCompanyForNewUser(ctx, u.ID, false, &model.CreateCompanyRequest{
 			DisplayName: "Acme",
 		})
 		require.NoError(t, err)
@@ -46,12 +46,12 @@ func TestOnboardingCreateCompanyForNewUser(t *testing.T) {
 
 	t.Run("empty display name -> validation error", func(t *testing.T) {
 		u := testutil.SeedUser(t, db, "x@x.com", "X", false)
-		_, err := svc.CreateCompanyForNewUser(ctx, u.ID, &model.CreateCompanyRequest{DisplayName: ""})
+		_, err := svc.CreateCompanyForNewUser(ctx, u.ID, false, &model.CreateCompanyRequest{DisplayName: ""})
 		assert.Equal(t, []string{"displayName"}, validationFields(t, err))
 	})
 
 	t.Run("unknown user -> not found", func(t *testing.T) {
-		_, err := svc.CreateCompanyForNewUser(ctx, "00000000-0000-0000-0000-000000000000",
+		_, err := svc.CreateCompanyForNewUser(ctx, "00000000-0000-0000-0000-000000000000", false,
 			&model.CreateCompanyRequest{DisplayName: "X"})
 		assert.ErrorIs(t, err, service.ErrNotFound)
 	})
@@ -61,7 +61,7 @@ func TestOnboardingCreateCompanyForNewUser(t *testing.T) {
 		u := testutil.SeedUser(t, db, "member@existing.com", "M", false)
 		testutil.SetCompanyMember(t, db, company.ID, u.ID, model.CompanyRoleMember)
 
-		_, err := svc.CreateCompanyForNewUser(ctx, u.ID, &model.CreateCompanyRequest{DisplayName: "New"})
+		_, err := svc.CreateCompanyForNewUser(ctx, u.ID, false, &model.CreateCompanyRequest{DisplayName: "New"})
 		assert.ErrorIs(t, err, service.ErrForbidden)
 	})
 }
@@ -76,20 +76,29 @@ func TestOnboardingMonoCompany(t *testing.T) {
 	ctx := t.Context()
 
 	user := testutil.SeedUser(t, db, "user@acme.com", "User", false)
-	_, err := svc.CreateCompanyForNewUser(ctx, user.ID, &model.CreateCompanyRequest{DisplayName: "Acme"})
+	_, err := svc.CreateCompanyForNewUser(ctx, user.ID, false, &model.CreateCompanyRequest{DisplayName: "Acme"})
 	require.ErrorIs(t, err, service.ErrForbidden, "non-super-admin cannot create the company")
 
+	// The session decides, not the stored flag: a super admin removed from
+	// adminEmails keeps is_super_admin in the DB until their next login.
 	admin := testutil.SeedUser(t, db, "admin@acme.com", "Admin", true)
-	c, err := svc.CreateCompanyForNewUser(ctx, admin.ID, &model.CreateCompanyRequest{DisplayName: "Acme"})
+	_, err = svc.CreateCompanyForNewUser(ctx, admin.ID, false, &model.CreateCompanyRequest{DisplayName: "Acme"})
+	require.ErrorIs(t, err, service.ErrForbidden, "revoked super admin")
+
+	c, err := svc.CreateCompanyForNewUser(ctx, admin.ID, true, &model.CreateCompanyRequest{DisplayName: "Acme"})
 	require.NoError(t, err)
 	m, err := companySvc.Membership(ctx, admin.ID)
 	require.NoError(t, err)
 	require.NotNil(t, m)
 	assert.Equal(t, c.ID, m.CompanyID)
 	assert.Equal(t, model.CompanyRoleAdmin, m.Role)
+	m, err = companySvc.Membership(ctx, user.ID)
+	require.NoError(t, err)
+	require.NotNil(t, m, "a user who logged in before the company existed joins it")
+	assert.Equal(t, model.CompanyRoleMember, m.Role)
 
 	admin2 := testutil.SeedUser(t, db, "admin2@acme.com", "Admin2", true)
-	_, err = svc.CreateCompanyForNewUser(ctx, admin2.ID, &model.CreateCompanyRequest{DisplayName: "Second"})
+	_, err = svc.CreateCompanyForNewUser(ctx, admin2.ID, true, &model.CreateCompanyRequest{DisplayName: "Second"})
 	assert.ErrorIs(t, err, service.ErrConflict, "onboarding: second company")
 	_, err = companySvc.Create(ctx, admin2.ID, &model.CreateCompanyRequest{DisplayName: "Second"})
 	assert.ErrorIs(t, err, service.ErrConflict, "POST /companies: second company")
@@ -105,6 +114,6 @@ func TestOnboardingQueryErrors(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	_, err := svc.CreateCompanyForNewUser(ctx, super.ID, &model.CreateCompanyRequest{DisplayName: "X"})
+	_, err := svc.CreateCompanyForNewUser(ctx, super.ID, false, &model.CreateCompanyRequest{DisplayName: "X"})
 	assert.ErrorIs(t, err, context.Canceled)
 }

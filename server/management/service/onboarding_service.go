@@ -23,9 +23,12 @@ func NewOnboardingService(
 
 // CreateCompanyForNewUser lets a user with no company create a company and
 // become its admin. Rejects users already attached to any company. In mono
-// company mode only a super admin may do it, and only while no company exists.
+// company mode only a super admin may do it, and only while no company exists;
+// every other user without a company then joins it as a member. superAdmin
+// must come from the authenticated session (AuthService.Authenticate), not
+// the user row, so a revoked super admin can't use a live session for this.
 func (s *OnboardingService) CreateCompanyForNewUser(
-	ctx context.Context, userID string, req *model.CreateCompanyRequest,
+	ctx context.Context, userID string, superAdmin bool, req *model.CreateCompanyRequest,
 ) (*model.Company, error) {
 	if err := validateName(&req.DisplayName, "displayName"); err != nil {
 		return nil, err
@@ -37,7 +40,7 @@ func (s *OnboardingService) CreateCompanyForNewUser(
 	if u == nil {
 		return nil, ErrNotFound
 	}
-	if u.CompanyID != nil || (s.mono && !u.IsSuperAdmin) {
+	if u.CompanyID != nil || (s.mono && !superAdmin) {
 		return nil, ErrForbidden
 	}
 	if s.mono {
@@ -45,7 +48,7 @@ func (s *OnboardingService) CreateCompanyForNewUser(
 			return nil, err
 		}
 	}
-	c, m, err := s.companies.CreateWithAdmin(ctx, req.DisplayName, req.Description, userID)
+	c, m, err := s.companies.CreateWithAdmin(ctx, req.DisplayName, req.Description, userID, s.mono)
 	if err != nil {
 		// The user joined a company (or was deleted) since the check above.
 		if errors.Is(err, repository.ErrConflictOrNotFound) {
