@@ -13,6 +13,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+var (
+	ErrNotFound           = errors.New("not found")
+	ErrConflictOrNotFound = errors.New("conflict or not found")
+)
+
 type DB struct {
 	Pool *pgxpool.Pool
 }
@@ -55,6 +60,18 @@ func (d *DB) Close() {
 	if d.Pool != nil {
 		d.Pool.Close()
 	}
+}
+
+// execOne runs a write that must touch at least one row; zero rows → ErrNotFound.
+func (d *DB) execOne(ctx context.Context, q string, args ...any) error {
+	ct, err := d.Pool.Exec(ctx, q, args...)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // isNoRows also covers a malformed id (pg 22P02, e.g. "abc" for a uuid column):
