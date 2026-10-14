@@ -6,6 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gofeatureflag/flag-management-system/server/management/api/middleware"
+	"github.com/gofeatureflag/flag-management-system/server/management/internal/testutil"
+	"github.com/gofeatureflag/flag-management-system/server/management/repository"
+	"github.com/gofeatureflag/flag-management-system/server/management/service"
 	"github.com/labstack/echo/v5"
 )
 
@@ -31,4 +35,31 @@ func dataMap(t *testing.T, resp any) map[string]any {
 		t.Fatalf("expected data to be a JSON object, got %T", resp)
 	}
 	return m
+}
+
+// missingUUID is a syntactically valid UUID that never matches a seeded row.
+const missingUUID = "00000000-0000-0000-0000-000000000000"
+
+// withClaims injects the caller identity the same way the auth middleware does.
+func withClaims(c *echo.Context, userID string, superAdmin bool) {
+	c.Set(middleware.ContextClaimsKey, &service.Claims{UserID: userID, IsSuperAdmin: superAdmin})
+}
+
+// stack is the real service stack on the Postgres test harness. Handler tests
+// add the services they need.
+type stack struct {
+	db         *repository.DB
+	onboardSvc *service.OnboardingService
+}
+
+func newStack(t *testing.T) *stack {
+	t.Helper()
+	db := testutil.StartPostgres(t)
+	companyRepo := repository.NewCompanyRepo(db)
+	userRepo := repository.NewUserRepo(db)
+	auditRepo := repository.NewAuditRepo(db)
+	return &stack{
+		db:         db,
+		onboardSvc: service.NewOnboardingService(companyRepo, userRepo, auditRepo, false),
+	}
 }
