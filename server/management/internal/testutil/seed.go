@@ -40,6 +40,14 @@ func SeedTeam(t *testing.T, db *repository.DB, companyID, name string) *model.Te
 	return team
 }
 
+// SetCompanyMember makes the user a member of the company with the given role.
+func SetCompanyMember(t *testing.T, db *repository.DB, companyID, userID string, role model.CompanyRole) {
+	t.Helper()
+	if _, _, err := repository.NewCompanyRepo(db).SetMember(t.Context(), companyID, userID, role); err != nil {
+		t.Fatalf("set company member: %v", err)
+	}
+}
+
 // AddTeamMember adds (or upserts) a user as a team member with the given role.
 func AddTeamMember(t *testing.T, db *repository.DB, teamID, userID string, role model.Role) {
 	t.Helper()

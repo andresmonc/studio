@@ -33,9 +33,8 @@ func seedAuditFixture(t *testing.T, db *repository.DB) auditFixture {
 	companyB := testutil.SeedCompany(t, db, "Globex")
 	member := testutil.SeedUser(t, db, "member@acme.com", "Member", false)
 	admin := testutil.SeedUser(t, db, "admin@acme.com", "Admin", false)
-	companies := repository.NewCompanyRepo(db)
-	require.NoError(t, companies.SetMember(ctx, companyA.ID, member.ID, model.CompanyRoleMember))
-	require.NoError(t, companies.SetMember(ctx, companyA.ID, admin.ID, model.CompanyRoleAdmin))
+	testutil.SetCompanyMember(t, db, companyA.ID, member.ID, model.CompanyRoleMember)
+	testutil.SetCompanyMember(t, db, companyA.ID, admin.ID, model.CompanyRoleAdmin)
 	fx := auditFixture{
 		companyA: companyA.ID,
 		companyB: companyB.ID,

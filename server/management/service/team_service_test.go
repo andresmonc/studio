@@ -14,45 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// auditCount returns the number of audit_log rows with the given action and
-// target type.
-func auditCount(t *testing.T, db *repository.DB, action model.AuditAction, target model.AuditTargetType) int {
-	t.Helper()
-	var n int
-	err := db.Pool.QueryRow(context.Background(),
-		`SELECT COUNT(*) FROM audit_log WHERE action = $1 AND target_type = $2`, action, target).Scan(&n)
-	require.NoError(t, err)
-	return n
-}
-
-// validationFields returns the fields named by a model.ValidationErrors error.
-func validationFields(t *testing.T, err error) []string {
-	t.Helper()
-	var ve model.ValidationErrors
-	require.ErrorAs(t, err, &ve)
-	fields := make([]string, len(ve))
-	for i, e := range ve {
-		fields[i] = e.Field
-	}
-	return fields
-}
-
-// assertLastMemberAudit checks the before/after payloads of the newest
-// team_member audit entry about userID ("" means NULL).
-func assertLastMemberAudit(t *testing.T, db *repository.DB, userID, before, after string) {
-	t.Helper()
-	var gotBefore, gotAfter []byte
-	require.NoError(t, db.Pool.QueryRow(context.Background(), `SELECT before, after FROM audit_log
-		WHERE target_type = 'team_member' AND target_id = $1 ORDER BY id DESC LIMIT 1`, userID).Scan(&gotBefore, &gotAfter))
-	for _, c := range []struct{ want, got string }{{before, string(gotBefore)}, {after, string(gotAfter)}} {
-		if c.want == "" {
-			assert.Empty(t, c.got)
-		} else {
-			assert.JSONEq(t, c.want, c.got)
-		}
-	}
-}
-
 func newTeamService(db *repository.DB) *service.TeamService {
 	return service.NewTeamService(
 		repository.NewTeamRepo(db),
@@ -69,7 +30,7 @@ func TestTeamServiceCreate(t *testing.T) {
 	company := testutil.SeedCompany(t, db, "Acme")
 	actor := testutil.SeedUser(t, db, "actor@acme.com", "Actor", true)
 	admin := testutil.SeedUser(t, db, "admin@acme.com", "Admin", false)
-	require.NoError(t, repository.NewCompanyRepo(db).SetMember(ctx, company.ID, admin.ID, model.CompanyRoleMember))
+	testutil.SetCompanyMember(t, db, company.ID, admin.ID, model.CompanyRoleMember)
 
 	t.Run("happy path creates team, admin membership, two audit rows", func(t *testing.T) {
 		team, err := svc.Create(ctx, actor.ID, company.ID, &model.CreateTeamRequest{
@@ -189,7 +150,7 @@ func TestTeamServiceMembers(t *testing.T) {
 		t.Helper()
 		team := testutil.SeedTeam(t, db, company.ID, t.Name())
 		user := testutil.SeedUser(t, db, strings.ReplaceAll(t.Name(), "/", "-")+"@acme.com", "U", false)
-		require.NoError(t, repository.NewCompanyRepo(db).SetMember(ctx, company.ID, user.ID, model.CompanyRoleMember))
+		testutil.SetCompanyMember(t, db, company.ID, user.ID, model.CompanyRoleMember)
 		return team, user
 	}
 	type counts struct{ add, update, remove int }
@@ -229,7 +190,7 @@ func TestTeamServiceMembers(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, added)
 		assert.Equal(t, counts{before.add, before.update + 1, before.remove}, audited(t))
-		assertLastMemberAudit(t, db, user.ID, `{"role":"viewer"}`, `{"role":"editor"}`)
+		assertLastAudit(t, db, model.AuditTargetTeamMember, user.ID, `{"role":"viewer"}`, `{"role":"editor"}`)
 	})
 
 	t.Run("concurrent adds report one addition", func(t *testing.T) {
@@ -297,7 +258,7 @@ func TestTeamServiceMembers(t *testing.T) {
 		before := audited(t)
 		require.NoError(t, svc.UpdateMember(ctx, actor.ID, team.ID, user.ID, model.RoleAdmin))
 		assert.Equal(t, counts{before.add, before.update + 1, before.remove}, audited(t))
-		assertLastMemberAudit(t, db, user.ID, `{"role":"viewer"}`, `{"role":"admin"}`)
+		assertLastAudit(t, db, model.AuditTargetTeamMember, user.ID, `{"role":"viewer"}`, `{"role":"admin"}`)
 		role, err := svc.Role(ctx, team.ID, user.ID)
 		require.NoError(t, err)
 		assert.Equal(t, model.RoleAdmin, role)
@@ -316,7 +277,7 @@ func TestTeamServiceMembers(t *testing.T) {
 		before := audited(t)
 		require.NoError(t, svc.RemoveMember(ctx, actor.ID, team.ID, user.ID))
 		assert.Equal(t, counts{before.add, before.update, before.remove + 1}, audited(t))
-		assertLastMemberAudit(t, db, user.ID, `{"role":"viewer"}`, "")
+		assertLastAudit(t, db, model.AuditTargetTeamMember, user.ID, `{"role":"viewer"}`, "")
 		assert.ErrorIs(t, svc.RemoveMember(ctx, actor.ID, team.ID, user.ID), service.ErrNotFound)
 	})
 }
@@ -330,8 +291,8 @@ func TestTeamServiceAddableMembers(t *testing.T) {
 
 	onTeam := testutil.SeedUser(t, db, "onteam@acme.com", "OnTeam", false)
 	notOnTeam := testutil.SeedUser(t, db, "free@acme.com", "Free", false)
-	require.NoError(t, repository.NewCompanyRepo(db).SetMember(ctx, company.ID, onTeam.ID, model.CompanyRoleMember))
-	require.NoError(t, repository.NewCompanyRepo(db).SetMember(ctx, company.ID, notOnTeam.ID, model.CompanyRoleMember))
+	testutil.SetCompanyMember(t, db, company.ID, onTeam.ID, model.CompanyRoleMember)
+	testutil.SetCompanyMember(t, db, company.ID, notOnTeam.ID, model.CompanyRoleMember)
 	testutil.AddTeamMember(t, db, team.ID, onTeam.ID, model.RoleViewer)
 
 	t.Run("excludes existing team members", func(t *testing.T) {
@@ -359,8 +320,8 @@ func TestTeamServiceRoleInheritance(t *testing.T) {
 
 	companyAdmin := testutil.SeedUser(t, db, "ca@acme.com", "CA", false)
 	companyMember := testutil.SeedUser(t, db, "cm@acme.com", "CM", false)
-	require.NoError(t, repository.NewCompanyRepo(db).SetMember(ctx, company.ID, companyAdmin.ID, model.CompanyRoleAdmin))
-	require.NoError(t, repository.NewCompanyRepo(db).SetMember(ctx, company.ID, companyMember.ID, model.CompanyRoleMember))
+	testutil.SetCompanyMember(t, db, company.ID, companyAdmin.ID, model.CompanyRoleAdmin)
+	testutil.SetCompanyMember(t, db, company.ID, companyMember.ID, model.CompanyRoleMember)
 
 	t.Run("company admin inherits team admin", func(t *testing.T) {
 		role, err := svc.Role(ctx, team.ID, companyAdmin.ID)
@@ -417,10 +378,11 @@ func TestTeamServiceRemovedFromCompany(t *testing.T) {
 	company := testutil.SeedCompany(t, db, "Acme")
 	team := testutil.SeedTeam(t, db, company.ID, "Platform")
 	user := testutil.SeedUser(t, db, "u@acme.com", "U", false)
-	require.NoError(t, companies.SetMember(ctx, company.ID, user.ID, model.CompanyRoleMember))
+	testutil.SetCompanyMember(t, db, company.ID, user.ID, model.CompanyRoleMember)
 	testutil.AddTeamMember(t, db, team.ID, user.ID, model.RoleEditor)
 
-	require.NoError(t, companies.RemoveMember(ctx, company.ID, user.ID))
+	_, err := companies.RemoveMember(ctx, company.ID, user.ID)
+	require.NoError(t, err)
 
 	role, err := svc.Role(ctx, team.ID, user.ID)
 	require.NoError(t, err)
@@ -442,7 +404,7 @@ func TestTeamServiceListAndMemberships(t *testing.T) {
 	_ = testutil.SeedTeam(t, db, company.ID, "B")
 
 	user := testutil.SeedUser(t, db, "u@acme.com", "U", false)
-	require.NoError(t, repository.NewCompanyRepo(db).SetMember(ctx, company.ID, user.ID, model.CompanyRoleMember))
+	testutil.SetCompanyMember(t, db, company.ID, user.ID, model.CompanyRoleMember)
 	testutil.AddTeamMember(t, db, teamA.ID, user.ID, model.RoleViewer)
 
 	t.Run("super admin lists all teams", func(t *testing.T) {

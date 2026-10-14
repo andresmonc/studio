@@ -2,7 +2,6 @@ package repository_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/gofeatureflag/flag-management-system/server/management/internal/testutil"
@@ -51,9 +50,15 @@ func TestCompanyRepoCRUD(t *testing.T) {
 	_, err = repo.Update(ctx, "00000000-0000-0000-0000-000000000000", new("x"), nil)
 	assert.ErrorIs(t, err, repository.ErrNotFound)
 
-	// Delete
+	// Delete detaches the members first (users.company_id has no ON DELETE).
+	member := testutil.SeedUser(t, db, "m@acme.com", "M", false)
+	testutil.SetCompanyMember(t, db, created.ID, member.ID, model.CompanyRoleAdmin)
 	require.NoError(t, repo.Delete(ctx, created.ID))
+	mem, err := repo.Membership(ctx, member.ID)
+	require.NoError(t, err)
+	assert.Nil(t, mem)
 	assert.ErrorIs(t, repo.Delete(ctx, created.ID), repository.ErrNotFound)
+	assert.ErrorIs(t, repo.Delete(ctx, "not-a-uuid"), repository.ErrNotFound)
 }
 
 func TestCompanyRepoMembership(t *testing.T) {
@@ -65,8 +70,16 @@ func TestCompanyRepoMembership(t *testing.T) {
 	other := testutil.SeedCompany(t, db, "Beta")
 	user := testutil.SeedUser(t, db, "u@acme.com", "U", false)
 
-	// SetMember attaches a user with no company.
-	require.NoError(t, repo.SetMember(ctx, company.ID, user.ID, model.CompanyRoleMember))
+	// SetMember attaches a user with no company and returns the membership.
+	m, prev, err := repo.SetMember(ctx, company.ID, user.ID, model.CompanyRoleMember)
+	require.NoError(t, err)
+	assert.Equal(t, model.CompanyRole(""), prev, "newly added")
+	assert.Equal(t, "u@acme.com", m.Email)
+	assert.Equal(t, model.CompanyRoleMember, m.Role)
+	assert.False(t, m.CreatedAt.IsZero())
+	_, prev, err = repo.SetMember(ctx, company.ID, user.ID, model.CompanyRoleMember)
+	require.NoError(t, err)
+	assert.Equal(t, model.CompanyRoleMember, prev, "already a member")
 
 	mem, err := repo.Membership(ctx, user.ID)
 	require.NoError(t, err)
@@ -75,7 +88,10 @@ func TestCompanyRepoMembership(t *testing.T) {
 	assert.Equal(t, model.CompanyRoleMember, mem.Role)
 
 	// SetMember to a different company conflicts (one company per user).
-	err = repo.SetMember(ctx, other.ID, user.ID, model.CompanyRoleMember)
+	stray := testutil.SeedUser(t, db, "stray@x.com", "S", false)
+	_, _, err = repo.SetMember(ctx, "00000000-0000-0000-0000-000000000000", stray.ID, model.CompanyRoleMember)
+	assert.ErrorIs(t, err, repository.ErrConflictOrNotFound, "unknown company")
+	_, _, err = repo.SetMember(ctx, other.ID, user.ID, model.CompanyRoleMember)
 	assert.ErrorIs(t, err, repository.ErrConflictOrNotFound)
 
 	// ListMembers
@@ -85,13 +101,16 @@ func TestCompanyRepoMembership(t *testing.T) {
 	assert.Equal(t, "u@acme.com", members[0].Email)
 
 	// UpdateMemberRole
-	require.NoError(t, repo.UpdateMemberRole(ctx, company.ID, user.ID, model.CompanyRoleAdmin))
+	_, prev, err = repo.UpdateMemberRole(ctx, company.ID, user.ID, model.CompanyRoleAdmin)
+	require.NoError(t, err)
+	assert.Equal(t, model.CompanyRoleMember, prev)
 	mem, _ = repo.Membership(ctx, user.ID)
 	assert.Equal(t, model.CompanyRoleAdmin, mem.Role)
 
 	// UpdateMemberRole on a non-member -> ErrNotFound
 	stranger := testutil.SeedUser(t, db, "s@x.com", "S", false)
-	assert.ErrorIs(t, repo.UpdateMemberRole(ctx, company.ID, stranger.ID, model.CompanyRoleAdmin), repository.ErrNotFound)
+	_, _, err = repo.UpdateMemberRole(ctx, company.ID, stranger.ID, model.CompanyRoleAdmin)
+	assert.ErrorIs(t, err, repository.ErrNotFound)
 
 	// Team roles: one on the company's team, one on another company's team.
 	var acmeTeam, betaTeam string
@@ -105,7 +124,9 @@ func TestCompanyRepoMembership(t *testing.T) {
 	require.NoError(t, err)
 
 	// RemoveMember drops the company's team roles only.
-	require.NoError(t, repo.RemoveMember(ctx, company.ID, user.ID))
+	prev, err = repo.RemoveMember(ctx, company.ID, user.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.CompanyRoleAdmin, prev)
 	mem, err = repo.Membership(ctx, user.ID)
 	require.NoError(t, err)
 	assert.Nil(t, mem)
@@ -114,7 +135,8 @@ func TestCompanyRepoMembership(t *testing.T) {
 	teamIDs, err := pgx.CollectRows(rows, pgx.RowTo[string])
 	require.NoError(t, err)
 	assert.Equal(t, []string{betaTeam}, teamIDs)
-	assert.True(t, errors.Is(repo.RemoveMember(ctx, company.ID, user.ID), repository.ErrNotFound))
+	_, err = repo.RemoveMember(ctx, company.ID, user.ID)
+	assert.ErrorIs(t, err, repository.ErrNotFound)
 }
 
 func TestCompanyRepoFirst(t *testing.T) {
@@ -155,8 +177,10 @@ func TestCompanyRepoQueryErrors(t *testing.T) {
 	assert.ErrorIs(t, repo.Delete(ctx, id), context.Canceled)
 	_, err = repo.ListMembers(ctx, id)
 	assert.ErrorIs(t, err, context.Canceled)
-	assert.ErrorIs(t, repo.SetMember(ctx, id, id, model.CompanyRoleMember), context.Canceled)
-	assert.ErrorIs(t, repo.RemoveMember(ctx, id, id), context.Canceled)
+	_, _, err = repo.SetMember(ctx, id, id, model.CompanyRoleMember)
+	assert.ErrorIs(t, err, context.Canceled)
+	_, err = repo.RemoveMember(ctx, id, id)
+	assert.ErrorIs(t, err, context.Canceled)
 	_, err = repo.Membership(ctx, id)
 	assert.ErrorIs(t, err, context.Canceled)
 }

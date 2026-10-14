@@ -78,7 +78,7 @@ func TestTeamRepoListVisibility(t *testing.T) {
 	assert.Empty(t, visible)
 
 	// A company member sees only their company's teams.
-	require.NoError(t, repository.NewCompanyRepo(db).SetMember(ctx, company.ID, member.ID, model.CompanyRoleMember))
+	testutil.SetCompanyMember(t, db, company.ID, member.ID, model.CompanyRoleMember)
 	visible, err = repo.List(ctx, member.ID, false)
 	require.NoError(t, err)
 	assert.Len(t, visible, 2)
@@ -96,7 +96,7 @@ func TestTeamRepoMembers(t *testing.T) {
 	company := testutil.SeedCompany(t, db, "Acme")
 	team := testutil.SeedTeam(t, db, company.ID, "Platform")
 	user := testutil.SeedUser(t, db, "u@acme.com", "U", false)
-	require.NoError(t, repository.NewCompanyRepo(db).SetMember(ctx, company.ID, user.ID, model.CompanyRoleMember))
+	testutil.SetCompanyMember(t, db, company.ID, user.ID, model.CompanyRoleMember)
 
 	// No role before joining.
 	role, err := repo.GetRole(ctx, team.ID, user.ID)
@@ -199,7 +199,7 @@ func TestTeamRepoCreateWithAdmin(t *testing.T) {
 	ctx := t.Context()
 	company := testutil.SeedCompany(t, db, "Acme")
 	admin := testutil.SeedUser(t, db, "a@acme.com", "A", false)
-	require.NoError(t, repository.NewCompanyRepo(db).SetMember(ctx, company.ID, admin.ID, model.CompanyRoleMember))
+	testutil.SetCompanyMember(t, db, company.ID, admin.ID, model.CompanyRoleMember)
 	outsider := testutil.SeedUser(t, db, "o@x.com", "O", false)
 	countTeams := func() int {
 		var n int

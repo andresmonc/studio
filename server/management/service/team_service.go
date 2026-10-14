@@ -10,17 +10,9 @@ import (
 	"github.com/gofeatureflag/flag-management-system/server/management/repository"
 )
 
-var (
-	ErrForbidden = errors.New("forbidden")
-	ErrNotFound  = errors.New("not found")
-	ErrConflict  = errors.New("conflict")
-
-	errInvalidRole = model.ValidationError{Field: "role", Message: "invalid role"}
-)
-
-// memberRole is the audit payload of a team member role change.
+// memberRole is the audit payload of a team or company member role change.
 type memberRole struct {
-	Role model.Role `json:"role"`
+	Role string `json:"role"`
 }
 
 type TeamService struct {
@@ -40,7 +32,7 @@ func NewTeamService(
 func (s *TeamService) Create(
 	ctx context.Context, actorID, companyID string, req *model.CreateTeamRequest,
 ) (*model.Team, error) {
-	errs := validateName(&req.Name)
+	errs := validateName(&req.Name, "name")
 	if companyID == "" {
 		errs = append(errs, model.ValidationError{Field: "companyId", Message: "companyId is required"})
 	}
@@ -63,7 +55,7 @@ func (s *TeamService) Create(
 	}
 	t, m, err := s.teams.CreateWithAdmin(ctx, companyID, req.Name, req.Description, admin.ID)
 	if err != nil {
-		return nil, teamWriteError(err)
+		return nil, writeError(err)
 	}
 	_ = s.audit.Record(ctx, nil, repository.AuditInput{
 		ActorUserID: &actorID, CompanyID: &companyID, TeamID: &t.ID,
@@ -74,19 +66,6 @@ func (s *TeamService) Create(
 		Action: model.AuditActionCreate, TargetType: model.AuditTargetTeamMember, TargetID: admin.ID, After: m,
 	})
 	return t, nil
-}
-
-// teamWriteError maps repository errors of a team write to service errors.
-// The admin leaving the company between the check and the write reads as the
-// admin not being found, like the check itself.
-func teamWriteError(err error) error {
-	switch {
-	case errors.Is(err, repository.ErrNotFound), errors.Is(err, repository.ErrConflictOrNotFound):
-		return ErrNotFound
-	case errors.Is(err, repository.ErrTeamNameTaken):
-		return fmt.Errorf("%w: %w", ErrConflict, err)
-	}
-	return err
 }
 
 func (s *TeamService) List(ctx context.Context, userID string, superAdmin bool) ([]model.Team, error) {
@@ -116,13 +95,13 @@ func (s *TeamService) Update(
 		return nil, ErrNotFound
 	}
 	if req.Name != nil {
-		if err := validateName(req.Name); err != nil {
+		if err := validateName(req.Name, "name"); err != nil {
 			return nil, err
 		}
 	}
 	t, err := s.teams.Update(ctx, id, req.Name, req.Description)
 	if err != nil {
-		return nil, teamWriteError(err)
+		return nil, writeError(err)
 	}
 	_ = s.audit.Record(ctx, nil, repository.AuditInput{
 		ActorUserID: &actorID, CompanyID: &t.CompanyID, TeamID: &t.ID,
@@ -195,7 +174,8 @@ func (s *TeamService) AddMember(
 	ctx context.Context, actorID, teamID string, req *model.AddMemberRequest,
 ) (*model.TeamMember, bool, error) {
 	var errs model.ValidationErrors
-	if strings.TrimSpace(req.Email) == "" {
+	req.Email = strings.TrimSpace(req.Email)
+	if req.Email == "" {
 		errs = append(errs, model.ValidationError{Field: "email", Message: "email is required"})
 	}
 	if !req.Role.IsValid() {
@@ -222,7 +202,7 @@ func (s *TeamService) AddMember(
 	}
 	m, prev, err := s.teams.SetMember(ctx, teamID, u.ID, req.Role)
 	if err != nil {
-		return nil, false, teamWriteError(err)
+		return nil, false, writeError(err)
 	}
 	// An add records the member; a role change records the roles on both
 	// sides, the same shape as UpdateMember.
@@ -232,7 +212,7 @@ func (s *TeamService) AddMember(
 	}
 	added := prev == ""
 	if !added {
-		in.Action, in.Before, in.After = model.AuditActionUpdate, memberRole{prev}, memberRole{req.Role}
+		in.Action, in.Before, in.After = model.AuditActionUpdate, memberRole{string(prev)}, memberRole{string(req.Role)}
 	}
 	_ = s.audit.Record(ctx, nil, in)
 	return m, added, nil
@@ -244,12 +224,12 @@ func (s *TeamService) UpdateMember(ctx context.Context, actorID, teamID, userID 
 	}
 	prev, err := s.teams.UpdateMemberRole(ctx, teamID, userID, role)
 	if err != nil {
-		return teamWriteError(err)
+		return writeError(err)
 	}
 	_ = s.audit.Record(ctx, nil, repository.AuditInput{
 		ActorUserID: &actorID, TeamID: &teamID,
 		Action: model.AuditActionUpdate, TargetType: model.AuditTargetTeamMember, TargetID: userID,
-		Before: memberRole{prev}, After: memberRole{role},
+		Before: memberRole{string(prev)}, After: memberRole{string(role)},
 	})
 	return nil
 }
@@ -257,12 +237,12 @@ func (s *TeamService) UpdateMember(ctx context.Context, actorID, teamID, userID 
 func (s *TeamService) RemoveMember(ctx context.Context, actorID, teamID, userID string) error {
 	prev, err := s.teams.RemoveMember(ctx, teamID, userID)
 	if err != nil {
-		return teamWriteError(err)
+		return writeError(err)
 	}
 	_ = s.audit.Record(ctx, nil, repository.AuditInput{
 		ActorUserID: &actorID, TeamID: &teamID,
 		Action: model.AuditActionDelete, TargetType: model.AuditTargetTeamMember, TargetID: userID,
-		Before: memberRole{prev},
+		Before: memberRole{string(prev)},
 	})
 	return nil
 }

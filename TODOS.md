@@ -36,7 +36,6 @@ Left open after the review of `server/management/db/migrations/0001_init.sql`.
 
 - [ ] **Test the migration round-trip and embed it.** The repository tests apply Up through testcontainers, but nothing runs Down and Up again, nothing embeds `db/migrations` for production, and no parity test runs the `InferFlagType` table cases through the generated `flag_versions.flag_type` column (lax jsonpath mode once typed `["a"]` as `string`).
 - [ ] **Document the Postgres 18 minimum.** `uuidv7()` and `VIRTUAL` generated columns need PG 18 and `JSON_EXISTS` needs PG 17; the config accepts any DSN and an older server fails at migration time with an obscure error.
-- [ ] **Clear members before deleting a company.** `users.company_id` has no `ON DELETE` action, because `SET NULL` would leave `company_role` behind and break `users_company_role_pair`. The company delete in the repository has to set both fields to NULL on its members in the same transaction, or the delete fails.
 - [ ] **Add a company join date if the UI shows one.** `CompanyMember.CreatedAt` can only come from `users.created_at`, so "joined" would mean "account created". Add a `company_joined_at` column when a screen needs the real date.
 
 ## Repository
@@ -63,4 +62,5 @@ Left open after the review of the flag and flag version repositories (#24).
 Left open after the review of the team service (#26).
 
 - [ ] **Keep a team admin.** `TeamService.Create` refuses an admin-less team, but `RemoveMember` and `UpdateMember` happily remove or demote the last admin. Company admins still inherit admin, so nobody is locked out; either guard the last explicit admin or drop the "never admin-less" wording.
-- [ ] **Skip audit entries for no-op writes.** Re-adding a member with the same role writes an update entry where before equals after, and `TeamService.Update` with an empty body bumps `updated_at` and writes an entry.
+- [ ] **Skip audit entries for no-op writes.** Re-adding a member with the same role writes an update entry where before equals after, and `TeamService.Update`/`CompanyService.Update` with an empty body bump `updated_at` and write an entry.
+- [ ] **Decide whether a company needs an admin at creation.** `CompanyService.Create` (super admin only) creates a company with no members, so it runs admin-less until the super admin adds one, and `ensureNotLastAdmin` has nothing to protect. Onboarding does create the admin. If every company must have one, take an `adminEmail` like teams and create both in one transaction.
