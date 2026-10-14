@@ -77,3 +77,11 @@ Left open after the review of the auth handler (#39).
 - [ ] **Validate `auth.postLoginRedirect`.** It's operator config, so not an open redirect, but `Validate()` should require a path starting with a single `/` or an absolute http(s) URL, so a typo like `//host` doesn't become a protocol-relative redirect.
 - [ ] **Add `Cache-Control: no-store` and `Referrer-Policy: no-referrer` to the login redirects.** The callback URL carries the one-time code; defence in depth.
 - [ ] **Decide on session revocation.** Logout only clears the cookie: a copied JWT stays valid until `exp` (a deleted user is rejected on the next request). Document it, or add a revocation list or short-lived sessions with refresh.
+
+## Handlers
+
+Left open after the reviews of the company and team handlers (#40, #41).
+
+- [ ] **Complete the Swagger annotations.** The company handler has no `@Produce json`, and several routes don't list the failures the RBAC middleware or `bindError` can return (401/403/404 on reads, 413 on bodies). Generated clients may not parse those responses.
+- [ ] **Test cross-tenant handler calls.** Company `UpdateMember`/`RemoveMember` with a uid from another company, and `AddMember` with another company's user, should answer 404 and leave that user unchanged; only unknown ids are tested today. Same for a malformed uid (400) and a duplicate team name on `CreateTeam` (409).
+- [ ] **Make the `params` test helper reject an odd argument count.** A trailing key without a value is dropped silently, so a test can pass with an empty path param.
