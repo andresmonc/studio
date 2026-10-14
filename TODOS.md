@@ -4,6 +4,7 @@ Things the repo references but doesn't have yet.
 
 - [ ] **Add `CONTRIBUTING.md`.** The checklist in `.github/pull_request_template.md` links to it, so that link is broken today.
 - [ ] **Change how vulnerabilities are reported.** `SECURITY.md` asks people to report vulnerabilities in public issues. Turn on GitHub private vulnerability reporting and point `SECURITY.md` to it.
+- [ ] **Update `AGENTS.md` once Studio has a working version.** It still describes a work in progress: `webui/` is listed as "not created yet" and it says no backward-compat shims are needed. When the API and UI ship, refresh the layout, commands and compatibility rules.
 
 ## Config loader
 
