@@ -50,7 +50,7 @@ func (s *FlagService) Create(
 		if err != nil {
 			return err
 		}
-		if err := saveFlagVersion(ctx, tx, s.flags, s.versions, f, payload, req.Comment, actorID); err != nil {
+		if _, err := saveFlagVersion(ctx, tx, s.flags, s.versions, f, payload, req.Comment, actorID); err != nil {
 			return err
 		}
 		out = f
@@ -71,20 +71,20 @@ func (s *FlagService) Create(
 func saveFlagVersion(
 	ctx context.Context, tx pgx.Tx, flags *repository.FlagRepo, versions *repository.FlagVersionRepo,
 	f *model.Flag, payload json.RawMessage, comment, actorID string,
-) error {
+) (*model.FlagVersion, error) {
 	v, err := versions.Insert(ctx, tx, f.ID, payload, comment, &actorID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	updatedAt, err := flags.UpdateCurrentVersion(ctx, tx, f.ID, v.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := flags.ReplaceFlagTags(ctx, tx, f.ID, model.FlagTagsFromPayload(payload)); err != nil {
-		return err
+		return nil, err
 	}
 	f.CurrentVersionID, f.CurrentVersion, f.Payload, f.UpdatedAt = &v.ID, &v.VersionNumber, v.Payload, updatedAt
-	return nil
+	return v, nil
 }
 
 // liveFlagset returns the flagset, or ErrNotFound when it is missing or deleted.
@@ -190,7 +190,7 @@ func (s *FlagService) Update(
 			return errs
 		}
 		after := *before
-		if err := saveFlagVersion(ctx, tx, s.flags, s.versions, &after, payload, req.Comment, actorID); err != nil {
+		if _, err := saveFlagVersion(ctx, tx, s.flags, s.versions, &after, payload, req.Comment, actorID); err != nil {
 			return err
 		}
 		out = &after

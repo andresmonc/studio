@@ -55,7 +55,6 @@ Left open after the reviews of the DB harness, user repo and team repo.
 
 Left open after the review of the flag and flag version repositories (#24).
 
-- [ ] **Clamp version paging.** `FlagVersionRepo.ListByFlag` takes a raw limit/offset, unlike the other lists that go through `model.ClampPage`: offset -1 returns a raw `2201X` pg error and the limit has no cap. Take page/pageSize and clamp, or clamp in the version service.
 - [ ] **Key flag owners by user id.** `ListByTeam`'s `Owner` filter and `ListTeamOwners` use `users.name`, which isn't unique and defaults to `''`: two users named "Alice" collapse into one owner, and a user with an empty name shows up as owner `""` instead of unassigned. Filter on `fv.created_by` and return `{id, name}` pairs.
 
 ## Services
@@ -63,7 +62,7 @@ Left open after the review of the flag and flag version repositories (#24).
 Left open after the review of the team service (#26).
 
 - [ ] **Keep a team admin.** `TeamService.Create` refuses an admin-less team, but `RemoveMember` and `UpdateMember` happily remove or demote the last admin. Company admins still inherit admin, so nobody is locked out; either guard the last explicit admin or drop the "never admin-less" wording.
-- [ ] **Skip audit entries for no-op writes.** Re-adding a member with the same role writes an update entry where before equals after, and `TeamService.Update`/`CompanyService.Update` with an empty body bump `updated_at` and write an entry.
+- [ ] **Skip audit entries for no-op writes.** Re-adding a member with the same role writes an update entry where before equals after, a rollback to the current version writes a new identical version, and `TeamService.Update`/`CompanyService.Update` with an empty body bump `updated_at` and write an entry.
 - [ ] **Decide whether a company needs an admin at creation.** `CompanyService.Create` (super admin only) creates a company with no members, so it runs admin-less until the super admin adds one, and `ensureNotLastAdmin` has nothing to protect. Onboarding does create the admin. If every company must have one, take an `adminEmail` like teams and create both in one transaction.
 - [ ] **Make member removal stick in mono company mode.** `CompanyService.RemoveMember` clears the user's company, but the next login (`AuthService.Exchange` → `joinDefaultCompany`) re-joins them as a member, so offboarding someone whose IdP account still exists doesn't work. Decide: reject `RemoveMember` in mono mode ("manage access at the IdP"), or record the removal (e.g. a `removed_at` column) and skip those users when auto-joining.
 - [ ] **Decide whether relay-proxy settings can hold secrets.** Flagset audit entries snapshot the whole flagset, so a retriever/notifier config such as `{"kind":"github","token":"ghp_…"}` lands in `audit_log` in clear. The flagset API returns the same settings in full, so either they're never secret (document it), or both the API and the audit snapshot need masking.
