@@ -1,6 +1,9 @@
 package repository_test
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -56,6 +59,60 @@ func TestNewDB(t *testing.T) {
 			assert.Equal(t, cfg.MaxConns, got.MaxConns)
 			assert.Equal(t, cfg.MinConns, got.MinConns)
 			assert.Equal(t, cfg.ConnMaxLifetime, got.MaxConnLifetime)
+		})
+	}
+}
+
+// A malformed id makes Postgres fail the uuid cast (22P02); lookups must report
+// it as not found, not as a server error.
+func TestLookupMalformedIDIsNotFound(t *testing.T) {
+	db := testutil.StartPostgres(t)
+	const bad = "not-a-uuid"
+	// nilOrNotFound folds the two "not found" conventions of the repos: (nil, nil)
+	// and ErrNotFound.
+	nilOrNotFound := func(isNil bool, err error) error {
+		if errors.Is(err, repository.ErrNotFound) || (err == nil && isNil) {
+			return nil
+		}
+		return fmt.Errorf("want not found, got isNil=%v err=%v", isNil, err)
+	}
+
+	tests := []struct {
+		name   string
+		lookup func(ctx context.Context) error
+	}{
+		{"TeamRepo.GetByID", func(ctx context.Context) error {
+			v, err := repository.NewTeamRepo(db).GetByID(ctx, bad)
+			return nilOrNotFound(v == nil, err)
+		}},
+		{"TeamRepo.GetRole", func(ctx context.Context) error {
+			v, err := repository.NewTeamRepo(db).GetRole(ctx, bad, bad)
+			return nilOrNotFound(v == "", err)
+		}},
+		{"CompanyRepo.GetByID", func(ctx context.Context) error {
+			v, err := repository.NewCompanyRepo(db).GetByID(ctx, bad)
+			return nilOrNotFound(v == nil, err)
+		}},
+		{"CompanyRepo.Membership", func(ctx context.Context) error {
+			v, err := repository.NewCompanyRepo(db).Membership(ctx, bad)
+			return nilOrNotFound(v == nil, err)
+		}},
+		{"FlagsetRepo.GetByID", func(ctx context.Context) error {
+			v, err := repository.NewFlagsetRepo(db).GetByID(ctx, bad)
+			return nilOrNotFound(v == nil, err)
+		}},
+		{"FlagRepo.GetByID", func(ctx context.Context) error {
+			v, err := repository.NewFlagRepo(db).GetByID(ctx, bad)
+			return nilOrNotFound(v == nil, err)
+		}},
+		{"FlagRepo.GetFlagsetID", func(ctx context.Context) error {
+			_, err := repository.NewFlagRepo(db).GetFlagsetID(ctx, bad)
+			return nilOrNotFound(false, err)
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.NoError(t, tt.lookup(t.Context()))
 		})
 	}
 }

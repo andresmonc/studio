@@ -109,6 +109,9 @@ func TestFlagsetRepoSoftDelete(t *testing.T) {
 	list, err := repo.ListByTeam(ctx, team.ID)
 	require.NoError(t, err)
 	assert.Empty(t, list)
+	_, err = repo.Update(ctx, fs.ID, &model.UpdateFlagsetRequest{Description: new("x")})
+	assert.ErrorIs(t, err, repository.ErrNotFound)
+	assert.ErrorIs(t, repo.SoftDelete(ctx, fs.ID), repository.ErrNotFound)
 	_, err = repo.Create(ctx, team.ID, &model.CreateFlagsetRequest{Name: "prod"})
 	assert.NoError(t, err, "the name is free again")
 }
