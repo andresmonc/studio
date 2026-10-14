@@ -144,6 +144,37 @@ func (r *CompanyRepo) SetMember(
 		ErrConflictOrNotFound, companyID, role, userID)
 }
 
+// CreateWithAdmin creates a company and makes adminID its admin in one
+// transaction, so a failed assignment leaves no empty company behind. The
+// admin must not belong to any company yet (ErrConflictOrNotFound otherwise).
+func (r *CompanyRepo) CreateWithAdmin(
+	ctx context.Context, displayName, description, adminID string,
+) (*model.Company, *model.CompanyMember, error) {
+	var c model.Company
+	var m model.CompanyMember
+	err := pgx.BeginFunc(ctx, r.db.Pool, func(tx pgx.Tx) error {
+		err := scanCompany(tx.QueryRow(ctx,
+			`INSERT INTO companies (display_name, description) VALUES ($1, $2) RETURNING `+companyCols,
+			displayName, description), &c)
+		if err != nil {
+			return err
+		}
+		err = tx.QueryRow(ctx, `
+			UPDATE users SET company_id = $1, company_role = 'admin', updated_at = NOW()
+			WHERE id = $2 AND company_id IS NULL
+			RETURNING `+companyMemberCols, c.ID, adminID,
+		).Scan(&m.ID, &m.CompanyID, &m.UserID, &m.Email, &m.Name, &m.Role, &m.CreatedAt)
+		if isNoRows(err) {
+			return ErrConflictOrNotFound
+		}
+		return err
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return &c, &m, nil
+}
+
 // UpdateMemberRole sets an existing member's role and returns the previous one.
 func (r *CompanyRepo) UpdateMemberRole(
 	ctx context.Context, companyID, userID string, role model.CompanyRole,

@@ -184,3 +184,40 @@ func TestCompanyRepoQueryErrors(t *testing.T) {
 	_, err = repo.Membership(ctx, id)
 	assert.ErrorIs(t, err, context.Canceled)
 }
+
+func TestCompanyRepoCreateWithAdmin(t *testing.T) {
+	db := testutil.StartPostgres(t)
+	repo := repository.NewCompanyRepo(db)
+	ctx := t.Context()
+	founder := testutil.SeedUser(t, db, "f@acme.com", "F", false)
+	countCompanies := func() int {
+		var n int
+		require.NoError(t, db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM companies`).Scan(&n))
+		return n
+	}
+
+	c, m, err := repo.CreateWithAdmin(ctx, "Acme", "", founder.ID)
+	require.NoError(t, err)
+	assert.Equal(t, c.ID, m.CompanyID)
+	assert.Equal(t, model.CompanyRoleAdmin, m.Role)
+
+	tests := []struct {
+		name    string
+		adminID string
+	}{
+		{"admin already in a company rolls the company back", founder.ID},
+		{"unknown admin rolls the company back", "00000000-0000-0000-0000-000000000000"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := repo.CreateWithAdmin(ctx, "Beta", "", tt.adminID)
+			assert.ErrorIs(t, err, repository.ErrConflictOrNotFound)
+			assert.Equal(t, 1, countCompanies(), "no company left behind")
+		})
+	}
+
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	_, _, err = repo.CreateWithAdmin(cancelled, "Gamma", "", founder.ID)
+	assert.ErrorIs(t, err, context.Canceled)
+}
