@@ -77,3 +77,12 @@ func reqCtxQuery(method, rawQuery string) (*echo.Context, *httptest.ResponseReco
 	rec := httptest.NewRecorder()
 	return e.NewContext(r, rec), rec
 }
+
+// params sets path param name/value pairs on the context.
+func params(c *echo.Context, kv ...string) {
+	pv := make(echo.PathValues, 0, len(kv)/2)
+	for i := 0; i+1 < len(kv); i += 2 {
+		pv = append(pv, echo.PathValue{Name: kv[i], Value: kv[i+1]})
+	}
+	c.SetPathValues(pv)
+}
