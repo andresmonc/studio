@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/gofeatureflag/flag-management-system/server/management/model"
@@ -51,7 +50,7 @@ func (s *TeamService) Create(
 	// A user of another company is reported as not found, like an unknown
 	// email, so callers can't probe which accounts exist in other tenants.
 	if admin == nil || admin.CompanyID == nil || *admin.CompanyID != companyID {
-		return nil, fmt.Errorf("%w: user with email %s not found", ErrNotFound, req.AdminEmail)
+		return nil, newPublicError(ErrNotFound, "user with email "+req.AdminEmail+" not found")
 	}
 	t, m, err := s.teams.CreateWithAdmin(ctx, companyID, req.Name, req.Description, admin.ID)
 	if err != nil {
@@ -198,7 +197,7 @@ func (s *TeamService) AddMember(
 	// User must belong to the team's company. Anyone else is "not found", like
 	// an unknown email, so callers can't probe accounts in other tenants.
 	if u == nil || u.CompanyID == nil || *u.CompanyID != team.CompanyID {
-		return nil, false, fmt.Errorf("%w: user with email %s not found", ErrNotFound, req.Email)
+		return nil, false, newPublicError(ErrNotFound, "user with email "+req.Email+" not found")
 	}
 	m, prev, err := s.teams.SetMember(ctx, teamID, u.ID, req.Role)
 	if err != nil {

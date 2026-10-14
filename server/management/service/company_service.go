@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/gofeatureflag/flag-management-system/server/management/model"
@@ -25,7 +24,7 @@ func NewCompanyService(
 
 // ErrMonoCompanyExists is returned when creating a second company in mono
 // company mode.
-var ErrMonoCompanyExists = fmt.Errorf("%w: a company already exists (mono company mode)", ErrConflict)
+var ErrMonoCompanyExists = newPublicError(ErrConflict, "a company already exists (mono company mode)")
 
 // ensureNoCompany fails with ErrMonoCompanyExists when a company exists.
 // ponytail: check-then-insert, two concurrent first creates can both pass;
@@ -169,7 +168,7 @@ func (s *CompanyService) AddMember(
 	}
 	// A user of another company is reported as not found, like an unknown
 	// email, so callers can't probe which accounts exist in other tenants.
-	notFound := fmt.Errorf("%w: user with email %s not found", ErrNotFound, req.Email)
+	notFound := newPublicError(ErrNotFound, "user with email "+req.Email+" not found")
 	if u == nil || (u.CompanyID != nil && *u.CompanyID != companyID) {
 		return nil, false, notFound
 	}
@@ -219,7 +218,7 @@ func (s *CompanyService) ensureNotLastAdmin(ctx context.Context, companyID, user
 		}
 	}
 	if isAdmin && admins == 1 {
-		return fmt.Errorf("%w: company must keep at least one admin", ErrConflict)
+		return newPublicError(ErrConflict, "company must keep at least one admin")
 	}
 	return nil
 }

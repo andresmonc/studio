@@ -27,6 +27,11 @@ func TestWriteError(t *testing.T) {
 			assert.ErrorIs(t, writeError(tt.in), tt.want)
 		})
 	}
+	taken := writeError(repository.ErrFlagNameTaken)
+	assert.ErrorIs(t, taken, repository.ErrFlagNameTaken, "the cause stays matchable")
+	assert.Equal(t, repository.ErrFlagNameTaken.Error(), PublicMessage(taken))
+	assert.Equal(t, "conflict: "+repository.ErrFlagNameTaken.Error(), taken.Error())
+	assert.Empty(t, PublicMessage(other))
 }
 
 func FuzzValidateName(f *testing.F) {
