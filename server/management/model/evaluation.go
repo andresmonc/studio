@@ -60,12 +60,9 @@ func EvaluateFlag(
 		return nil, fmt.Errorf("parse stored flag payload: %w", err)
 	}
 	internalFlag := dto.Convert()
-	// Mirror production: a flag disabled at the management layer resolves to the
-	// SDK default with reason DISABLED, regardless of the payload's own disable.
-	if disabled {
-		d := true
-		internalFlag.Disable = &d
-	}
+	// Mirror production (the goff_flags view): the management-layer state always
+	// wins over a payload's own disable, both ways.
+	internalFlag.Disable = &disabled
 
 	builder := ffcontext.NewEvaluationContextBuilder(req.EvaluationContext.TargetingKey)
 	for k, v := range req.EvaluationContext.Attributes {

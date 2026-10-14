@@ -81,6 +81,12 @@ func TestEvaluateFlag(t *testing.T) {
 			wantValue:    nil, wantReason: "DISABLED", wantVariation: "SdkDefault", wantType: "boolean",
 		},
 		{
+			name:         "an enabled flag ignores the payload's own disable",
+			payload:      `{"variations": {"on": true, "off": false}, "defaultRule": {"variation": "off"}, "disable": true}`,
+			targetingKey: "user-7",
+			wantValue:    false, wantReason: "STATIC", wantVariation: "off", wantType: "boolean",
+		},
+		{
 			name:      "empty targetingKey still evaluates the default rule",
 			payload:   boolPayload,
 			wantValue: false, wantReason: "DEFAULT", wantVariation: "off", wantType: "boolean",

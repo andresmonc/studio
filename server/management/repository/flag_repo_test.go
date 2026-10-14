@@ -97,13 +97,16 @@ func TestFlagRepoWritesOnDeletedParents(t *testing.T) {
 	t.Run("save a version of a deleted flag", func(t *testing.T) {
 		fs := testutil.SeedFlagset(t, db, team.ID, "prod")
 		flag := testutil.SeedFlag(t, db, fs.ID, "f", nil, nil)
-		require.NoError(t, flags.SoftDelete(ctx, flag.ID))
+		require.NoError(t, flags.SoftDelete(ctx, nil, flag.ID))
 		err := inTx(func(tx pgx.Tx) error {
 			_, err := versions.Insert(ctx, tx, flag.ID, json.RawMessage(testutil.DefaultFlagPayload), "", nil)
 			return err
 		})
 		assert.ErrorIs(t, err, repository.ErrNotFound)
-		err = inTx(func(tx pgx.Tx) error { return flags.UpdateCurrentVersion(ctx, tx, flag.ID, *flag.CurrentVersionID) })
+		err = inTx(func(tx pgx.Tx) error {
+			_, err := flags.UpdateCurrentVersion(ctx, tx, flag.ID, *flag.CurrentVersionID)
+			return err
+		})
 		assert.ErrorIs(t, err, repository.ErrNotFound)
 	})
 }
@@ -120,7 +123,7 @@ func TestFlagRepoListByFlagsetFilters(t *testing.T) {
 	testutil.SeedFlag(t, db, fs.ID, "alpha", nil, nil)
 	beta := testutil.SeedFlag(t, db, fs.ID, "beta", nil, nil)
 	testutil.SeedFlag(t, db, fs.ID, "gamma", nil, nil)
-	require.NoError(t, repo.SetDisabled(ctx, beta.ID, true))
+	require.NoError(t, repo.SetDisabled(ctx, nil, beta.ID, true))
 
 	// No filters: all three, ordered by name.
 	items, total, err := repo.ListByFlagset(ctx, fs.ID, model.FlagFilters{})
@@ -221,19 +224,19 @@ func TestFlagRepoSoftDeleteAndDisable(t *testing.T) {
 	assert.Equal(t, fs.ID, fsID)
 
 	// SetDisabled toggles.
-	require.NoError(t, repo.SetDisabled(ctx, flag.ID, true))
+	require.NoError(t, repo.SetDisabled(ctx, nil, flag.ID, true))
 	got, _ := repo.GetByID(ctx, flag.ID)
 	assert.True(t, got.Disabled)
 
 	// SoftDelete hides the flag from reads.
-	require.NoError(t, repo.SoftDelete(ctx, flag.ID))
+	require.NoError(t, repo.SoftDelete(ctx, nil, flag.ID))
 	got, err = repo.GetByID(ctx, flag.ID)
 	require.NoError(t, err)
 	assert.Nil(t, got, "soft-deleted flag is not returned")
 
 	// Operations on a deleted flag report ErrNotFound.
-	assert.ErrorIs(t, repo.SoftDelete(ctx, flag.ID), repository.ErrNotFound)
-	assert.ErrorIs(t, repo.SetDisabled(ctx, flag.ID, false), repository.ErrNotFound)
+	assert.ErrorIs(t, repo.SoftDelete(ctx, nil, flag.ID), repository.ErrNotFound)
+	assert.ErrorIs(t, repo.SetDisabled(ctx, nil, flag.ID, false), repository.ErrNotFound)
 	_, err = repo.GetFlagsetID(ctx, flag.ID)
 	assert.ErrorIs(t, err, repository.ErrNotFound)
 }
@@ -309,7 +312,7 @@ func TestFlagRepoListTeamTags(t *testing.T) {
 	assert.Equal(t, []string{"Beta", "only-on-deleted", "prod", "staging"}, tags)
 
 	// Soft-deleting the flag drops its exclusive tag and its mirror rows.
-	require.NoError(t, repo.SoftDelete(ctx, fDel.ID))
+	require.NoError(t, repo.SoftDelete(ctx, nil, fDel.ID))
 	assert.Equal(t, 0, countFlagTags(t, db, fDel.ID))
 	tags, err = repo.ListTeamTags(ctx, team.ID)
 	require.NoError(t, err)
@@ -413,7 +416,7 @@ func TestFlagRepoListByTeamFiltersAndPaging(t *testing.T) {
 	testutil.SeedFlag(t, db, prod.ID, "checkout_float", json.RawMessage(payloads["float"]), nil)
 	testutil.SeedFlag(t, db, stg.ID, "json_flag", json.RawMessage(payloads["json"]), &alice.ID)
 	off := testutil.SeedFlag(t, db, stg.ID, "bool_flag", nil, nil)
-	require.NoError(t, repo.SetDisabled(ctx, off.ID, true))
+	require.NoError(t, repo.SetDisabled(ctx, nil, off.ID, true))
 
 	names := func(items []model.FlagInstance) []string {
 		out := make([]string, len(items))
@@ -574,7 +577,8 @@ func TestFlagRepoFlagsetDeleteRacingSave(t *testing.T) {
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
 	v, err := versions.Insert(ctx, tx, flag.ID, json.RawMessage(testutil.DefaultFlagPayload), "", nil)
 	require.NoError(t, err)
-	require.NoError(t, flags.UpdateCurrentVersion(ctx, tx, flag.ID, v.ID))
+	_, err = flags.UpdateCurrentVersion(ctx, tx, flag.ID, v.ID)
+	require.NoError(t, err)
 
 	done := make(chan error, 1)
 	go func() { done <- repository.NewFlagsetRepo(db).SoftDelete(ctx, fs.ID) }()
@@ -608,14 +612,16 @@ func TestFlagRepoQueryErrors(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 	_, err = flags.ListTeamTags(ctx, id)
 	assert.ErrorIs(t, err, context.Canceled)
-	assert.ErrorIs(t, flags.SoftDelete(ctx, id), context.Canceled)
+	assert.ErrorIs(t, flags.SoftDelete(ctx, nil, id), context.Canceled)
 	_, err = flags.GetFlagsetID(ctx, id)
 	assert.ErrorIs(t, err, context.Canceled)
 	_, err = versions.GetByFlagAndNumber(ctx, id, 1)
 	assert.ErrorIs(t, err, context.Canceled)
 	_, _, err = versions.ListByFlag(ctx, id, 10, 0)
 	assert.ErrorIs(t, err, context.Canceled)
-	assert.ErrorIs(t, flags.SoftDelete(t.Context(), "not-a-uuid"), repository.ErrNotFound)
+	assert.ErrorIs(t, flags.SoftDelete(t.Context(), nil, "not-a-uuid"), repository.ErrNotFound)
+	assert.ErrorIs(t, flags.SetDisabled(t.Context(), nil, "not-a-uuid", true), repository.ErrNotFound)
+	assert.ErrorIs(t, flags.SetDisabled(ctx, nil, id, true), context.Canceled)
 
 	// Writes take the caller's tx: a failed statement surfaces its error.
 	tx, err := db.Pool.Begin(t.Context())
@@ -625,8 +631,65 @@ func TestFlagRepoQueryErrors(t *testing.T) {
 	require.Error(t, err)
 	_, err = flags.Create(t.Context(), tx, id, "f")
 	assert.ErrorContains(t, err, "25P02", "aborted tx")
-	assert.ErrorContains(t, flags.UpdateCurrentVersion(t.Context(), tx, id, id), "25P02")
+	_, err = flags.UpdateCurrentVersion(t.Context(), tx, id, id)
+	assert.ErrorContains(t, err, "25P02")
+	assert.ErrorContains(t, flags.SetDisabled(t.Context(), tx, id, true), "25P02")
+	assert.ErrorContains(t, flags.SoftDelete(t.Context(), tx, id), "25P02")
 	assert.ErrorContains(t, flags.ReplaceFlagTags(t.Context(), tx, id, nil), "25P02")
 	_, err = versions.Insert(t.Context(), tx, id, nil, "", nil)
 	assert.ErrorContains(t, err, "25P02")
+}
+
+func TestFlagRepoGetForUpdate(t *testing.T) {
+	db := testutil.StartPostgres(t)
+	repo := repository.NewFlagRepo(db)
+	ctx := t.Context()
+	fs := testutil.SeedFlagset(t, db, testutil.SeedTeam(t, db, testutil.SeedCompany(t, db, "Acme").ID, "P").ID, "prod")
+	live := testutil.SeedFlag(t, db, fs.ID, "live", nil, nil)
+	gone := testutil.SeedFlag(t, db, fs.ID, "gone", nil, nil)
+	require.NoError(t, repo.SoftDelete(ctx, nil, gone.ID))
+
+	tests := []struct {
+		name     string
+		id       string
+		wantFlag bool
+	}{
+		{"live flag with its current version", live.ID, true},
+		{"deleted flag", gone.ID, false},
+		{"unknown flag", "00000000-0000-0000-0000-000000000000", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.NoError(t, pgx.BeginFunc(ctx, db.Pool, func(tx pgx.Tx) error {
+				f, err := repo.GetForUpdate(ctx, tx, tt.id)
+				require.NoError(t, err)
+				if !tt.wantFlag {
+					assert.Nil(t, f)
+					return nil
+				}
+				require.NotNil(t, f)
+				assert.Equal(t, 1, *f.CurrentVersion)
+				assert.JSONEq(t, testutil.DefaultFlagPayload, string(f.Payload))
+				return nil
+			}))
+		})
+	}
+
+	t.Run("malformed id aborts the tx and is reported", func(t *testing.T) {
+		tx, err := db.Pool.Begin(ctx)
+		require.NoError(t, err)
+		defer func() { _ = tx.Rollback(ctx) }()
+		_, err = repo.GetForUpdate(ctx, tx, "abc")
+		assert.ErrorContains(t, err, "22P02")
+	})
+
+	t.Run("aborted tx", func(t *testing.T) {
+		tx, err := db.Pool.Begin(ctx)
+		require.NoError(t, err)
+		defer func() { _ = tx.Rollback(ctx) }()
+		_, err = tx.Exec(ctx, `SELECT 1/0`)
+		require.Error(t, err)
+		_, err = repo.GetForUpdate(ctx, tx, live.ID)
+		assert.ErrorContains(t, err, "25P02")
+	})
 }

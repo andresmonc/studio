@@ -61,8 +61,8 @@ func TestGoffFlagsView(t *testing.T) {
 	testutil.SeedFlag(t, db, fs.ID, "a-enabled", nil, nil)
 	disabled := testutil.SeedFlag(t, db, fs.ID, "b-disabled", []byte(selfEnabling), nil)
 	deleted := testutil.SeedFlag(t, db, fs.ID, "c-deleted", nil, nil)
-	require.NoError(t, flags.SetDisabled(ctx, disabled.ID, true))
-	require.NoError(t, flags.SoftDelete(ctx, deleted.ID))
+	require.NoError(t, flags.SetDisabled(ctx, nil, disabled.ID, true))
+	require.NoError(t, flags.SoftDelete(ctx, nil, deleted.ID))
 
 	// A flag with a newer version than its current one: only the current
 	// (pinned, e.g. after a rollback) version is served.

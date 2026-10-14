@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gofeatureflag/flag-management-system/server/management/model"
 	"github.com/jackc/pgx/v5"
@@ -46,24 +47,44 @@ func (r *FlagRepo) Create(ctx context.Context, tx pgx.Tx, flagsetID, name string
 }
 
 func (r *FlagRepo) GetByID(ctx context.Context, id string) (*model.Flag, error) {
+	return getFlag(ctx, r.db.Pool, id)
+}
+
+// GetForUpdate reads the live flag inside tx and locks its row until tx ends,
+// so a save works from the current version and a concurrent delete or save
+// waits. Returns (nil, nil) when the flag is missing or deleted.
+func (r *FlagRepo) GetForUpdate(ctx context.Context, tx pgx.Tx, id string) (*model.Flag, error) {
+	// Lock first, then read in a second statement: a single SELECT … FOR
+	// UPDATE OF f that waited on the lock would re-check only the flag row and
+	// keep the joined version from its old snapshot (NULL for a version
+	// committed meanwhile).
+	// A malformed id is returned as an error, not as not found: it aborts tx.
+	tag, err := tx.Exec(ctx, `SELECT 1 FROM flags WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, id)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, nil
+	}
+	return getFlag(ctx, tx, id)
+}
+
+func getFlag(ctx context.Context, q queryRower, id string) (*model.Flag, error) {
 	var f model.Flag
-	var payload json.RawMessage
-	var verNum *int
-	err := r.db.Pool.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 		SELECT f.id, f.flagset_id, f.name, f.current_version_id, f.disabled, f.created_at, f.updated_at,
 		       fv.payload, fv.version_number
 		FROM flags f
 		LEFT JOIN flag_versions fv ON fv.id = f.current_version_id
 		WHERE f.id = $1 AND f.deleted_at IS NULL`, id,
-	).Scan(&f.ID, &f.FlagsetID, &f.Name, &f.CurrentVersionID, &f.Disabled, &f.CreatedAt, &f.UpdatedAt, &payload, &verNum)
+	).Scan(&f.ID, &f.FlagsetID, &f.Name, &f.CurrentVersionID, &f.Disabled, &f.CreatedAt, &f.UpdatedAt,
+		&f.Payload, &f.CurrentVersion)
 	if err != nil {
 		if isNoRows(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	f.Payload = payload
-	f.CurrentVersion = verNum
 	return &f, nil
 }
 
@@ -228,18 +249,18 @@ func (r *FlagRepo) ListTeamOwners(ctx context.Context, teamID string) ([]string,
 	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 
-// UpdateCurrentVersion returns ErrNotFound when the flag is deleted, so the
-// caller rolls back instead of saving a version nobody can see.
-func (r *FlagRepo) UpdateCurrentVersion(ctx context.Context, tx pgx.Tx, flagID, versionID string) error {
-	tag, err := tx.Exec(ctx, `UPDATE flags SET current_version_id = $2, updated_at = NOW()
-		WHERE id = $1 AND deleted_at IS NULL`, flagID, versionID)
-	if err != nil {
-		return err
+// UpdateCurrentVersion points the flag at versionID and returns its new
+// updated_at. ErrNotFound when the flag is deleted, so the caller rolls back
+// instead of saving a version nobody can see.
+func (r *FlagRepo) UpdateCurrentVersion(
+	ctx context.Context, tx pgx.Tx, flagID, versionID string,
+) (updatedAt time.Time, err error) {
+	err = tx.QueryRow(ctx, `UPDATE flags SET current_version_id = $2, updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL RETURNING updated_at`, flagID, versionID).Scan(&updatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, ErrNotFound
 	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return updatedAt, err
 }
 
 // ReplaceFlagTags rewrites the flag_tags rows for a flag to exactly the supplied
@@ -273,31 +294,51 @@ func (r *FlagRepo) ListTeamTags(ctx context.Context, teamID string) ([]string, e
 	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 
-func (r *FlagRepo) SetDisabled(ctx context.Context, flagID string, disabled bool) error {
-	return r.db.execOne(ctx,
+// SetDisabled sets the flag's on/off state, inside tx when it is not nil.
+func (r *FlagRepo) SetDisabled(ctx context.Context, tx pgx.Tx, flagID string, disabled bool) error {
+	exec := r.db.Pool.Exec
+	if tx != nil {
+		exec = tx.Exec
+	}
+	tag, err := exec(ctx,
 		`UPDATE flags SET disabled = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, flagID, disabled)
+	if err != nil {
+		if isNoRows(err) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // SoftDelete marks the flag deleted and drops its flag_tags mirror rows in one
-// transaction, so a failure can't leave the flag deleted but report an error.
-// The tags are dropped so the mirror and its index don't accumulate dead rows
-// (reads already filter on deleted_at).
-func (r *FlagRepo) SoftDelete(ctx context.Context, flagID string) error {
-	return pgx.BeginFunc(ctx, r.db.Pool, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx,
-			`UPDATE flags SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, flagID)
-		if err != nil {
-			if isNoRows(err) {
-				return ErrNotFound
-			}
-			return err
-		}
-		if tag.RowsAffected() == 0 {
+// transaction (tx, or its own when tx is nil), so a failure can't leave the
+// flag deleted but report an error. The tags are dropped so the mirror and its
+// index don't accumulate dead rows (reads already filter on deleted_at).
+func (r *FlagRepo) SoftDelete(ctx context.Context, tx pgx.Tx, flagID string) error {
+	if tx == nil {
+		return pgx.BeginFunc(ctx, r.db.Pool, func(tx pgx.Tx) error { return softDeleteFlag(ctx, tx, flagID) })
+	}
+	return softDeleteFlag(ctx, tx, flagID)
+}
+
+func softDeleteFlag(ctx context.Context, tx pgx.Tx, flagID string) error {
+	tag, err := tx.Exec(ctx,
+		`UPDATE flags SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, flagID)
+	if err != nil {
+		if isNoRows(err) {
 			return ErrNotFound
 		}
-		_, err = tx.Exec(ctx, `DELETE FROM flag_tags WHERE flag_id = $1`, flagID)
 		return err
-	})
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM flag_tags WHERE flag_id = $1`, flagID)
+	return err
 }
 
 func (r *FlagRepo) GetFlagsetID(ctx context.Context, flagID string) (string, error) {

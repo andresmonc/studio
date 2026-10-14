@@ -91,7 +91,7 @@ func SeedFlag(
 		if err != nil {
 			return err
 		}
-		if err := flags.UpdateCurrentVersion(ctx, tx, created.ID, v.ID); err != nil {
+		if _, err := flags.UpdateCurrentVersion(ctx, tx, created.ID, v.ID); err != nil {
 			return err
 		}
 		if err := flags.ReplaceFlagTags(ctx, tx, created.ID, model.FlagTagsFromPayload(payload)); err != nil {
