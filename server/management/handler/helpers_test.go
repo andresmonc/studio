@@ -53,6 +53,7 @@ type stack struct {
 	onboardSvc *service.OnboardingService
 	teamSvc    *service.TeamService
 	companySvc *service.CompanyService
+	flagsetSvc *service.FlagsetService
 }
 
 func newStack(t *testing.T) *stack {
@@ -67,6 +68,7 @@ func newStack(t *testing.T) *stack {
 		onboardSvc: service.NewOnboardingService(companyRepo, userRepo, auditRepo, false),
 		teamSvc:    service.NewTeamService(repository.NewTeamRepo(db), userRepo, companyRepo, auditRepo),
 		companySvc: service.NewCompanyService(companyRepo, userRepo, auditRepo, false),
+		flagsetSvc: service.NewFlagsetService(repository.NewFlagsetRepo(db), auditRepo),
 	}
 }
 
