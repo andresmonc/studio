@@ -23,7 +23,7 @@ func writeError(err error) error {
 	switch {
 	case errors.Is(err, repository.ErrNotFound), errors.Is(err, repository.ErrConflictOrNotFound):
 		return ErrNotFound
-	case errors.Is(err, repository.ErrTeamNameTaken):
+	case errors.Is(err, repository.ErrTeamNameTaken), errors.Is(err, repository.ErrFlagsetNameTaken):
 		return fmt.Errorf("%w: %w", ErrConflict, err)
 	}
 	return err

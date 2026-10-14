@@ -162,10 +162,15 @@ func TestFlagsetRepoAPIKeys(t *testing.T) {
 	assert.Equal(t, "U", *keys[0].CreatedByName)
 
 	other := testutil.SeedFlagset(t, db, team.ID, "staging")
-	assert.ErrorIs(t, repo.DeleteAPIKey(ctx, other.ID, key.ID), repository.ErrNotFound,
-		"a key of another flagset is not deleted")
-	require.NoError(t, repo.DeleteAPIKey(ctx, fs.ID, key.ID))
-	assert.ErrorIs(t, repo.DeleteAPIKey(ctx, fs.ID, key.ID), repository.ErrNotFound)
+	_, err = repo.DeleteAPIKey(ctx, other.ID, key.ID)
+	assert.ErrorIs(t, err, repository.ErrNotFound, "a key of another flagset is not deleted")
+	deleted, err := repo.DeleteAPIKey(ctx, fs.ID, key.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "ci", deleted.Label)
+	_, err = repo.DeleteAPIKey(ctx, fs.ID, key.ID)
+	assert.ErrorIs(t, err, repository.ErrNotFound)
+	_, err = repo.DeleteAPIKey(ctx, fs.ID, "abc")
+	assert.ErrorIs(t, err, repository.ErrNotFound, "malformed id")
 }
 
 func TestFlagsetRepoInsertAPIKeyDeletedFlagset(t *testing.T) {
@@ -269,4 +274,28 @@ func TestFlagsetRepoQueryErrors(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 
 	assert.ErrorIs(t, repo.SoftDelete(t.Context(), "not-a-uuid"), repository.ErrNotFound)
+}
+
+func TestFlagsetRepoCreateWithAPIKey(t *testing.T) {
+	db := testutil.StartPostgres(t)
+	repo := repository.NewFlagsetRepo(db)
+	ctx := t.Context()
+	team := testutil.SeedTeam(t, db, testutil.SeedCompany(t, db, "Acme").ID, "Platform")
+	user := testutil.SeedUser(t, db, "u@acme.com", "U", false)
+
+	fs, k, err := repo.CreateWithAPIKey(ctx, team.ID, &model.CreateFlagsetRequest{Name: "prod"}, "default", "k1", user.ID)
+	require.NoError(t, err)
+	assert.Equal(t, fs.ID, k.FlagsetID)
+	assert.Equal(t, 1, fs.APIKeyCount)
+
+	// A key collision (api_key is UNIQUE) fails the key insert: the flagset is
+	// rolled back with it, so its name stays free.
+	_, _, err = repo.CreateWithAPIKey(ctx, team.ID, &model.CreateFlagsetRequest{Name: "staging"}, "default", "k1", user.ID)
+	require.Error(t, err)
+	list, err := repo.ListByTeam(ctx, team.ID)
+	require.NoError(t, err)
+	assert.Len(t, list, 1)
+
+	_, _, err = repo.CreateWithAPIKey(ctx, team.ID, &model.CreateFlagsetRequest{Name: "prod"}, "default", "k2", user.ID)
+	assert.ErrorIs(t, err, repository.ErrFlagsetNameTaken)
 }

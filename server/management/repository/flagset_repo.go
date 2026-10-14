@@ -45,13 +45,42 @@ func mapFlagsetNameTaken(err error) error {
 func (r *FlagsetRepo) Create(
 	ctx context.Context, teamID string, req *model.CreateFlagsetRequest,
 ) (*model.Flagset, error) {
+	return createFlagset(ctx, r.db.Pool, teamID, req)
+}
+
+// CreateWithAPIKey creates the flagset and its first API key in one
+// transaction, so a failed key insert leaves no key-less flagset (whose name
+// would then block a retry).
+func (r *FlagsetRepo) CreateWithAPIKey(
+	ctx context.Context, teamID string, req *model.CreateFlagsetRequest, label, apiKey, createdBy string,
+) (*model.Flagset, *model.FlagsetAPIKey, error) {
+	var fs *model.Flagset
+	var k *model.FlagsetAPIKey
+	err := pgx.BeginFunc(ctx, r.db.Pool, func(tx pgx.Tx) error {
+		var err error
+		if fs, err = createFlagset(ctx, tx, teamID, req); err != nil {
+			return err
+		}
+		k, err = insertAPIKey(ctx, tx, fs.ID, label, apiKey, createdBy)
+		return err
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	fs.APIKeyCount = 1
+	return fs, k, nil
+}
+
+func createFlagset(
+	ctx context.Context, q queryRower, teamID string, req *model.CreateFlagsetRequest,
+) (*model.Flagset, error) {
 	j, err := flagsetJSON(req.Retrievers, req.Exporters, req.Notifiers,
 		req.EvaluationContextEnrichment, req.DefaultTestingEvaluationContext)
 	if err != nil {
 		return nil, err
 	}
 	var fs model.Flagset
-	err = scanFlagset(r.db.Pool.QueryRow(ctx, `
+	err = scanFlagset(q.QueryRow(ctx, `
 		INSERT INTO flagsets (team_id, name, description, polling_interval_ms, file_format, retrievers, exporters,
 		                      notifiers, evaluation_context_enrichment, default_testing_evaluation_context)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
@@ -186,8 +215,14 @@ func (r *FlagsetRepo) SoftDelete(ctx context.Context, id string) error {
 func (r *FlagsetRepo) InsertAPIKey(
 	ctx context.Context, flagsetID, label, apiKey, createdBy string,
 ) (*model.FlagsetAPIKey, error) {
+	return insertAPIKey(ctx, r.db.Pool, flagsetID, label, apiKey, createdBy)
+}
+
+func insertAPIKey(
+	ctx context.Context, q queryRower, flagsetID, label, apiKey, createdBy string,
+) (*model.FlagsetAPIKey, error) {
 	var k model.FlagsetAPIKey
-	err := r.db.Pool.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 		INSERT INTO flagset_api_keys (flagset_id, label, api_key, created_by)
 		SELECT id, $2, $3, $4 FROM flagsets WHERE id = $1 AND deleted_at IS NULL FOR SHARE
 		RETURNING id, flagset_id, label, api_key, created_by, created_at`,
@@ -214,8 +249,18 @@ func (r *FlagsetRepo) ListAPIKeys(ctx context.Context, flagsetID string) ([]mode
 	return pgx.CollectRows(rows, pgx.RowToStructByName[model.FlagsetAPIKey])
 }
 
-// DeleteAPIKey revokes a key of the given flagset. Scoping by flagset means a
+// DeleteAPIKey revokes a key of the given flagset and returns it. Scoping by flagset means a
 // key id from another tenant's flagset is not found rather than deleted.
-func (r *FlagsetRepo) DeleteAPIKey(ctx context.Context, flagsetID, keyID string) error {
-	return r.db.execOne(ctx, `DELETE FROM flagset_api_keys WHERE id = $1 AND flagset_id = $2`, keyID, flagsetID)
+func (r *FlagsetRepo) DeleteAPIKey(ctx context.Context, flagsetID, keyID string) (*model.FlagsetAPIKey, error) {
+	var k model.FlagsetAPIKey
+	err := r.db.Pool.QueryRow(ctx, `DELETE FROM flagset_api_keys WHERE id = $1 AND flagset_id = $2
+		RETURNING id, flagset_id, label, api_key, created_by, created_at`, keyID, flagsetID,
+	).Scan(&k.ID, &k.FlagsetID, &k.Label, &k.APIKey, &k.CreatedBy, &k.CreatedAt)
+	if err != nil {
+		if isNoRows(err) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &k, nil
 }
