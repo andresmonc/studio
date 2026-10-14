@@ -68,3 +68,12 @@ Left open after the review of the team service (#26).
 - [ ] **Decide whether relay-proxy settings can hold secrets.** Flagset audit entries snapshot the whole flagset, so a retriever/notifier config such as `{"kind":"github","token":"ghp_…"}` lands in `audit_log` in clear. The flagset API returns the same settings in full, so either they're never secret (document it), or both the API and the audit snapshot need masking.
 - [ ] **Let a flagset update clear its JSON settings.** `null` for `retrievers`, `exporters`, `notifiers`, `evaluationContextEnrichment` or `defaultTestingEvaluationContext` passes validation but the repo's `COALESCE` keeps the old value, so the client gets 200 and nothing changes. Make them `model.Nullable` like `pollingIntervalMs`/`fileFormat`, or reject `null` on update.
 - [ ] **Resolve a flag's team in one query for RBAC.** `RequireFlagRole`/`RequireFlagsetRole` call `FlagsetService.Get`, whose `flagsetCols` carries three `COUNT(*)` subqueries, only to read `team_id`; every flag request (including the rate-limited `/evaluate`) makes about five round trips before the handler. Add a repo lookup `SELECT fs.team_id FROM flags f JOIN flagsets fs … WHERE … deleted_at IS NULL` (and a flagset-only one).
+
+## Auth
+
+Left open after the review of the auth handler (#39).
+
+- [ ] **Harden the auth cookies against sibling subdomains.** With `auth.cookieDomain` set, a sibling subdomain can plant or overwrite the session cookie (cookie tossing). Host-only deployments could use the `__Host-` prefix (needs `Secure` and no Domain); the one-shot state cookie could use it whenever `cookieSecure` is on.
+- [ ] **Validate `auth.postLoginRedirect`.** It's operator config, so not an open redirect, but `Validate()` should require a path starting with a single `/` or an absolute http(s) URL, so a typo like `//host` doesn't become a protocol-relative redirect.
+- [ ] **Add `Cache-Control: no-store` and `Referrer-Policy: no-referrer` to the login redirects.** The callback URL carries the one-time code; defence in depth.
+- [ ] **Decide on session revocation.** Logout only clears the cookie: a copied JWT stays valid until `exp` (a deleted user is rejected on the next request). Document it, or add a revocation list or short-lived sessions with refresh.

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
@@ -55,15 +54,11 @@ func (s *AuthService) AuthURL(state, verifier, nonce string) string {
 	return s.oauth.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier), oidc.Nonce(nonce))
 }
 
-// RandomState returns a random OAuth state value (24 bytes, base64url). It is
-// too short for a PKCE verifier (RFC 7636 wants 43-128 chars): use
-// oauth2.GenerateVerifier for that.
-func (s *AuthService) RandomState() (string, error) {
-	b := make([]byte, 24)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
+// RandomState returns a random OAuth state or nonce value (crypto/rand.Text:
+// 26 base32 chars, 130 bits; it can't fail and contains no "."). Use
+// oauth2.GenerateVerifier for the PKCE verifier (RFC 7636 wants 43-128 chars).
+func (s *AuthService) RandomState() string {
+	return rand.Text()
 }
 
 type Claims struct {
@@ -81,6 +76,13 @@ func (s *AuthService) isAdminEmail(email string) bool {
 	_, ok := s.adminEmails[strings.ToLower(email)]
 	return ok
 }
+
+// ErrLoginRejected wraps an OIDC login the IdP side refused or got wrong
+// (code, ID token, nonce, email): a client error, unlike a database failure
+// during the same login.
+var ErrLoginRejected = errors.New("login rejected")
+
+func rejected(reason string) error { return fmt.Errorf("%w: %s", ErrLoginRejected, reason) }
 
 // ErrUnauthenticated means the session is invalid, expired, or belongs to a
 // user who no longer exists.
@@ -108,25 +110,27 @@ func (s *AuthService) Authenticate(ctx context.Context, token string) (*Claims, 
 
 // Exchange completes the login: it redeems the code with the PKCE verifier,
 // checks the ID token and its nonce, and upserts the user. verifier and nonce
-// are required; an empty one would silently disable that protection.
+// are required; an empty one would silently disable that protection. A login
+// the IdP side refused or got wrong is ErrLoginRejected; anything else is a
+// server failure.
 func (s *AuthService) Exchange(ctx context.Context, code, verifier, nonce string) (*model.User, string, error) {
 	if verifier == "" || nonce == "" {
-		return nil, "", errors.New("pkce verifier and nonce are required")
+		return nil, "", rejected("pkce verifier and nonce are required")
 	}
 	tok, err := s.oauth.Exchange(ctx, code, oauth2.VerifierOption(verifier))
 	if err != nil {
-		return nil, "", fmt.Errorf("oauth exchange: %w", err)
+		return nil, "", fmt.Errorf("%w: oauth exchange: %w", ErrLoginRejected, err)
 	}
 	rawID, ok := tok.Extra("id_token").(string)
 	if !ok || rawID == "" {
-		return nil, "", errors.New("id_token missing from token response")
+		return nil, "", rejected("id_token missing from token response")
 	}
 	idt, err := s.verifier.Verify(ctx, rawID)
 	if err != nil {
-		return nil, "", fmt.Errorf("verify id_token: %w", err)
+		return nil, "", fmt.Errorf("%w: verify id_token: %w", ErrLoginRejected, err)
 	}
 	if idt.Nonce != nonce {
-		return nil, "", errors.New("id_token nonce mismatch")
+		return nil, "", rejected("id_token nonce mismatch")
 	}
 	var claims struct {
 		Email         string `json:"email"`
@@ -136,22 +140,25 @@ func (s *AuthService) Exchange(ctx context.Context, code, verifier, nonce string
 		Sub           string `json:"sub"`
 	}
 	if err := idt.Claims(&claims); err != nil {
-		return nil, "", fmt.Errorf("decode claims: %w", err)
+		return nil, "", fmt.Errorf("%w: decode claims: %w", ErrLoginRejected, err)
 	}
 	if claims.Email == "" {
-		return nil, "", errors.New("email claim missing")
+		return nil, "", rejected("email claim missing")
 	}
 	// Require an explicit `true` (missing counts as unverified) unless the
 	// operator opted out. `any` because some IdPs (AWS Cognito) send a string.
 	verified := claims.EmailVerified == true || claims.EmailVerified == "true"
 	if !verified && !s.cfg.Auth.AllowUnverifiedEmail {
-		return nil, "", errors.New("email not verified")
+		return nil, "", rejected("email not verified")
 	}
 
 	// Super admin only from a verified email: with AllowUnverifiedEmail, anyone
 	// able to set their email at the IdP could otherwise claim an admin one.
 	u, err := s.users.UpsertFromOIDC(
 		ctx, claims.Email, claims.Name, claims.Picture, claims.Sub, verified && s.isAdminEmail(claims.Email))
+	if errors.Is(err, repository.ErrMissingIdentity) {
+		return nil, "", fmt.Errorf("%w: %w", ErrLoginRejected, err)
+	}
 	if err != nil {
 		return nil, "", err
 	}

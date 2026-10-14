@@ -49,7 +49,10 @@ func withClaims(c *echo.Context, userID string, superAdmin bool) {
 // add the services they need.
 type stack struct {
 	db         *repository.DB
+	userRepo   *repository.UserRepo
 	onboardSvc *service.OnboardingService
+	teamSvc    *service.TeamService
+	companySvc *service.CompanyService
 }
 
 func newStack(t *testing.T) *stack {
@@ -60,6 +63,17 @@ func newStack(t *testing.T) *stack {
 	auditRepo := repository.NewAuditRepo(db)
 	return &stack{
 		db:         db,
+		userRepo:   userRepo,
 		onboardSvc: service.NewOnboardingService(companyRepo, userRepo, auditRepo, false),
+		teamSvc:    service.NewTeamService(repository.NewTeamRepo(db), userRepo, companyRepo, auditRepo),
+		companySvc: service.NewCompanyService(companyRepo, userRepo, auditRepo, false),
 	}
+}
+
+// reqCtxQuery is like reqCtx but lets the caller supply a raw query string.
+func reqCtxQuery(method, rawQuery string) (*echo.Context, *httptest.ResponseRecorder) {
+	e := echo.New()
+	r := httptest.NewRequest(method, "/?"+rawQuery, nil)
+	rec := httptest.NewRecorder()
+	return e.NewContext(r, rec), rec
 }

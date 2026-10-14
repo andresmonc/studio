@@ -19,6 +19,11 @@ func ok(c *echo.Context, data any) error {
 	return c.JSON(http.StatusOK, model.APIResponse{Data: data})
 }
 
+// noContent answers 204 for mutations that have nothing to return.
+func noContent(c *echo.Context) error {
+	return c.NoContent(http.StatusNoContent)
+}
+
 func created(c *echo.Context, data any) error {
 	return c.JSON(http.StatusCreated, model.APIResponse{Data: data})
 }
