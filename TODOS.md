@@ -45,7 +45,6 @@ Left open after the reviews of the DB harness, user repo and team repo.
 
 - [ ] **Narrow `isNoRows`.** It also maps pg 22P02 (invalid input) to "not found", which is right for a malformed uuid in `GetByID` but would hide a bad cast in any other query that reuses it (`TeamRepo.GetRole` now relies on it too). Validate the uuid in the lookups and keep `isNoRows` to `pgx.ErrNoRows`.
 - [ ] **Return `ErrNotFound` from lookups.** `UserRepo.GetByID`/`GetByEmail`, `CompanyRepo.GetByID`/`First`/`Membership` and `TeamRepo.GetByID` return `(nil, nil)` when nothing matches, and `TeamRepo.GetRole` returns `("", nil)`, so every caller must nil-check the result. Change it before the first caller lands.
-- [ ] **Stop `TeamRepo.AddMember` from overwriting roles.** It upserts, so adding an existing admin as viewer silently demotes them. Make it a plain insert that returns a conflict error and leave role changes to `UpdateMemberRole`, or rename it `SetMember` like the company repo if the upsert is intended.
 - [ ] **Map an unknown parent in `TeamRepo.Create` and `FlagsetRepo.Create`.** A `companyID`/`teamID` that doesn't exist hits the foreign key (23503) and comes back as a raw `*pgconn.PgError`; map it to `ErrNotFound` so the handler can return 404 instead of 500. Same for `pollingIntervalMs: 0`, which hits the `polling_interval_ms > 0` CHECK (23514): the flagset handler must validate it (and `fileFormat`) before calling the repo.
 - [ ] **Truncate every table in the test harness.** `allTables` in `internal/testutil/postgres.go` is hard-coded; a new table without a foreign key to it keeps rows between tests. Build the `TRUNCATE` from `pg_tables` (minus `goose_db_version`). The unused `harness.terminate` field goes too, or gets called from a `TestMain` helper for runs with Ryuk disabled.
 - [ ] **Use a params struct for `UpsertFromOIDC`.** Its four positional strings (email, name, avatarURL, sub) let a swapped email and sub compile. Cover `avatarURL`, `LastLoginAt` and `UpdatedAt` in the tests while there.
@@ -58,3 +57,10 @@ Left open after the review of the flag and flag version repositories (#24).
 
 - [ ] **Clamp version paging.** `FlagVersionRepo.ListByFlag` takes a raw limit/offset, unlike the other lists that go through `model.ClampPage`: offset -1 returns a raw `2201X` pg error and the limit has no cap. Take page/pageSize and clamp, or clamp in the version service.
 - [ ] **Key flag owners by user id.** `ListByTeam`'s `Owner` filter and `ListTeamOwners` use `users.name`, which isn't unique and defaults to `''`: two users named "Alice" collapse into one owner, and a user with an empty name shows up as owner `""` instead of unassigned. Filter on `fv.created_by` and return `{id, name}` pairs.
+
+## Services
+
+Left open after the review of the team service (#26).
+
+- [ ] **Keep a team admin.** `TeamService.Create` refuses an admin-less team, but `RemoveMember` and `UpdateMember` happily remove or demote the last admin. Company admins still inherit admin, so nobody is locked out; either guard the last explicit admin or drop the "never admin-less" wording.
+- [ ] **Skip audit entries for no-op writes.** Re-adding a member with the same role writes an update entry where before equals after, and `TeamService.Update` with an empty body bumps `updated_at` and writes an entry.

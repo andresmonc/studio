@@ -43,7 +43,7 @@ func SeedTeam(t *testing.T, db *repository.DB, companyID, name string) *model.Te
 // AddTeamMember adds (or upserts) a user as a team member with the given role.
 func AddTeamMember(t *testing.T, db *repository.DB, teamID, userID string, role model.Role) {
 	t.Helper()
-	if err := repository.NewTeamRepo(db).AddMember(t.Context(), teamID, userID, role); err != nil {
+	if _, _, err := repository.NewTeamRepo(db).SetMember(t.Context(), teamID, userID, role); err != nil {
 		t.Fatalf("add team member: %v", err)
 	}
 }

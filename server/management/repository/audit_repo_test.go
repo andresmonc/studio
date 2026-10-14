@@ -45,7 +45,8 @@ func seedAuditFixture(t *testing.T, db *repository.DB) auditFixture {
 		member:   member.ID,
 		admin:    admin.ID,
 	}
-	require.NoError(t, repository.NewTeamRepo(db).AddMember(ctx, fx.teamA1, fx.member, model.RoleViewer))
+	_, _, err := repository.NewTeamRepo(db).SetMember(ctx, fx.teamA1, fx.member, model.RoleViewer)
+	require.NoError(t, err)
 	return fx
 }
 
