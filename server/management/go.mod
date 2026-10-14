@@ -14,6 +14,7 @@ require (
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/providers/posflag v1.0.1
 	github.com/knadh/koanf/v2 v2.3.4
+	github.com/labstack/echo/v5 v5.4.0
 	github.com/pressly/goose/v3 v3.27.1
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
