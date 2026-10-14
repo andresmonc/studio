@@ -37,3 +37,21 @@ func SeedTeam(t *testing.T, db *repository.DB, companyID, name string) *model.Te
 	}
 	return team
 }
+
+// AddTeamMember adds (or upserts) a user as a team member with the given role.
+func AddTeamMember(t *testing.T, db *repository.DB, teamID, userID string, role model.Role) {
+	t.Helper()
+	if err := repository.NewTeamRepo(db).AddMember(t.Context(), teamID, userID, role); err != nil {
+		t.Fatalf("add team member: %v", err)
+	}
+}
+
+// SeedFlagset inserts a minimal flagset in the given team and returns it.
+func SeedFlagset(t *testing.T, db *repository.DB, teamID, name string) *model.Flagset {
+	t.Helper()
+	fs, err := repository.NewFlagsetRepo(db).Create(t.Context(), teamID, &model.CreateFlagsetRequest{Name: name})
+	if err != nil {
+		t.Fatalf("seed flagset: %v", err)
+	}
+	return fs
+}
