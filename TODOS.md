@@ -51,3 +51,10 @@ Left open after the reviews of the DB harness, user repo and team repo.
 - [ ] **Use a params struct for `UpsertFromOIDC`.** Its four positional strings (email, name, avatarURL, sub) let a swapped email and sub compile. Cover `avatarURL`, `LastLoginAt` and `UpdatedAt` in the tests while there.
 - [ ] **Don't log every audit failure at ERROR.** `AuditRepo.Record` logs `context.Canceled` (client disconnect) and errors the caller already handles, so a caller that logs too gets duplicates and disconnects look like a broken audit pipeline. Skip `errors.Is(err, context.Canceled)` in the log.
 - [ ] **Map malformed audit filter ids to a validation error.** `AuditRepo.List` with `TeamID: "abc"` returns a raw 22P02 `*pgconn.PgError` (and `TestAuditRepoListMalformedFilter` asserts the pg text), so a handler that doesn't validate first answers 500 instead of 400. Validate the uuid filters in the audit handler, or map 22P02 here.
+
+## Flags
+
+Left open after the review of the flag and flag version repositories (#24).
+
+- [ ] **Clamp version paging.** `FlagVersionRepo.ListByFlag` takes a raw limit/offset, unlike the other lists that go through `model.ClampPage`: offset -1 returns a raw `2201X` pg error and the limit has no cap. Take page/pageSize and clamp, or clamp in the version service.
+- [ ] **Key flag owners by user id.** `ListByTeam`'s `Owner` filter and `ListTeamOwners` use `users.name`, which isn't unique and defaults to `''`: two users named "Alice" collapse into one owner, and a user with an empty name shows up as owner `""` instead of unassigned. Filter on `fv.created_by` and return `{id, name}` pairs.

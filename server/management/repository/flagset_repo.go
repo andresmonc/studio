@@ -162,14 +162,16 @@ func (r *FlagsetRepo) SoftDelete(ctx context.Context, id string) error {
 		if tag.RowsAffected() == 0 {
 			return ErrNotFound
 		}
-		// flag_tags only mirrors live flags, so drop the rows of flags about to
-		// be deleted (before the UPDATE, while they still match deleted_at IS NULL).
-		if _, err := tx.Exec(ctx, `DELETE FROM flag_tags
-			WHERE flag_id IN (SELECT id FROM flags WHERE flagset_id = $1 AND deleted_at IS NULL)`, id); err != nil {
+		// Flags before their tags: a flag save locks the flag row and then its
+		// tags, so the same order avoids a deadlock, and the later DELETE sees
+		// the tags a racing save committed. flag_tags only mirrors live flags.
+		rows, _ := tx.Query(ctx, `UPDATE flags SET deleted_at = NOW(), updated_at = NOW()
+			WHERE flagset_id = $1 AND deleted_at IS NULL RETURNING id`, id)
+		flagIDs, err := pgx.CollectRows(rows, pgx.RowTo[string])
+		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE flags SET deleted_at = NOW(), updated_at = NOW()
-			WHERE flagset_id = $1 AND deleted_at IS NULL`, id); err != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM flag_tags WHERE flag_id = ANY($1::uuid[])`, flagIDs); err != nil {
 			return err
 		}
 		_, err = tx.Exec(ctx, `DELETE FROM flagset_api_keys WHERE flagset_id = $1`, id)
