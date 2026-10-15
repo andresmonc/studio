@@ -113,11 +113,12 @@ func (h *FlagsetHandler) Delete(c *echo.Context) error {
 }
 
 // ListAPIKeys godoc
-// @Summary  List API keys for a flagset
+// @Summary  List API keys for a flagset (team admin: the keys are secrets)
 // @Tags     flagsets
 // @Produce  json
 // @Param    id path string true "flagset id"
 // @Success  200 {object} model.APIResponse{data=[]model.FlagsetAPIKey}
+// @Failure  403 {object} model.APIResponse
 // @Router   /flagsets/{id}/api-keys [get]
 func (h *FlagsetHandler) ListAPIKeys(c *echo.Context) error {
 	keys, err := h.svc.ListAPIKeys(c.Request().Context(), c.Param("id"))
