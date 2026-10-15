@@ -171,7 +171,7 @@ func TestAuthHandlerCallback(t *testing.T) {
 	for _, tt := range rejected {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewAuthHandler(cfg, tt.auth, nil, nil, nil)
-			c, rec := reqCtxQuery(http.MethodGet, tt.query)
+			c, rec := reqCtxQuery(tt.query)
 			if tt.cookie != "" {
 				c.Request().AddCookie(&http.Cookie{Name: stateCookie, Value: tt.cookie})
 			}
@@ -193,7 +193,7 @@ func TestAuthHandlerCallback(t *testing.T) {
 			cfg := cfg
 			cfg.Auth.PostLoginRedirect = tt.redirect
 			h := NewAuthHandler(cfg, auth, nil, nil, nil)
-			c, rec := reqCtxQuery(http.MethodGet, "state=abc&code="+code)
+			c, rec := reqCtxQuery("state=abc&code=" + code)
 			c.Request().AddCookie(&http.Cookie{Name: stateCookie, Value: validCookie})
 			require.NoError(t, h.Callback(c))
 

@@ -28,6 +28,11 @@ func created(c *echo.Context, data any) error {
 	return c.JSON(http.StatusCreated, model.APIResponse{Data: data})
 }
 
+// okPage writes a paginated list as the top-level body (no outer envelope).
+func okPage[T any](c *echo.Context, items []T, total, page, pageSize int) error {
+	return c.JSON(http.StatusOK, model.NewPaginatedResponse(items, total, page, pageSize))
+}
+
 // bindError turns a c.Bind failure into a 400 that says what broke: the
 // offset of a JSON syntax error, or the field holding a value of the wrong
 // type. A body over the size limit is a 413. Anything else stays a bare "invalid body".

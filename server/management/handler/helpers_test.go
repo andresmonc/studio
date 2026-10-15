@@ -54,6 +54,8 @@ type stack struct {
 	teamSvc    *service.TeamService
 	companySvc *service.CompanyService
 	flagsetSvc *service.FlagsetService
+	flagSvc    *service.FlagService
+	auditSvc   *service.AuditService
 }
 
 func newStack(t *testing.T) *stack {
@@ -62,20 +64,24 @@ func newStack(t *testing.T) *stack {
 	companyRepo := repository.NewCompanyRepo(db)
 	userRepo := repository.NewUserRepo(db)
 	auditRepo := repository.NewAuditRepo(db)
+	flagsetRepo := repository.NewFlagsetRepo(db)
 	return &stack{
 		db:         db,
 		userRepo:   userRepo,
 		onboardSvc: service.NewOnboardingService(companyRepo, userRepo, auditRepo, false),
 		teamSvc:    service.NewTeamService(repository.NewTeamRepo(db), userRepo, companyRepo, auditRepo),
 		companySvc: service.NewCompanyService(companyRepo, userRepo, auditRepo, false),
-		flagsetSvc: service.NewFlagsetService(repository.NewFlagsetRepo(db), auditRepo),
+		flagsetSvc: service.NewFlagsetService(flagsetRepo, auditRepo),
+		flagSvc: service.NewFlagService(db, repository.NewFlagRepo(db), repository.NewFlagVersionRepo(db),
+			flagsetRepo, auditRepo),
+		auditSvc: service.NewAuditService(auditRepo, companyRepo),
 	}
 }
 
-// reqCtxQuery is like reqCtx but lets the caller supply a raw query string.
-func reqCtxQuery(method, rawQuery string) (*echo.Context, *httptest.ResponseRecorder) {
+// reqCtxQuery builds a GET *echo.Context with the given raw query string.
+func reqCtxQuery(rawQuery string) (*echo.Context, *httptest.ResponseRecorder) {
 	e := echo.New()
-	r := httptest.NewRequest(method, "/?"+rawQuery, nil)
+	r := httptest.NewRequest(http.MethodGet, "/?"+rawQuery, nil)
 	rec := httptest.NewRecorder()
 	return e.NewContext(r, rec), rec
 }
@@ -88,3 +94,5 @@ func params(c *echo.Context, kv ...string) {
 	}
 	c.SetPathValues(pv)
 }
+
+func ptr[T any](v T) *T { return &v }
