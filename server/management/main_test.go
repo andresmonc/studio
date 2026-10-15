@@ -8,11 +8,13 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/gofeatureflag/flag-management-system/server/management/config"
 	"github.com/gofeatureflag/flag-management-system/server/management/internal/testutil"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -145,4 +147,23 @@ func TestRun(t *testing.T) {
 		err = run(t.Context(), []string{"--db.url", dbURL, "--server.port", fmt.Sprint(port)})
 		assert.ErrorContains(t, err, "address already in use")
 	})
+}
+
+// TestSeed keeps scripts/seed.sql loadable as the schema changes.
+func TestSeed(t *testing.T) {
+	db := testutil.StartPostgres(t)
+	seed, err := os.ReadFile("scripts/seed.sql")
+	require.NoError(t, err)
+	// Its own connection: the dump clears search_path for the session.
+	conn, err := pgx.Connect(t.Context(), db.Pool.Config().ConnString())
+	require.NoError(t, err)
+	defer func() { _ = conn.Close(context.Background()) }()
+
+	for range 2 { // idempotent
+		_, err = conn.Exec(t.Context(), string(seed))
+		require.NoError(t, err)
+	}
+	var flags int
+	require.NoError(t, db.Pool.QueryRow(t.Context(), `SELECT COUNT(*) FROM goff_flags`).Scan(&flags))
+	assert.Equal(t, 6, flags, "every seeded flag is served")
 }

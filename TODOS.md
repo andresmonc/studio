@@ -86,3 +86,7 @@ Left open after the reviews of the company and team handlers (#40, #41).
 - [ ] **Test cross-tenant handler calls.** Company `UpdateMember`/`RemoveMember` with a uid from another company, and `AddMember` with another company's user, should answer 404 and leave that user unchanged; only unknown ids are tested today. Same for a malformed uid (400) and a duplicate team name on `CreateTeam` (409).
 - [ ] **Make the `params` test helper reject an odd argument count.** A trailing key without a value is dropped silently, so a test can pass with an empty path param.
 - [ ] **Key the login rate limit on the real client behind a proxy.** `/auth/login` and `/auth/callback` are limited per `RealIP`, which is the socket address without an `IPExtractor`: behind a reverse proxy every client shares one 5 req/s bucket. Configure `e.IPExtractor` for trusted proxies (and document it in the deployment guide).
+
+## Dev scripts
+
+- [ ] **Stop pinning the dev port to 8080.** `.env.example`'s `GOFF_MGMT_OIDC_REDIRECTURL` assumes `goff.local:8080`, so `GOFF_MGMT_SERVER_PORT=9000` breaks the login callback. Derive the redirect URL from the port in `dev.sh` if other ports are needed.

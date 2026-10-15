@@ -1,0 +1,22 @@
+# Local dev infrastructure, started by scripts/dev.sh.
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: goff
+      POSTGRES_PASSWORD: goff
+      POSTGRES_DB: goff_mgmt
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports: ["8180:8080"]
+    volumes: ["./scripts/keycloak-realm.json:/opt/keycloak/data/import/goff-realm.json:ro"]
+
+volumes:
+  pgdata:

@@ -1,0 +1,84 @@
+{
+  "realm": "goff",
+  "enabled": true,
+  "registrationAllowed": false,
+  "users": [
+    {
+      "username": "admin@local",
+      "email": "admin@local.io",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Admin",
+      "lastName": "Local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "user@local",
+      "email": "user@local.io",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "User",
+      "lastName": "Local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "user1@local",
+      "email": "user1@local.io",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "User",
+      "lastName": "Local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user1",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "user2@local",
+      "email": "user2@local.io",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "User",
+      "lastName": "Local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user2",
+          "temporary": false
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "goff-mgmt",
+      "secret": "goff-mgmt-secret",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://goff.local:*"
+      ],
+      "webOrigins": [
+        "+"
+      ]
+    }
+  ]
+}
