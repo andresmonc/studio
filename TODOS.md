@@ -18,8 +18,6 @@ Found while reviewing `server/management/config`, all three still open after `Co
 
 Found while reviewing `server/management/model` after team/company roles (#53).
 
-- [ ] **Enforce the `oneof` role validation.** The `validate:"required,oneof=..."` tags on `AddCompanyMemberRequest`, `UpdateCompanyMemberRequest`, `AddMemberRequest` and `UpdateMemberRequest` do nothing, because nothing wires in `go-playground/validator`. Until the handlers run a validator or call `IsValid()` explicitly, `role: "owner"` is accepted and `AtLeast` (which denies unknown roles) is the only protection.
-- [ ] **Account for the JSON shape changes in API consumers.** `CompanyMember` now serializes `createdAt`, and `UpdateCompanyRequest`/`UpdateTeamRequest` no longer accept `email`/`role` (they moved to the `Add*MemberRequest` structs). Nothing uses these yet, but any client or handler written against the old shapes needs updating.
 - [ ] **Fill two test gaps.** No `AtLeast` test checks that an unknown role (e.g. `Role("owner").AtLeast(RoleViewer)`) is denied. `TestNewMeResponse` doesn't cover a user with `CompanyID` set but `CompanyRole` nil, which would return `company.role: ""`; the `users_company_role_pair` CHECK now rules that state out in the DB, but the Go side still has no test for it.
 - [ ] **Rename `User.Role()`.** It returns a `CompanyRole`, while `Role` is also the name of the team role type, so callers can mix the two up. Something like `CompanyRoleOrEmpty()` is clearer.
 
@@ -28,7 +26,6 @@ Found while reviewing `server/management/model` after team/company roles (#53).
 Left open while reviewing `EvaluateFlag` in `server/management/model/evaluation.go` (#16).
 
 - [ ] **Guard against a nil request.** `EvaluateFlag` reads `req.EvaluationContext` without a nil check, so a nil `*EvaluateFlagRequest` panics. The only caller always passes a request today; add a check (or take the struct by value) if another caller shows up.
-- [ ] **Stop silently ignoring a badly formed enrichment.** If the flagset's `evaluationContextEnrichment` isn't a JSON object, the `json.Unmarshal` error is dropped and the flag is evaluated without enrichment. Flagset validation on the later branch should block this; confirm it does once that lands, or return an error here.
 - [ ] **Test a percentage rule with no targeting key.** Nice to have: it only exercises the core engine's behaviour, not code in this package.
 
 ## Database schema
@@ -44,12 +41,10 @@ Left open after the review of `server/management/db/migrations/0001_init.sql`.
 Left open after the reviews of the DB harness, user repo and team repo.
 
 - [ ] **Narrow `isNoRows`.** It also maps pg 22P02 (invalid input) to "not found", which is right for a malformed uuid in `GetByID` but would hide a bad cast in any other query that reuses it (`TeamRepo.GetRole` now relies on it too). Validate the uuid in the lookups and keep `isNoRows` to `pgx.ErrNoRows`.
-- [ ] **Return `ErrNotFound` from lookups.** `UserRepo.GetByID`/`GetByEmail`, `CompanyRepo.GetByID`/`First`/`Membership` and `TeamRepo.GetByID` return `(nil, nil)` when nothing matches, and `TeamRepo.GetRole` returns `("", nil)`, so every caller must nil-check the result. Change it before the first caller lands.
-- [ ] **Map an unknown parent in `TeamRepo.Create` and `FlagsetRepo.Create`.** A `companyID`/`teamID` that doesn't exist hits the foreign key (23503) and comes back as a raw `*pgconn.PgError`; map it to `ErrNotFound` so the handler can return 404 instead of 500. Same for `pollingIntervalMs: 0`, which hits the `polling_interval_ms > 0` CHECK (23514): the flagset handler must validate it (and `fileFormat`) before calling the repo.
+- [ ] **Return `ErrNotFound` from lookups.** `UserRepo.GetByID`/`GetByEmail`, `CompanyRepo.GetByID`/`First`/`Membership` and `TeamRepo.GetByID` return `(nil, nil)` when nothing matches, and `TeamRepo.GetRole` returns `("", nil)`, so every caller must nil-check the result.
 - [ ] **Truncate every table in the test harness.** `allTables` in `internal/testutil/postgres.go` is hard-coded; a new table without a foreign key to it keeps rows between tests. Build the `TRUNCATE` from `pg_tables` (minus `goose_db_version`). The unused `harness.terminate` field goes too, or gets called from a `TestMain` helper for runs with Ryuk disabled.
 - [ ] **Use a params struct for `UpsertFromOIDC`.** Its four positional strings (email, name, avatarURL, sub) let a swapped email and sub compile. Cover `avatarURL`, `LastLoginAt` and `UpdatedAt` in the tests while there.
 - [ ] **Don't log every audit failure at ERROR.** `AuditRepo.Record` logs `context.Canceled` (client disconnect) and errors the caller already handles, so a caller that logs too gets duplicates and disconnects look like a broken audit pipeline. Skip `errors.Is(err, context.Canceled)` in the log.
-- [ ] **Map malformed audit filter ids to a validation error.** `AuditRepo.List` with `TeamID: "abc"` returns a raw 22P02 `*pgconn.PgError` (and `TestAuditRepoListMalformedFilter` asserts the pg text), so a handler that doesn't validate first answers 500 instead of 400. Validate the uuid filters in the audit handler, or map 22P02 here.
 
 ## Flags
 
