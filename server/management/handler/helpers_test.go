@@ -56,6 +56,7 @@ type stack struct {
 	flagsetSvc *service.FlagsetService
 	flagSvc    *service.FlagService
 	auditSvc   *service.AuditService
+	versionSvc *service.VersionService
 }
 
 func newStack(t *testing.T) *stack {
@@ -75,6 +76,8 @@ func newStack(t *testing.T) *stack {
 		flagSvc: service.NewFlagService(db, repository.NewFlagRepo(db), repository.NewFlagVersionRepo(db),
 			flagsetRepo, auditRepo),
 		auditSvc: service.NewAuditService(auditRepo, companyRepo),
+		versionSvc: service.NewVersionService(db, repository.NewFlagRepo(db), repository.NewFlagVersionRepo(db),
+			flagsetRepo, auditRepo),
 	}
 }
 
