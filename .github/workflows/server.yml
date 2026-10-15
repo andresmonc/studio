@@ -34,6 +34,10 @@ jobs:
       - name: Build
         run: make build
 
+      - name: Swagger up to date
+        working-directory: server/management
+        run: go run github.com/swaggo/swag/cmd/swag@v1.16.6 init && git diff --exit-code -- docs/
+
       - name: Test
         run: make test
 

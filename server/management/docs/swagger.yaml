@@ -1,0 +1,2319 @@
+basePath: /api/v1
+definitions:
+  model.APIResponse:
+    properties:
+      data: {}
+      errors:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      message:
+        type: string
+    type: object
+  model.AddCompanyMemberRequest:
+    properties:
+      email:
+        example: jane@acme.com
+        type: string
+      role:
+        allOf:
+        - $ref: '#/definitions/model.CompanyRole'
+        enum:
+        - admin
+        - member
+        example: member
+    required:
+    - email
+    - role
+    type: object
+  model.AddMemberRequest:
+    properties:
+      email:
+        example: jane@acme.com
+        type: string
+      role:
+        allOf:
+        - $ref: '#/definitions/model.Role'
+        enum:
+        - admin
+        - editor
+        - viewer
+        example: editor
+    required:
+    - email
+    - role
+    type: object
+  model.AuditAction:
+    enum:
+    - create
+    - update
+    - delete
+    - rollback
+    type: string
+    x-enum-varnames:
+    - AuditActionCreate
+    - AuditActionUpdate
+    - AuditActionDelete
+    - AuditActionRollback
+  model.AuditEntry:
+    properties:
+      action:
+        $ref: '#/definitions/model.AuditAction'
+      actorEmail:
+        type: string
+      actorUserId:
+        type: string
+      after:
+        type: object
+      before:
+        type: object
+      companyId:
+        type: string
+      flagId:
+        type: string
+      flagsetId:
+        type: string
+      id:
+        description: |-
+          ID is a bigserial rather than a UUID: audit rows are append-only and
+          ordering by ID matches insertion order.
+        type: integer
+      metadata:
+        type: object
+      occurredAt:
+        type: string
+      targetId:
+        type: string
+      targetType:
+        $ref: '#/definitions/model.AuditTargetType'
+      teamId:
+        type: string
+    type: object
+  model.AuditTargetType:
+    enum:
+    - company
+    - company_member
+    - team
+    - team_member
+    - flagset
+    - api_key
+    - flag
+    type: string
+    x-enum-varnames:
+    - AuditTargetCompany
+    - AuditTargetCompanyMember
+    - AuditTargetTeam
+    - AuditTargetTeamMember
+    - AuditTargetFlagset
+    - AuditTargetAPIKey
+    - AuditTargetFlag
+  model.Company:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      displayName:
+        type: string
+      id:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  model.CompanyMember:
+    properties:
+      companyId:
+        type: string
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        description: = UserID; gives refine a row key
+        type: string
+      name:
+        type: string
+      role:
+        $ref: '#/definitions/model.CompanyRole'
+      userId:
+        type: string
+    type: object
+  model.CompanyMembership:
+    properties:
+      companyDisplayName:
+        type: string
+      companyId:
+        type: string
+      role:
+        $ref: '#/definitions/model.CompanyRole'
+    type: object
+  model.CompanyRole:
+    enum:
+    - admin
+    - member
+    type: string
+    x-enum-varnames:
+    - CompanyRoleAdmin
+    - CompanyRoleMember
+  model.CreateAPIKeyRequest:
+    properties:
+      label:
+        example: relay-proxy-prod
+        type: string
+    required:
+    - label
+    type: object
+  model.CreateCompanyRequest:
+    properties:
+      description:
+        type: string
+      displayName:
+        example: Acme Corp
+        type: string
+    required:
+    - displayName
+    type: object
+  model.CreateFlagRequest:
+    properties:
+      comment:
+        example: initial rollout
+        type: string
+      name:
+        example: new-checkout
+        type: string
+      payload:
+        type: object
+    required:
+    - name
+    - payload
+    type: object
+  model.CreateFlagsetRequest:
+    properties:
+      defaultTestingEvaluationContext:
+        type: object
+      description:
+        type: string
+      evaluationContextEnrichment:
+        type: object
+      exporters:
+        type: object
+      fileFormat:
+        allOf:
+        - $ref: '#/definitions/model.FileFormat'
+        enum:
+        - yaml
+        - json
+        - toml
+        example: yaml
+      name:
+        example: production
+        type: string
+      notifiers:
+        type: object
+      pollingIntervalMs:
+        example: 60000
+        type: integer
+      retrievers:
+        type: object
+    required:
+    - name
+    type: object
+  model.CreateTeamRequest:
+    properties:
+      adminEmail:
+        example: jane@acme.com
+        type: string
+      description:
+        type: string
+      name:
+        example: Payments
+        type: string
+    required:
+    - adminEmail
+    - name
+    type: object
+  model.DisableFlagRequest:
+    properties:
+      disabled:
+        description: Pointer so a missing field is rejected instead of silently enabling
+          the flag.
+        example: true
+        type: boolean
+    required:
+    - disabled
+    type: object
+  model.EvaluateFlagRequest:
+    properties:
+      evaluationContext:
+        $ref: '#/definitions/model.EvaluationContextInput'
+    type: object
+  model.EvaluationContextInput:
+    properties:
+      attributes:
+        additionalProperties: {}
+        type: object
+      targetingKey:
+        type: string
+    type: object
+  model.EvaluationResult:
+    properties:
+      cacheable:
+        type: boolean
+      errorCode:
+        type: string
+      errorDetails:
+        type: string
+      failed:
+        type: boolean
+      flagType:
+        type: string
+      metadata:
+        additionalProperties: {}
+        type: object
+      reason:
+        type: string
+      trackEvents:
+        type: boolean
+      value: {}
+      variationType:
+        type: string
+      version:
+        type: string
+    type: object
+  model.FileFormat:
+    enum:
+    - yaml
+    - json
+    - toml
+    type: string
+    x-enum-varnames:
+    - FileFormatYAML
+    - FileFormatJSON
+    - FileFormatTOML
+  model.Flag:
+    properties:
+      createdAt:
+        type: string
+      currentVersion:
+        type: integer
+      currentVersionId:
+        type: string
+      disabled:
+        description: |-
+          Disabled is the source of truth for the flag's on/off state; payloads may
+          not set a top-level disable (see ValidateFlagPayload).
+        type: boolean
+      flagsetId:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      payload:
+        type: object
+      updatedAt:
+        type: string
+    type: object
+  model.FlagInstance:
+    properties:
+      currentVersion:
+        type: integer
+      disabled:
+        type: boolean
+      distribution:
+        additionalProperties:
+          format: float64
+          type: number
+        description: |-
+          Distribution is the default rule's served split (variation name → percent)
+          summarized for the list; a single served variation reads as {name: 100}.
+        type: object
+      flagsetId:
+        type: string
+      flagsetName:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      owner:
+        type: string
+      progressiveRollout:
+        allOf:
+        - $ref: '#/definitions/model.ProgressiveSummary'
+        description: |-
+          Progressive is set only when the default rule is a progressive rollout; the
+          list renders it as a rocket + initial→end indicator instead of a bar.
+      tags:
+        description: |-
+          Tags are the flag's user-authored labels (from payload.metadata.tags), used
+          by the webui to render tag chips and filter the list.
+        items:
+          type: string
+        type: array
+      targetingRuleCount:
+        description: |-
+          TargetingRuleCount is the number of targeting rules on the flag (0 means the
+          flag serves its default rule only).
+        type: integer
+      type:
+        type: string
+      updatedAt:
+        type: string
+      variations:
+        description: |-
+          Variations are the flag's variation names in payload document order; the
+          webui colors the distribution bar by each name's index in this list.
+        items:
+          type: string
+        type: array
+    type: object
+  model.FlagListItem:
+    properties:
+      currentVersion:
+        type: integer
+      disabled:
+        type: boolean
+      flagsetId:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  model.FlagVersion:
+    properties:
+      comment:
+        type: string
+      createdAt:
+        type: string
+      createdBy:
+        type: string
+      createdByName:
+        type: string
+      flagId:
+        type: string
+      id:
+        type: string
+      payload:
+        type: object
+      versionNumber:
+        type: integer
+    type: object
+  model.Flagset:
+    properties:
+      apiKeyCount:
+        description: |-
+          APIKeyCount, FlagCount and EnabledFlagCount are computed by the query;
+          their db tags name the SELECT aliases.
+        type: integer
+      createdAt:
+        type: string
+      defaultTestingEvaluationContext:
+        description: |-
+          DefaultTestingEvaluationContext is the evaluation context proposed by
+          default in the UI's flag test/evaluate panel for flags in this flagset.
+        type: object
+      description:
+        type: string
+      enabledFlagCount:
+        type: integer
+      evaluationContextEnrichment:
+        description: |-
+          EvaluationContextEnrichment is a free-form object merged into every
+          evaluation context for flags in this flagset (enrichment value wins on
+          key collision).
+        type: object
+      exporters:
+        type: object
+      fileFormat:
+        $ref: '#/definitions/model.FileFormat'
+      flagCount:
+        type: integer
+      id:
+        type: string
+      name:
+        type: string
+      notifiers:
+        type: object
+      pollingIntervalMs:
+        type: integer
+      retrievers:
+        type: object
+      teamId:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  model.FlagsetAPIKey:
+    properties:
+      apiKey:
+        type: string
+      createdAt:
+        type: string
+      createdBy:
+        type: string
+      createdByName:
+        description: CreatedByName is joined from users; nil once the creator is deleted.
+        type: string
+      flagsetId:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+    type: object
+  model.MeResponse:
+    properties:
+      company:
+        $ref: '#/definitions/model.CompanyMembership'
+      membership:
+        items:
+          $ref: '#/definitions/model.TeamMembership'
+        type: array
+      user:
+        $ref: '#/definitions/model.User'
+    type: object
+  model.PaginatedResponse-model_AuditEntry:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.AuditEntry'
+        type: array
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+      totalPages:
+        type: integer
+    type: object
+  model.PaginatedResponse-model_FlagInstance:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.FlagInstance'
+        type: array
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+      totalPages:
+        type: integer
+    type: object
+  model.PaginatedResponse-model_FlagListItem:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.FlagListItem'
+        type: array
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+      totalPages:
+        type: integer
+    type: object
+  model.PaginatedResponse-model_FlagVersion:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.FlagVersion'
+        type: array
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+      totalPages:
+        type: integer
+    type: object
+  model.ProgressiveSummary:
+    properties:
+      endVariation:
+        type: string
+      from:
+        type: number
+      initialVariation:
+        type: string
+      to:
+        type: number
+    type: object
+  model.Role:
+    enum:
+    - admin
+    - editor
+    - viewer
+    type: string
+    x-enum-varnames:
+    - RoleAdmin
+    - RoleEditor
+    - RoleViewer
+  model.RollbackRequest:
+    properties:
+      comment:
+        type: string
+    type: object
+  model.Team:
+    properties:
+      companyId:
+        type: string
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  model.TeamMember:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        description: = UserID; gives refine a row key
+        type: string
+      name:
+        type: string
+      role:
+        $ref: '#/definitions/model.Role'
+      teamId:
+        type: string
+      userId:
+        type: string
+    type: object
+  model.TeamMembership:
+    properties:
+      role:
+        $ref: '#/definitions/model.Role'
+      teamId:
+        type: string
+      teamName:
+        type: string
+    type: object
+  model.UIConfig:
+    properties:
+      monoCompany:
+        type: boolean
+    type: object
+  model.UpdateCompanyMemberRequest:
+    properties:
+      role:
+        allOf:
+        - $ref: '#/definitions/model.CompanyRole'
+        enum:
+        - admin
+        - member
+        example: admin
+    required:
+    - role
+    type: object
+  model.UpdateCompanyRequest:
+    properties:
+      description:
+        type: string
+      displayName:
+        type: string
+    type: object
+  model.UpdateFlagRequest:
+    properties:
+      comment:
+        example: raise rollout to 50%
+        type: string
+      payload:
+        type: object
+    required:
+    - payload
+    type: object
+  model.UpdateFlagsetRequest:
+    properties:
+      defaultTestingEvaluationContext:
+        type: object
+      description:
+        type: string
+      evaluationContextEnrichment:
+        type: object
+      exporters:
+        type: object
+      fileFormat:
+        enum:
+        - yaml
+        - json
+        - toml
+        example: yaml
+        type: string
+      name:
+        type: string
+      notifiers:
+        type: object
+      pollingIntervalMs:
+        example: 60000
+        type: integer
+      retrievers:
+        type: object
+    type: object
+  model.UpdateMemberRequest:
+    properties:
+      role:
+        allOf:
+        - $ref: '#/definitions/model.Role'
+        enum:
+        - admin
+        - editor
+        - viewer
+        example: viewer
+    required:
+    - role
+    type: object
+  model.UpdateTeamRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    type: object
+  model.User:
+    properties:
+      avatar:
+        type: string
+      companyId:
+        description: CompanyID and CompanyRole are both set or both nil; read the
+          role via Role().
+        type: string
+      companyRole:
+        $ref: '#/definitions/model.CompanyRole'
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      isSuperAdmin:
+        type: boolean
+      lastLoginAt:
+        type: string
+      name:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: |-
+    Source-of-truth API for managing GO Feature Flag flagsets, flags, teams, and audit history.
+    Every route except GET /config and POST /auth/logout requires the HttpOnly `goff_mgmt_session`
+    session cookie set by the OIDC login (GET /auth/login, outside this base path;
+    see docs/reference/api.md)
+    and answers 401 without it. Errors use the `{message, errors?}` envelope (model.APIResponse).
+  title: GO Feature Flag Management API
+  version: 0.1.0
+paths:
+  /audit:
+    get:
+      parameters:
+      - description: filter by company id (narrows; another company's id yields nothing)
+        in: query
+        name: companyId
+        type: string
+      - description: filter by team id
+        in: query
+        name: teamId
+        type: string
+      - description: filter by flagset id
+        in: query
+        name: flagsetId
+        type: string
+      - description: filter by flag id
+        in: query
+        name: flagId
+        type: string
+      - description: filter by actor user id
+        in: query
+        name: actorId
+        type: string
+      - description: filter by action
+        enum:
+        - create
+        - update
+        - delete
+        - rollback
+        in: query
+        name: action
+        type: string
+      - description: RFC3339 lower bound, inclusive (e.g. 2026-10-01T00:00:00Z)
+        format: date-time
+        in: query
+        name: from
+        type: string
+      - description: RFC3339 upper bound, inclusive (e.g. 2026-10-31T23:59:59Z)
+        format: date-time
+        in: query
+        name: to
+        type: string
+      - default: 1
+        description: page
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 50
+        description: items per page
+        in: query
+        maximum: 200
+        minimum: 1
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.PaginatedResponse-model_AuditEntry'
+        "400":
+          description: bad from/to, page/pageSize or action
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: List audit log entries with filters
+      tags:
+      - audit
+  /auth/logout:
+    post:
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      summary: Logout (clears the session cookie; no session required)
+      tags:
+      - auth
+  /auth/me:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.MeResponse'
+              type: object
+      summary: Get current user + memberships
+      tags:
+      - auth
+  /companies:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Company'
+                  type: array
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: List all companies (super admin only)
+      tags:
+      - companies
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: company
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateCompanyRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Company'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "409":
+          description: a company already exists (mono company mode)
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Create a company (super admin only)
+      tags:
+      - companies
+  /companies/{companyId}:
+    delete:
+      parameters:
+      - description: company id
+        in: path
+        name: companyId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Delete a company (super admin only; cascades to its teams, flagsets,
+        flags, versions and API keys)
+      tags:
+      - companies
+    get:
+      parameters:
+      - description: company id
+        in: path
+        name: companyId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Company'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Get company
+      tags:
+      - companies
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: company id
+        in: path
+        name: companyId
+        required: true
+        type: string
+      - description: fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateCompanyRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Company'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Update a company (company admin)
+      tags:
+      - companies
+  /companies/{companyId}/members:
+    get:
+      parameters:
+      - description: company id
+        in: path
+        name: companyId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.CompanyMember'
+                  type: array
+              type: object
+      summary: List company members
+      tags:
+      - companies
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: company id
+        in: path
+        name: companyId
+        required: true
+        type: string
+      - description: member to add
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.AddCompanyMemberRequest'
+      responses:
+        "200":
+          description: 'existing member: role updated'
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.CompanyMember'
+              type: object
+        "201":
+          description: member added
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.CompanyMember'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: no user with this email (users of other companies included)
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "409":
+          description: demoting the last company admin
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Add a member to a company, or set the role of an existing member (company
+        admin)
+      tags:
+      - companies
+  /companies/{companyId}/members/{uid}:
+    delete:
+      parameters:
+      - description: company id
+        in: path
+        name: companyId
+        required: true
+        type: string
+      - description: user id
+        in: path
+        name: uid
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: malformed id
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "409":
+          description: removing the last company admin
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Remove a member from a company (company admin; also drops their team
+        roles there)
+      tags:
+      - companies
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: company id
+        in: path
+        name: companyId
+        required: true
+        type: string
+      - description: user id
+        in: path
+        name: uid
+        required: true
+        type: string
+      - description: new role
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateCompanyMemberRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "409":
+          description: demoting the last company admin
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Update a company member's role (company admin)
+      tags:
+      - companies
+  /companies/{companyId}/teams:
+    get:
+      parameters:
+      - description: company id
+        in: path
+        name: companyId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Team'
+                  type: array
+              type: object
+      summary: List teams in a company
+      tags:
+      - companies
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: company id
+        in: path
+        name: companyId
+        required: true
+        type: string
+      - description: team
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateTeamRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Team'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: insufficient role
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: no user with the admin email in the company
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "409":
+          description: team name already used in the company
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Create a team in a company (company admin)
+      tags:
+      - companies
+  /config:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.UIConfig'
+              type: object
+      summary: Public UI configuration (no auth, read before login)
+      tags:
+      - config
+  /flags/{id}:
+    delete:
+      parameters:
+      - description: flag id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Soft-delete a flag (team editor; audited; versions remain)
+      tags:
+      - flags
+    get:
+      parameters:
+      - description: flag id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Flag'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Get a flag with its current version payload
+      tags:
+      - flags
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: flag id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: new payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateFlagRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Flag'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Replace flag payload (team editor; creates a new version)
+      tags:
+      - flags
+  /flags/{id}/disable:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Sets the flag to the `disabled` value of the body, which is required:
+        `{"disabled": true}` disables it, `{"disabled": false}` re-enables it.
+      parameters:
+      - description: flag id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: disabled state
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.DisableFlagRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: invalid body, or disabled missing
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Set the disabled state of a flag (team editor; no new version)
+      tags:
+      - flags
+  /flags/{id}/evaluate:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Runs the go-feature-flag evaluation engine against the flag's
+        current payload and the supplied evaluation context, returning the
+        resolved value and the reason. Read-only (does not record events).
+      parameters:
+      - description: flag id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: evaluation context
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.EvaluateFlagRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.EvaluationResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Test-evaluate a flag against an evaluation context
+      tags:
+      - flags
+  /flags/{id}/versions:
+    get:
+      parameters:
+      - description: flag id
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 1
+        description: page
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 50
+        description: items per page
+        in: query
+        maximum: 200
+        minimum: 1
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.PaginatedResponse-model_FlagVersion'
+        "400":
+          description: page/pageSize is not an integer
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: unknown or deleted flag
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: List versions of a flag
+      tags:
+      - versions
+  /flags/{id}/versions/{n}:
+    get:
+      parameters:
+      - description: flag id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: version number
+        in: path
+        name: "n"
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.FlagVersion'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Get a specific flag version
+      tags:
+      - versions
+  /flags/{id}/versions/{n}/rollback:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: flag id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: version number to roll back to
+        in: path
+        name: "n"
+        required: true
+        type: integer
+      - description: optional comment
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/model.RollbackRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.FlagVersion'
+              type: object
+        "400":
+          description: invalid version number or body
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Roll back to a previous version (team editor; creates a new current
+        version)
+      tags:
+      - versions
+  /flagsets/{flagsetId}/flags:
+    get:
+      parameters:
+      - description: flagset id
+        in: path
+        name: flagsetId
+        required: true
+        type: string
+      - description: name contains filter
+        in: query
+        name: name
+        type: string
+      - description: filter disabled flags
+        in: query
+        name: disabled
+        type: boolean
+      - default: 1
+        description: page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 50
+        description: items per page
+        in: query
+        maximum: 200
+        minimum: 1
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.PaginatedResponse-model_FlagListItem'
+        "400":
+          description: disabled is not a boolean, or page/pageSize is not an integer
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: List flags of a flagset
+      tags:
+      - flags
+    post:
+      consumes:
+      - application/json
+      description: |-
+        The server auto-manages a `metadata.flagType` field with the flag's
+        OpenFeature type (boolean|string|integer|float|object), so the
+        exported configuration is consumable by the OpenFeature CLI.
+      parameters:
+      - description: flagset id
+        in: path
+        name: flagsetId
+        required: true
+        type: string
+      - description: flag payload (GOFF DTO)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateFlagRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Flag'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "409":
+          description: flag name already used in the flagset
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Create a flag in a flagset (team editor; creates version 1)
+      tags:
+      - flags
+  /flagsets/{id}:
+    delete:
+      parameters:
+      - description: flagset id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Delete a flagset (team admin; cascades to its flags, versions and API
+        keys)
+      tags:
+      - flagsets
+    get:
+      parameters:
+      - description: flagset id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Flagset'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Get a flagset
+      tags:
+      - flagsets
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: flagset id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateFlagsetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Flagset'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "409":
+          description: flagset name already used in the team
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Update a flagset (team admin)
+      tags:
+      - flagsets
+  /flagsets/{id}/api-keys:
+    get:
+      parameters:
+      - description: flagset id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.FlagsetAPIKey'
+                  type: array
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: 'List API keys for a flagset (team admin: the keys are secrets)'
+      tags:
+      - flagsets
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: flagset id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: key label
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateAPIKeyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.FlagsetAPIKey'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Create a new API key for a flagset (team admin)
+      tags:
+      - flagsets
+  /flagsets/{id}/api-keys/{keyId}:
+    delete:
+      parameters:
+      - description: flagset id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: key id
+        in: path
+        name: keyId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Revoke a flagset API key by id (team admin)
+      tags:
+      - flagsets
+  /onboarding/company:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: company
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateCompanyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Company'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: already in a company (or, in mono company mode, not a super
+            admin)
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: the session's user no longer exists
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "409":
+          description: a company already exists (mono company mode)
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Create a company during onboarding (user without a company)
+      tags:
+      - onboarding
+  /teams:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Team'
+                  type: array
+              type: object
+      summary: List teams visible to the user
+      tags:
+      - teams
+  /teams/{id}:
+    delete:
+      parameters:
+      - description: team id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Delete a team (team admin; cascades to its flagsets, flags, versions
+        and API keys)
+      tags:
+      - teams
+    get:
+      parameters:
+      - description: team id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Team'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Get team
+      tags:
+      - teams
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: team id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateTeamRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Team'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "409":
+          description: team name already used in the company
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Update a team (team admin)
+      tags:
+      - teams
+  /teams/{id}/addable-members:
+    get:
+      parameters:
+      - description: team id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.CompanyMember'
+                  type: array
+              type: object
+      summary: List company members that can be added to the team
+      tags:
+      - teams
+  /teams/{id}/members:
+    get:
+      parameters:
+      - description: team id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.TeamMember'
+                  type: array
+              type: object
+      summary: List team members
+      tags:
+      - teams
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: team id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: member to add
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.AddMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'existing member: role updated'
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.TeamMember'
+              type: object
+        "201":
+          description: member added
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.TeamMember'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: insufficient role
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: no user with this email in the team's company
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Add a member to a team, or set the role of an existing member (team
+        admin)
+      tags:
+      - teams
+  /teams/{id}/members/{uid}:
+    delete:
+      parameters:
+      - description: team id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: user id
+        in: path
+        name: uid
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: malformed id
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Remove a member from a team (team admin)
+      tags:
+      - teams
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: team id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: user id
+        in: path
+        name: uid
+        required: true
+        type: string
+      - description: new role
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Update a team member's role (team admin)
+      tags:
+      - teams
+  /teams/{teamId}/flags:
+    get:
+      parameters:
+      - description: team id
+        in: path
+        name: teamId
+        required: true
+        type: string
+      - description: comma-separated tags, all required (AND)
+        example: beta,checkout
+        in: query
+        name: tags
+        type: string
+      - description: name contains filter (case-insensitive)
+        in: query
+        name: name
+        type: string
+      - description: only flags of this flagset
+        in: query
+        name: flagsetId
+        type: string
+      - description: flag type
+        enum:
+        - boolean
+        - string
+        - int
+        - float
+        - json
+        in: query
+        name: type
+        type: string
+      - description: current version author name; __unassigned__ for flags without
+          one
+        in: query
+        name: owner
+        type: string
+      - description: filter disabled flags
+        in: query
+        name: disabled
+        type: boolean
+      - default: updated
+        description: sort field
+        enum:
+        - updated
+        - name
+        - state
+        in: query
+        name: sort
+        type: string
+      - description: sort direction; defaults to desc for updated, asc otherwise
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      - default: 1
+        description: page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 50
+        description: items per page
+        in: query
+        maximum: 200
+        minimum: 1
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.PaginatedResponse-model_FlagInstance'
+        "400":
+          description: invalid disabled, sort, order, page or pageSize
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: List a team's flags across its flagsets (enriched with flagset name,
+        type, owner), paginated
+      tags:
+      - flags
+  /teams/{teamId}/flagsets:
+    get:
+      parameters:
+      - description: team id
+        in: path
+        name: teamId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Flagset'
+                  type: array
+              type: object
+      summary: List flagsets of a team
+      tags:
+      - flagsets
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: team id
+        in: path
+        name: teamId
+        required: true
+        type: string
+      - description: flagset
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateFlagsetRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Flagset'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "409":
+          description: flagset name already used in the team
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Create a flagset under a team (team editor; also provisions a default
+        API key)
+      tags:
+      - flagsets
+  /teams/{teamId}/owners:
+    get:
+      parameters:
+      - description: team id
+        in: path
+        name: teamId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+      summary: List the distinct owners (current version authors) of a team's flags
+      tags:
+      - flags
+  /teams/{teamId}/tags:
+    get:
+      parameters:
+      - description: team id
+        in: path
+        name: teamId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+      summary: List the distinct tags used across a team's flags
+      tags:
+      - flags
+swagger: "2.0"
