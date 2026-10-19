@@ -7,8 +7,8 @@ import (
 )
 
 func registerVersionRoutes(g *echo.Group, h Handlers, s Services) {
-	viewer := middleware.RequireFlagRole(s.Teams, s.Flagsets, s.Flags, "id", model.RoleViewer)
-	editor := middleware.RequireFlagRole(s.Teams, s.Flagsets, s.Flags, "id", model.RoleEditor)
+	viewer := middleware.RequireFlagRole(s.Teams, s.Flags, "id", model.RoleViewer)
+	editor := middleware.RequireFlagRole(s.Teams, s.Flags, "id", model.RoleEditor)
 	v := g.Group("/flags/:id/versions")
 	v.GET("", h.Versions.List, viewer)
 	v.GET("/:n", h.Versions.Get, viewer)

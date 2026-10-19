@@ -46,7 +46,7 @@ func TestLogoutUnderAPIPrefixWithoutSession(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 	var cleared *http.Cookie
 	for _, ck := range rec.Result().Cookies() {
-		if ck.Name == middleware.SessionCookieName {
+		if ck.Name == middleware.SessionCookieName(config.AuthConfig{}) {
 			cleared = ck
 		}
 	}
@@ -162,6 +162,36 @@ func TestSecurityHeaders(t *testing.T) {
 	assert.Equal(t, "max-age=31536000; includeSubdomains", rec.Header().Get(echo.HeaderStrictTransportSecurity))
 }
 
+// The login redirects carry the one-time code (callback) or set cookies:
+// caches must not keep them, even when the request is refused.
+func TestAuthRoutesAreNotCached(t *testing.T) {
+	e := platformServer(config.Config{})
+	tests := []struct {
+		method, path string
+		want         int
+	}{
+		{http.MethodGet, "/auth/callback?state=s&code=c", http.StatusBadRequest}, // no state cookie
+		{http.MethodPost, "/auth/logout", http.StatusNoContent},
+		{http.MethodPost, "/api/v1/auth/logout", http.StatusNoContent},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			rec := platformServe(e, httptest.NewRequest(tt.method, tt.path, nil))
+			assert.Equal(t, tt.want, rec.Code)
+			assert.Equal(t, "no-store", rec.Header().Get(echo.HeaderCacheControl))
+			assert.Equal(t, "no-referrer", rec.Header().Get(echo.HeaderReferrerPolicy))
+		})
+	}
+
+	// A rate-limited login is not cached either.
+	for range 6 {
+		platformServe(e, httptest.NewRequest(http.MethodGet, "/auth/callback", nil))
+	}
+	rec := platformServe(e, httptest.NewRequest(http.MethodGet, "/auth/login", nil))
+	require.Equal(t, http.StatusTooManyRequests, rec.Code)
+	assert.Equal(t, "no-store", rec.Header().Get(echo.HeaderCacheControl))
+}
+
 // RBAC lookups: a genuine miss (incl. a malformed id) answers 403 like a
 // missing role, so ids can't be probed; a failing lookup is a 500, not a
 // misleading denial.
@@ -172,7 +202,7 @@ func TestRBACLookupErrors(t *testing.T) {
 	flagsets := service.NewFlagsetService(flagsetRepo, audit)
 	flags := service.NewFlagService(db, repository.NewFlagRepo(db), repository.NewFlagVersionRepo(db), flagsetRepo, audit)
 	// teams is only reached once the resource exists, which no case here needs.
-	flagMW := middleware.RequireFlagRole(nil, flagsets, flags, "id", model.RoleViewer)
+	flagMW := middleware.RequireFlagRole(nil, flags, "id", model.RoleViewer)
 	flagsetMW := middleware.RequireFlagsetRole(nil, flagsets, "id", model.RoleViewer)
 
 	run := func(mw echo.MiddlewareFunc, ctx context.Context, id string) int {
@@ -220,4 +250,43 @@ func TestLoginIsRateLimited(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/auth/callback", nil)
 	req.RemoteAddr = "198.51.100.7:1234"
 	assert.NotEqual(t, http.StatusTooManyRequests, platformServe(e, req).Code)
+}
+
+// Behind a reverse proxy the login limit must key on the client, read from
+// X-Forwarded-For only when the direct peer is a configured trusted proxy.
+func TestLoginRateLimitBehindProxy(t *testing.T) {
+	const proxy = "10.0.0.5:4000"
+	trusted := config.Config{Server: config.ServerConfig{TrustedProxies: []string{"10.0.0.0/8"}}}
+	tests := []struct {
+		name     string
+		cfg      config.Config
+		peer     string // socket address of every request
+		drainXFF string // client of the 5 requests that use up a bucket
+		probeXFF string // client of the 6th request
+		want429  bool
+	}{
+		{"trusted proxy: another client has its own bucket", trusted, proxy, "198.51.100.1", "198.51.100.2", false},
+		{"trusted proxy: the same client is limited", trusted, proxy, "198.51.100.1", "198.51.100.1", true},
+		{"no trusted proxies: clients share the proxy's bucket", config.Config{}, proxy,
+			"198.51.100.1", "198.51.100.2", true},
+		{"untrusted peer can't pick its key with the header", trusted, "203.0.113.9:4000",
+			"198.51.100.1", "198.51.100.2", true},
+		{"private peer outside the ranges isn't trusted", trusted, "192.168.1.1:4000",
+			"198.51.100.1", "198.51.100.2", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := platformServer(tt.cfg)
+			get := func(xff string) int {
+				req := httptest.NewRequest(http.MethodGet, "/auth/login", nil)
+				req.RemoteAddr = tt.peer
+				req.Header.Set(echo.HeaderXForwardedFor, xff)
+				return platformServe(e, req).Code
+			}
+			for range 5 {
+				require.NotEqual(t, http.StatusTooManyRequests, get(tt.drainXFF))
+			}
+			assert.Equal(t, tt.want429, get(tt.probeXFF) == http.StatusTooManyRequests)
+		})
+	}
 }

@@ -15,6 +15,8 @@ type User struct {
 	CreatedAt   time.Time    `db:"created_at" json:"createdAt"`
 	UpdatedAt   time.Time    `db:"updated_at" json:"updatedAt"`
 	LastLoginAt *time.Time   `db:"last_login_at" json:"lastLoginAt,omitempty"`
+	// SessionVersion is stamped into session tokens; bumping it revokes them.
+	SessionVersion int `db:"session_version" json:"-"`
 }
 
 // Role returns the user's company role, or "" (which satisfies no AtLeast check) if unset.

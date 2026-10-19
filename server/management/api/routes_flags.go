@@ -16,8 +16,8 @@ func registerFlagRoutes(g *echo.Group, h Handlers, s Services) {
 	g.POST("/flagsets/:flagsetId/flags", h.Flags.Create,
 		middleware.RequireFlagsetRole(s.Teams, s.Flagsets, "flagsetId", model.RoleEditor))
 
-	viewer := middleware.RequireFlagRole(s.Teams, s.Flagsets, s.Flags, "id", model.RoleViewer)
-	editor := middleware.RequireFlagRole(s.Teams, s.Flagsets, s.Flags, "id", model.RoleEditor)
+	viewer := middleware.RequireFlagRole(s.Teams, s.Flags, "id", model.RoleViewer)
+	editor := middleware.RequireFlagRole(s.Teams, s.Flags, "id", model.RoleEditor)
 	f := g.Group("/flags/:id")
 	f.GET("", h.Flags.Get, viewer)
 	// Evaluation is CPU-bound and viewer-reachable: cap it per user.

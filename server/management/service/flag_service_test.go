@@ -216,10 +216,12 @@ func TestFlagServiceConcurrentUpdates(t *testing.T) {
 
 	const n = 10
 	errs := make(chan error, n)
-	for range n {
+	for i := range n {
 		go func() {
+			// Distinct payloads: an identical save is a no-op.
 			_, err := svc.Update(ctx, actor.ID, flag.ID, &model.UpdateFlagRequest{
-				Payload: json.RawMessage(testutil.DefaultFlagPayload),
+				Payload: json.RawMessage(fmt.Sprintf(
+					`{"variations":{"on":true,"off":false},"defaultRule":{"variation":"on"},"metadata":{"n":%d}}`, i)),
 			})
 			errs <- err
 		}()
@@ -384,14 +386,14 @@ func TestFlagServiceListAndFlagsetID(t *testing.T) {
 		assert.Len(t, instances, 2)
 		owners, err := svc.ListTeamOwners(ctx, fs.TeamID)
 		require.NoError(t, err)
-		assert.Equal(t, []string{"Actor"}, owners)
+		assert.Equal(t, []model.FlagOwner{{ID: actor.ID, Name: "Actor"}}, owners)
 	})
 
-	t.Run("flagset id for flag", func(t *testing.T) {
-		got, err := svc.FlagsetID(ctx, f1.ID)
+	t.Run("team id for flag", func(t *testing.T) {
+		got, err := svc.TeamID(ctx, f1.ID)
 		require.NoError(t, err)
-		assert.Equal(t, fs.ID, got)
-		_, err = svc.FlagsetID(ctx, "00000000-0000-0000-0000-000000000000")
+		assert.Equal(t, fs.TeamID, got)
+		_, err = svc.TeamID(ctx, "00000000-0000-0000-0000-000000000000")
 		assert.ErrorIs(t, err, service.ErrNotFound)
 	})
 }

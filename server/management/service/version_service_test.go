@@ -91,7 +91,7 @@ func TestVersionServiceRollback(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("rollback to v1 creates v3 with copied payload and audit", func(t *testing.T) {
-		v, err := svc.Rollback(ctx, actor.ID, flag.ID, 1, "")
+		v, _, err := svc.Rollback(ctx, actor.ID, flag.ID, 1, "")
 		require.NoError(t, err)
 		require.NotNil(t, v)
 		assert.Equal(t, 3, v.VersionNumber)
@@ -120,19 +120,29 @@ func TestVersionServiceRollback(t *testing.T) {
 	})
 
 	t.Run("explicit comment is kept", func(t *testing.T) {
-		v, err := svc.Rollback(ctx, actor.ID, flag.ID, 2, "back to off")
+		v, _, err := svc.Rollback(ctx, actor.ID, flag.ID, 2, "back to off")
 		require.NoError(t, err)
 		assert.Equal(t, "back to off", v.Comment)
 		assert.Equal(t, 4, v.VersionNumber)
 	})
 
+	t.Run("rollback to the served payload writes nothing", func(t *testing.T) {
+		before := auditCount(t, db, model.AuditActionRollback, model.AuditTargetFlag)
+		v, created, err := svc.Rollback(ctx, actor.ID, flag.ID, 2, "")
+		require.NoError(t, err)
+		assert.False(t, created)
+		assert.Equal(t, 4, v.VersionNumber, "the current version, which serves v2's payload")
+		assert.Equal(t, 4, versionRowCount(t, db, flag.ID))
+		assert.Equal(t, before, auditCount(t, db, model.AuditActionRollback, model.AuditTargetFlag))
+	})
+
 	t.Run("rollback to missing version -> not found", func(t *testing.T) {
-		_, err := svc.Rollback(ctx, actor.ID, flag.ID, 99, "")
+		_, _, err := svc.Rollback(ctx, actor.ID, flag.ID, 99, "")
 		assert.ErrorIs(t, err, service.ErrNotFound)
 	})
 
 	t.Run("rollback on missing flag -> not found", func(t *testing.T) {
-		_, err := svc.Rollback(ctx, actor.ID, "00000000-0000-0000-0000-000000000000", 1, "")
+		_, _, err := svc.Rollback(ctx, actor.ID, "00000000-0000-0000-0000-000000000000", 1, "")
 		assert.ErrorIs(t, err, service.ErrNotFound)
 	})
 
@@ -144,7 +154,7 @@ func TestVersionServiceRollback(t *testing.T) {
 		require.NoError(t, err)
 		done := make(chan error, 1)
 		go func() {
-			_, err := svc.Rollback(ctx, actor.ID, flag.ID, 1, "")
+			_, _, err := svc.Rollback(ctx, actor.ID, flag.ID, 1, "")
 			done <- err
 		}()
 		select {
@@ -177,7 +187,7 @@ func TestVersionServiceRollbackRefreshesTags(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = svc.Rollback(ctx, actor.ID, f.ID, 1, "")
+	_, _, err = svc.Rollback(ctx, actor.ID, f.ID, 1, "")
 	require.NoError(t, err)
 
 	tags, err := flagSvc.ListTeamTags(ctx, fs.TeamID)
@@ -200,7 +210,7 @@ func TestVersionServiceQueryErrors(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 	_, err = svc.Get(ctx, id, 1)
 	assert.ErrorIs(t, err, context.Canceled)
-	_, err = svc.Rollback(ctx, id, id, 1, "")
+	_, _, err = svc.Rollback(ctx, id, id, 1, "")
 	assert.ErrorIs(t, err, context.Canceled)
 }
 
@@ -211,13 +221,18 @@ func TestVersionServiceRollbackIsAtomic(t *testing.T) {
 	fs := flagsetWithTeam(t, db)
 	actor := testutil.SeedUser(t, db, "actor@acme.com", "Actor", true)
 	flag := testutil.SeedFlag(t, db, fs.ID, "f", nil, &actor.ID)
-	_, err := db.Pool.Exec(ctx, `
+	// v2 differs from v1, so rolling back to v1 really writes.
+	_, err := newFlagService(db).Update(ctx, actor.ID, flag.ID, &model.UpdateFlagRequest{
+		Payload: json.RawMessage(`{"variations":{"on":true,"off":false},"defaultRule":{"variation":"off"}}`),
+	})
+	require.NoError(t, err)
+	_, err = db.Pool.Exec(ctx, `
 		CREATE FUNCTION fail_audit() RETURNS trigger LANGUAGE plpgsql AS $$
 		BEGIN RAISE EXCEPTION 'audit down'; END $$;
 		CREATE TRIGGER fail_audit BEFORE INSERT ON audit_log FOR EACH STATEMENT EXECUTE FUNCTION fail_audit();`)
 	require.NoError(t, err)
 
-	_, err = svc.Rollback(ctx, actor.ID, flag.ID, 1, "")
+	_, _, err = svc.Rollback(ctx, actor.ID, flag.ID, 1, "")
 	require.ErrorContains(t, err, "audit down")
-	assert.Equal(t, 1, versionRowCount(t, db, flag.ID), "no version left behind")
+	assert.Equal(t, 2, versionRowCount(t, db, flag.ID), "no version left behind")
 }

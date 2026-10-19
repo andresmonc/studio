@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
-	"github.com/gofeatureflag/flag-management-system/server/management/api/middleware"
 	"github.com/gofeatureflag/flag-management-system/server/management/config"
 	"github.com/gofeatureflag/flag-management-system/server/management/internal/testutil"
 	"github.com/gofeatureflag/flag-management-system/server/management/model"
@@ -121,7 +120,7 @@ func TestAuthHandlerLogin(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, issuer+"/auth", loc.Scheme+"://"+loc.Host+loc.Path)
 
-	state := cookieNamed(rec, stateCookie)
+	state := cookieNamed(rec, h.stateCookie)
 	require.NotNil(t, state)
 	parts := strings.Split(state.Value, ".")
 	require.Len(t, parts, 3, "state.verifier.nonce")
@@ -173,12 +172,12 @@ func TestAuthHandlerCallback(t *testing.T) {
 			h := NewAuthHandler(cfg, tt.auth, nil, nil, nil)
 			c, rec := reqCtxQuery(tt.query)
 			if tt.cookie != "" {
-				c.Request().AddCookie(&http.Cookie{Name: stateCookie, Value: tt.cookie})
+				c.Request().AddCookie(&http.Cookie{Name: h.stateCookie, Value: tt.cookie})
 			}
 			require.NoError(t, h.Callback(c))
 			assert.Equal(t, tt.wantStatus, rec.Code)
 			assert.Equal(t, tt.wantMsg, decodeResp(t, rec).Message)
-			assert.Nil(t, cookieNamed(rec, middleware.SessionCookieName), "no session on a failed login")
+			assert.Nil(t, cookieNamed(rec, h.sessionCookie), "no session on a failed login")
 		})
 	}
 
@@ -194,12 +193,12 @@ func TestAuthHandlerCallback(t *testing.T) {
 			cfg.Auth.PostLoginRedirect = tt.redirect
 			h := NewAuthHandler(cfg, auth, nil, nil, nil)
 			c, rec := reqCtxQuery("state=abc&code=" + code)
-			c.Request().AddCookie(&http.Cookie{Name: stateCookie, Value: validCookie})
+			c.Request().AddCookie(&http.Cookie{Name: h.stateCookie, Value: validCookie})
 			require.NoError(t, h.Callback(c))
 
 			assert.Equal(t, http.StatusFound, rec.Code)
 			assert.Equal(t, tt.wantLocation, rec.Header().Get("Location"))
-			session := cookieNamed(rec, middleware.SessionCookieName)
+			session := cookieNamed(rec, h.sessionCookie)
 			require.NotNil(t, session)
 			claims, err := auth.Authenticate(t.Context(), session.Value)
 			require.NoError(t, err, "the cookie holds a valid session")
@@ -209,7 +208,7 @@ func TestAuthHandlerCallback(t *testing.T) {
 			assert.True(t, session.Secure)
 			assert.Equal(t, http.SameSiteLaxMode, session.SameSite)
 			assert.Equal(t, 3600, session.MaxAge)
-			state := cookieNamed(rec, stateCookie)
+			state := cookieNamed(rec, h.stateCookie)
 			require.NotNil(t, state)
 			assert.Negative(t, state.MaxAge, "the one-shot state cookie is cleared")
 		})
@@ -225,7 +224,7 @@ func TestAuthHandlerLogout(t *testing.T) {
 
 	// Cleared (MaxAge < 0) on the Domain it was set on, otherwise the browser
 	// keeps the original.
-	session := cookieNamed(rec, middleware.SessionCookieName)
+	session := cookieNamed(rec, h.sessionCookie)
 	require.NotNil(t, session, "session cookie should be cleared on logout")
 	assert.Negative(t, session.MaxAge)
 	assert.Equal(t, "goff.local", session.Domain)
@@ -270,4 +269,64 @@ func TestAuthHandlerMe(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 		assert.Equal(t, "user not found", decodeResp(t, rec).Message)
 	})
+}
+
+// A Secure host-only cookie is __Host- prefixed, so a sibling subdomain can't
+// plant one under that name; the prefix requires Secure and no Domain.
+func TestAuthHandlerCookieNames(t *testing.T) {
+	tests := []struct {
+		name                   string
+		auth                   config.AuthConfig
+		wantSession, wantState string
+	}{
+		{"secure, host-only", config.AuthConfig{CookieSecure: true},
+			"__Host-goff_mgmt_session", "__Host-goff_mgmt_oidc_state"},
+		{"secure, shared domain", config.AuthConfig{CookieSecure: true, CookieDomain: "goff.local"},
+			"goff_mgmt_session", "__Host-goff_mgmt_oidc_state"},
+		{"plain http (dev)", config.AuthConfig{}, "goff_mgmt_session", "goff_mgmt_oidc_state"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := NewAuthHandler(config.Config{Auth: tt.auth}, nil, nil, nil, nil)
+			assert.Equal(t, tt.wantSession, h.sessionCookie)
+			assert.Equal(t, tt.wantState, h.stateCookie)
+
+			c, rec := reqCtx(http.MethodPost, "")
+			require.NoError(t, h.Logout(c))
+			session := cookieNamed(rec, tt.wantSession)
+			require.NotNil(t, session)
+			if strings.HasPrefix(session.Name, "__Host-") {
+				assert.True(t, session.Secure)
+				assert.Empty(t, session.Domain)
+				assert.Equal(t, "/", session.Path)
+			}
+		})
+	}
+}
+
+// When the revocation can't be written the cookie is still cleared, but the
+// client learns the sessions are still live (500), instead of a silent 204.
+func TestAuthHandlerLogoutRevocationFailure(t *testing.T) {
+	s := newStack(t)
+	cfg := authConfig(fakeOIDC(t, "x@acme.com"))
+	auth := newAuthService(t, cfg, s.userRepo)
+	h := NewAuthHandler(cfg, auth, nil, nil, nil)
+	u := testutil.SeedUser(t, s.db, "out@acme.com", "Out", false)
+	token, err := auth.IssueJWT(u)
+	require.NoError(t, err)
+
+	c, rec := reqCtx(http.MethodPost, "")
+	canceled, cancel := context.WithCancel(c.Request().Context())
+	cancel()
+	c.SetRequest(c.Request().WithContext(canceled))
+	c.Request().AddCookie(&http.Cookie{Name: h.sessionCookie, Value: token})
+	require.NoError(t, h.Logout(c))
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, "failed to revoke sessions", decodeResp(t, rec).Message)
+	session := cookieNamed(rec, h.sessionCookie)
+	require.NotNil(t, session)
+	assert.Negative(t, session.MaxAge, "the cookie is cleared anyway")
+	_, err = auth.Authenticate(t.Context(), token)
+	assert.NoError(t, err, "the session was not revoked")
 }

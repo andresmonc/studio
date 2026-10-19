@@ -218,10 +218,10 @@ func TestFlagRepoSoftDeleteAndDisable(t *testing.T) {
 	fs := testutil.SeedFlagset(t, db, team.ID, "prod")
 	flag := testutil.SeedFlag(t, db, fs.ID, "my-flag", nil, nil)
 
-	// GetFlagsetID resolves the owning flagset.
-	fsID, err := repo.GetFlagsetID(ctx, flag.ID)
+	// TeamID resolves the owning team through the flagset.
+	teamID, err := repo.TeamID(ctx, flag.ID)
 	require.NoError(t, err)
-	assert.Equal(t, fs.ID, fsID)
+	assert.Equal(t, team.ID, teamID)
 
 	// SetDisabled toggles.
 	require.NoError(t, repo.SetDisabled(ctx, nil, flag.ID, true))
@@ -230,14 +230,13 @@ func TestFlagRepoSoftDeleteAndDisable(t *testing.T) {
 
 	// SoftDelete hides the flag from reads.
 	require.NoError(t, repo.SoftDelete(ctx, nil, flag.ID))
-	got, err = repo.GetByID(ctx, flag.ID)
-	require.NoError(t, err)
-	assert.Nil(t, got, "soft-deleted flag is not returned")
+	_, err = repo.GetByID(ctx, flag.ID)
+	assert.ErrorIs(t, err, repository.ErrNotFound, "soft-deleted flag is not returned")
 
 	// Operations on a deleted flag report ErrNotFound.
 	assert.ErrorIs(t, repo.SoftDelete(ctx, nil, flag.ID), repository.ErrNotFound)
 	assert.ErrorIs(t, repo.SetDisabled(ctx, nil, flag.ID, false), repository.ErrNotFound)
-	_, err = repo.GetFlagsetID(ctx, flag.ID)
+	_, err = repo.TeamID(ctx, flag.ID)
 	assert.ErrorIs(t, err, repository.ErrNotFound)
 }
 
@@ -435,10 +434,6 @@ func TestFlagRepoListByTeamFiltersAndPaging(t *testing.T) {
 		out := make([]string, len(items))
 		for i, it := range items {
 			out[i] = it.Name
-			// The SQL generated column must agree with the Go inference.
-			if p, ok := payloads[it.Type]; ok {
-				assert.Equal(t, model.InferFlagType(json.RawMessage(p)), it.Type)
-			}
 		}
 		return out, total
 	}
@@ -467,7 +462,7 @@ func TestFlagRepoListByTeamFiltersAndPaging(t *testing.T) {
 
 	got, _ = list(model.TeamFlagFilters{FlagsetID: &stg.ID})
 	assert.Equal(t, []string{"bool_flag", "json_flag"}, got)
-	got, _ = list(model.TeamFlagFilters{Owner: ptr("Alice")})
+	got, _ = list(model.TeamFlagFilters{Owner: &alice.ID})
 	assert.Equal(t, []string{"checkout_int", "json_flag"}, got)
 	got, _ = list(model.TeamFlagFilters{Unassigned: true})
 	assert.Equal(t, []string{"bool_flag", "checkout_float"}, got)
@@ -477,7 +472,7 @@ func TestFlagRepoListByTeamFiltersAndPaging(t *testing.T) {
 
 	owners, err := repo.ListTeamOwners(ctx, team.ID)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"Alice"}, owners)
+	assert.Equal(t, []model.FlagOwner{{ID: alice.ID, Name: "Alice"}}, owners)
 
 	// Sorting: pin updated_at so the recency order is deterministic.
 	for name, ago := range map[string]string{"bool_flag": "0", "checkout_int": "1", "checkout_float": "2", "json_flag": "3"} {
@@ -540,7 +535,7 @@ func TestFlagRepoListByTeamScoping(t *testing.T) {
 		{name: "only the team's flags", want: []string{"mine", "no-version"}},
 		{name: "unknown type finds version-less flags", filters: model.TeamFlagFilters{Type: new("unknown")},
 			want: []string{"no-version"}},
-		{name: "another team's owner matches nothing", filters: model.TeamFlagFilters{Owner: new("Bob")}},
+		{name: "another team's owner matches nothing", filters: model.TeamFlagFilters{Owner: &bob.ID}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -557,7 +552,57 @@ func TestFlagRepoListByTeamScoping(t *testing.T) {
 
 	owners, err := repo.ListTeamOwners(ctx, team.ID)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"Alice"}, owners)
+	assert.Equal(t, []model.FlagOwner{{ID: alice.ID, Name: "Alice"}}, owners)
+}
+
+// Owners are users, not names: two authors named "Alice" stay two owners, and
+// one with an empty name is still an owner, not unassigned.
+func TestFlagRepoOwnersKeyedByUserID(t *testing.T) {
+	db := testutil.StartPostgres(t)
+	repo := repository.NewFlagRepo(db)
+	ctx := t.Context()
+	team := testutil.SeedTeam(t, db, testutil.SeedCompany(t, db, "Acme").ID, "Platform")
+	fs := testutil.SeedFlagset(t, db, team.ID, "prod")
+	alice1 := testutil.SeedUser(t, db, "alice1@acme.com", "Alice", false)
+	alice2 := testutil.SeedUser(t, db, "alice2@acme.com", "Alice", false)
+	nameless := testutil.SeedUser(t, db, "nameless@acme.com", "", false)
+	testutil.SeedFlag(t, db, fs.ID, "a1", nil, &alice1.ID)
+	testutil.SeedFlag(t, db, fs.ID, "a2", nil, &alice2.ID)
+	testutil.SeedFlag(t, db, fs.ID, "blank", nil, &nameless.ID)
+	testutil.SeedFlag(t, db, fs.ID, "none", nil, nil)
+
+	tests := []struct {
+		name    string
+		filters model.TeamFlagFilters
+		want    []string
+	}{
+		{"first Alice", model.TeamFlagFilters{Owner: &alice1.ID}, []string{"a1"}},
+		{"second Alice", model.TeamFlagFilters{Owner: &alice2.ID}, []string{"a2"}},
+		{"empty name is an owner", model.TeamFlagFilters{Owner: &nameless.ID}, []string{"blank"}},
+		{"unassigned", model.TeamFlagFilters{Unassigned: true}, []string{"none"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.filters.Sort = "name"
+			items, _, err := repo.ListByTeam(ctx, team.ID, tt.filters)
+			require.NoError(t, err)
+			got := make([]string, 0, len(items))
+			for _, it := range items {
+				got = append(got, it.Name)
+				if it.Name != "none" {
+					require.NotNil(t, it.OwnerID)
+					assert.Equal(t, *tt.filters.Owner, *it.OwnerID)
+				}
+			}
+			assert.Equal(t, tt.want, got)
+		})
+	}
+
+	owners, err := repo.ListTeamOwners(ctx, team.ID)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []model.FlagOwner{
+		{ID: nameless.ID, Name: ""}, {ID: alice1.ID, Name: "Alice"}, {ID: alice2.ID, Name: "Alice"},
+	}, owners)
 }
 
 // TestFlagRepoFlagsetDeleteRacingSave: a flagset delete that starts while a
@@ -613,14 +658,12 @@ func TestFlagRepoQueryErrors(t *testing.T) {
 	_, err = flags.ListTeamTags(ctx, id)
 	assert.ErrorIs(t, err, context.Canceled)
 	assert.ErrorIs(t, flags.SoftDelete(ctx, nil, id), context.Canceled)
-	_, err = flags.GetFlagsetID(ctx, id)
+	_, err = flags.TeamID(ctx, id)
 	assert.ErrorIs(t, err, context.Canceled)
 	_, err = versions.GetByFlagAndNumber(ctx, id, 1)
 	assert.ErrorIs(t, err, context.Canceled)
 	_, _, err = versions.ListByFlag(ctx, id, 10, 0)
 	assert.ErrorIs(t, err, context.Canceled)
-	assert.ErrorIs(t, flags.SoftDelete(t.Context(), nil, "not-a-uuid"), repository.ErrNotFound)
-	assert.ErrorIs(t, flags.SetDisabled(t.Context(), nil, "not-a-uuid", true), repository.ErrNotFound)
 	assert.ErrorIs(t, flags.SetDisabled(ctx, nil, id, true), context.Canceled)
 
 	// Writes take the caller's tx: a failed statement surfaces its error.
@@ -662,11 +705,12 @@ func TestFlagRepoGetForUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			require.NoError(t, pgx.BeginFunc(ctx, db.Pool, func(tx pgx.Tx) error {
 				f, err := repo.GetForUpdate(ctx, tx, tt.id)
-				require.NoError(t, err)
 				if !tt.wantFlag {
+					assert.ErrorIs(t, err, repository.ErrNotFound)
 					assert.Nil(t, f)
 					return nil
 				}
+				require.NoError(t, err)
 				require.NotNil(t, f)
 				assert.Equal(t, 1, *f.CurrentVersion)
 				assert.JSONEq(t, testutil.DefaultFlagPayload, string(f.Payload))

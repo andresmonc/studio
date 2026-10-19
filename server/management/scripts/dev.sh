@@ -5,16 +5,15 @@
 #   1. Load environment variables from .env (or .env.example)
 #   2. Start Docker infrastructure (compose.yaml: Postgres + Keycloak)
 #   3. Wait for Postgres and Keycloak to be reachable
-#   4. Apply goose migrations
-#   5. Run the API via `go run`
+#   4. Run the API via `go run` (it applies the schema migrations at startup)
 #
 # Flags:
 #   --no-infra        skip "docker compose up -d"
-#   --no-migrate      skip goose migrations
+#   --no-migrate      start without applying migrations (GOFF_MGMT_DB_MIGRATE=false)
 #   --rebuild-infra   docker compose down -v before bringing infra up
 #   --build           build a binary to ./out/management instead of `go run`
 #
-# Requires: docker, curl, goose, go.
+# Requires: docker, curl, go.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,7 +32,7 @@ for arg in "$@"; do
     --rebuild-infra) REBUILD_INFRA=1 ;;
     --build)         BUILD_ONLY=1 ;;
     -h|--help)
-      sed -n '2,17s/^# \{0,1\}//p' "${SCRIPT_DIR}/dev.sh"
+      sed -n '2,16s/^# \{0,1\}//p' "${SCRIPT_DIR}/dev.sh"
       exit 0
       ;;
     *) echo "Unknown flag: $arg" >&2; exit 2 ;;
@@ -66,7 +65,6 @@ export GOFF_MGMT_DB_URL
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing required tool: $1" >&2; exit 1; }; }
 need go
 [ "$RUN_INFRA" = "1" ] && need docker && need curl
-[ "$RUN_MIGRATE" = "1" ] && need goose
 
 # --- infra ---
 if [ "$RUN_INFRA" = "1" ]; then
@@ -80,7 +78,7 @@ fi
 
 # --- wait for infra ---
 # Only for the compose services: with --no-infra the database is the caller's,
-# and goose reports clearly when it is unreachable.
+# and the API reports clearly when it is unreachable.
 wait_for() { # name, seconds, command...
   local name=$1 secs=$2; shift 2
   echo "==> Waiting for ${name}"
@@ -99,9 +97,9 @@ if [ "$RUN_INFRA" = "1" ]; then
 fi
 
 # --- migrations ---
-if [ "$RUN_MIGRATE" = "1" ]; then
-  echo "==> Applying goose migrations"
-  goose -dir ./db/migrations postgres "${GOFF_MGMT_DB_URL}" up
+# The API applies them at startup; --no-migrate turns that off.
+if [ "$RUN_MIGRATE" = "0" ]; then
+  export GOFF_MGMT_DB_MIGRATE=false
 fi
 
 # --- run ---

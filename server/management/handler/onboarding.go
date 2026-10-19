@@ -21,9 +21,11 @@ func NewOnboardingHandler(svc *service.OnboardingService) *OnboardingHandler {
 // @Param   body body model.CreateCompanyRequest true "company"
 // @Success 201 {object} model.APIResponse{data=model.Company}
 // @Failure 400 {object} model.APIResponse
+// @Failure 401 {object} model.APIResponse "no valid session"
 // @Failure 403 {object} model.APIResponse "already in a company (or, in mono company mode, not a super admin)"
 // @Failure 404 {object} model.APIResponse "the session's user no longer exists"
 // @Failure 409 {object} model.APIResponse "a company already exists (mono company mode)"
+// @Failure 413 {object} model.APIResponse "body larger than 256 KiB"
 // @Router  /onboarding/company [post]
 func (h *OnboardingHandler) CreateCompany(c *echo.Context) error {
 	var req model.CreateCompanyRequest

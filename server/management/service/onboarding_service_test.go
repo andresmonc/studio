@@ -100,7 +100,7 @@ func TestOnboardingMonoCompany(t *testing.T) {
 	admin2 := testutil.SeedUser(t, db, "admin2@acme.com", "Admin2", true)
 	_, err = svc.CreateCompanyForNewUser(ctx, admin2.ID, true, &model.CreateCompanyRequest{DisplayName: "Second"})
 	assert.ErrorIs(t, err, service.ErrConflict, "onboarding: second company")
-	_, err = companySvc.Create(ctx, admin2.ID, &model.CreateCompanyRequest{DisplayName: "Second"})
+	_, err = companySvc.Create(ctx, admin2.ID, companyReq("Second", admin2.Email))
 	assert.ErrorIs(t, err, service.ErrConflict, "POST /companies: second company")
 	var n int
 	require.NoError(t, db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM companies`).Scan(&n))

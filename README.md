@@ -23,6 +23,15 @@ proxy and the OpenFeature SDKs. The Studio adds the place where humans manage
 those flags: create and edit them in a UI, organize them by team, control who
 can change what, and keep a history of every change.
 
+## Requirements
+
+- **PostgreSQL 18 or later.** The schema uses `uuidv7()` and virtual generated
+  columns, both new in PostgreSQL 18; the server refuses to start on an older
+  version. It applies its migrations at startup (set `GOFF_MGMT_DB_MIGRATE=false`
+  to run them yourself).
+
+See the [deployment guide](docs/deployment.md) for configuration, reverse proxies and cookies.
+
 ## License
 
 MIT

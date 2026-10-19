@@ -56,9 +56,17 @@ type CompanyMembership struct {
 	Role               CompanyRole `json:"role"`
 }
 
+// CreateCompanyRequest is the onboarding body: the caller becomes the admin.
 type CreateCompanyRequest struct {
 	DisplayName string `json:"displayName" validate:"required" example:"Acme Corp"`
 	Description string `json:"description"`
+}
+
+// CreateCompanyWithAdminRequest is the super admin's body: AdminEmail names an
+// existing user without a company, who becomes the first admin.
+type CreateCompanyWithAdminRequest struct {
+	CreateCompanyRequest
+	AdminEmail string `json:"adminEmail" validate:"required" example:"jane@acme.com"`
 }
 
 type UpdateCompanyRequest struct {

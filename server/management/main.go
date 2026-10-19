@@ -23,6 +23,7 @@ import (
 
 	"github.com/gofeatureflag/flag-management-system/server/management/api"
 	"github.com/gofeatureflag/flag-management-system/server/management/config"
+	"github.com/gofeatureflag/flag-management-system/server/management/db/migrations"
 	_ "github.com/gofeatureflag/flag-management-system/server/management/docs"
 	"github.com/gofeatureflag/flag-management-system/server/management/handler"
 	"github.com/gofeatureflag/flag-management-system/server/management/repository"
@@ -86,6 +87,13 @@ func run(ctx context.Context, args []string) error {
 		return err
 	}
 	defer db.Close()
+	if cfg.DB.Migrate {
+		n, err := migrations.Up(ctx, db.Pool)
+		if err != nil {
+			return fmt.Errorf("migrate: %w", err)
+		}
+		log.Info("database migrated", "applied", n)
+	}
 
 	e, err := newRouter(ctx, cfg, log, db)
 	if err != nil {

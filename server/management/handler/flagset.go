@@ -19,6 +19,9 @@ func NewFlagsetHandler(svc *service.FlagsetService) *FlagsetHandler { return &Fl
 // @Produce  json
 // @Param    teamId path string true "team id"
 // @Success  200    {object} model.APIResponse{data=[]model.Flagset}
+// @Failure  401    {object} model.APIResponse "no valid session"
+// @Failure  403    {object} model.APIResponse "insufficient role"
+// @Failure  404    {object} model.APIResponse "not found, or a malformed id"
 // @Router   /teams/{teamId}/flagsets [get]
 func (h *FlagsetHandler) ListByTeam(c *echo.Context) error {
 	items, err := h.svc.ListByTeam(c.Request().Context(), c.Param("teamId"))
@@ -37,9 +40,11 @@ func (h *FlagsetHandler) ListByTeam(c *echo.Context) error {
 // @Param    body   body model.CreateFlagsetRequest true "flagset"
 // @Success  201    {object} model.APIResponse{data=model.Flagset}
 // @Failure  400    {object} model.APIResponse
+// @Failure  401    {object} model.APIResponse "no valid session"
 // @Failure  403    {object} model.APIResponse
 // @Failure  404    {object} model.APIResponse
 // @Failure  409    {object} model.APIResponse "flagset name already used in the team"
+// @Failure  413    {object} model.APIResponse "body larger than 256 KiB"
 // @Router   /teams/{teamId}/flagsets [post]
 func (h *FlagsetHandler) Create(c *echo.Context) error {
 	var req model.CreateFlagsetRequest
@@ -60,6 +65,8 @@ func (h *FlagsetHandler) Create(c *echo.Context) error {
 // @Produce  json
 // @Param    id path string true "flagset id"
 // @Success  200 {object} model.APIResponse{data=model.Flagset}
+// @Failure  401 {object} model.APIResponse "no valid session"
+// @Failure  403 {object} model.APIResponse "insufficient role"
 // @Failure  404 {object} model.APIResponse
 // @Router   /flagsets/{id} [get]
 func (h *FlagsetHandler) Get(c *echo.Context) error {
@@ -79,9 +86,11 @@ func (h *FlagsetHandler) Get(c *echo.Context) error {
 // @Param    body body model.UpdateFlagsetRequest true "fields to update"
 // @Success  200  {object} model.APIResponse{data=model.Flagset}
 // @Failure  400  {object} model.APIResponse
+// @Failure  401  {object} model.APIResponse "no valid session"
 // @Failure  403  {object} model.APIResponse
 // @Failure  404  {object} model.APIResponse
 // @Failure  409  {object} model.APIResponse "flagset name already used in the team"
+// @Failure  413  {object} model.APIResponse "body larger than 256 KiB"
 // @Router   /flagsets/{id} [patch]
 func (h *FlagsetHandler) Update(c *echo.Context) error {
 	var req model.UpdateFlagsetRequest
@@ -99,8 +108,10 @@ func (h *FlagsetHandler) Update(c *echo.Context) error {
 // Delete godoc
 // @Summary  Delete a flagset (team admin; cascades to its flags, versions and API keys)
 // @Tags     flagsets
+// @Produce  json
 // @Param    id path string true "flagset id"
 // @Success  204 "No Content"
+// @Failure  401 {object} model.APIResponse "no valid session"
 // @Failure  403 {object} model.APIResponse
 // @Failure  404 {object} model.APIResponse
 // @Router   /flagsets/{id} [delete]
@@ -113,12 +124,14 @@ func (h *FlagsetHandler) Delete(c *echo.Context) error {
 }
 
 // ListAPIKeys godoc
-// @Summary  List API keys for a flagset (team admin: the keys are secrets)
+// @Summary  List API keys for a flagset (team editor: the keys are secrets)
 // @Tags     flagsets
 // @Produce  json
 // @Param    id path string true "flagset id"
 // @Success  200 {object} model.APIResponse{data=[]model.FlagsetAPIKey}
+// @Failure  401 {object} model.APIResponse "no valid session"
 // @Failure  403 {object} model.APIResponse
+// @Failure  404 {object} model.APIResponse "not found, or a malformed id"
 // @Router   /flagsets/{id}/api-keys [get]
 func (h *FlagsetHandler) ListAPIKeys(c *echo.Context) error {
 	keys, err := h.svc.ListAPIKeys(c.Request().Context(), c.Param("id"))
@@ -137,8 +150,10 @@ func (h *FlagsetHandler) ListAPIKeys(c *echo.Context) error {
 // @Param    body body model.CreateAPIKeyRequest  true "key label"
 // @Success  201 {object} model.APIResponse{data=model.FlagsetAPIKey}
 // @Failure  400 {object} model.APIResponse
+// @Failure  401 {object} model.APIResponse "no valid session"
 // @Failure  403 {object} model.APIResponse
 // @Failure  404 {object} model.APIResponse
+// @Failure  413 {object} model.APIResponse "body larger than 256 KiB"
 // @Router   /flagsets/{id}/api-keys [post]
 func (h *FlagsetHandler) CreateAPIKey(c *echo.Context) error {
 	claims := middleware.MustClaims(c)
@@ -156,9 +171,11 @@ func (h *FlagsetHandler) CreateAPIKey(c *echo.Context) error {
 // DeleteAPIKey godoc
 // @Summary  Revoke a flagset API key by id (team admin)
 // @Tags     flagsets
+// @Produce  json
 // @Param    id    path string true "flagset id"
 // @Param    keyId path string true "key id"
 // @Success  204   "No Content"
+// @Failure  401   {object} model.APIResponse "no valid session"
 // @Failure  403   {object} model.APIResponse
 // @Failure  404   {object} model.APIResponse
 // @Router   /flagsets/{id}/api-keys/{keyId} [delete]

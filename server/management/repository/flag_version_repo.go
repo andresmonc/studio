@@ -60,7 +60,7 @@ func (r *FlagVersionRepo) GetByFlagAndNumber(ctx context.Context, flagID string,
 	).Scan(&v.ID, &v.FlagID, &v.VersionNumber, &v.Payload, &v.Comment, &v.CreatedBy, &v.CreatedAt, &v.CreatedByName)
 	if err != nil {
 		if isNoRows(err) {
-			return nil, nil
+			return nil, ErrNotFound
 		}
 		return nil, err
 	}

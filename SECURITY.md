@@ -2,7 +2,10 @@
 
 ## Reporting a Vulnerability
 
-If you find a vulnerability please open an issue *(bug report)* with the flag `security` and affect the issue to `thomaspoignant`.  
-I will look into it as soon as possible and will give you more information in the issue as soon I have some.
+Please **do not** report security vulnerabilities in public issues, pull requests or discussions.
 
-You can directly click here and your issue will have the good label and assignee: [OPEN SECURITY ISSUE](https://github.com/go-feature-flag/studio/issues/new?assignees=thomaspoignant&labels=security&template=bug.yaml).
+Report them privately through GitHub instead: [Report a vulnerability](https://github.com/go-feature-flag/studio/security/advisories/new)
+(or the **Security** tab → **Report a vulnerability**). Only the maintainers can see the report.
+
+Include what you can: the affected version or commit, steps to reproduce, and the impact you expect.
+You'll get an answer as soon as possible, and we'll keep you updated in the advisory until a fix is released.

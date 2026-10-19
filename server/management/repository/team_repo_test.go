@@ -27,9 +27,8 @@ func TestTeamRepoCRUD(t *testing.T) {
 	require.NotNil(t, got)
 	assert.Equal(t, "the platform team", got.Description)
 
-	missing, err := repo.GetByID(ctx, "00000000-0000-0000-0000-000000000000")
-	require.NoError(t, err)
-	assert.Nil(t, missing)
+	_, err = repo.GetByID(ctx, "00000000-0000-0000-0000-000000000000")
+	assert.ErrorIs(t, err, repository.ErrNotFound)
 
 	updated, err := repo.Update(ctx, created.ID, new("Platform Eng"), nil)
 	require.NoError(t, err)

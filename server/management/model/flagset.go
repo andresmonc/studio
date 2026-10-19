@@ -5,23 +5,9 @@ import (
 	"time"
 )
 
-// FileFormat is the format the relay proxy uses to read a flagset's flag file.
-type FileFormat string
-
-const (
-	FileFormatYAML FileFormat = "yaml"
-	FileFormatJSON FileFormat = "json"
-	FileFormatTOML FileFormat = "toml"
-)
-
-// fileFormats is the single source of truth for valid file formats.
-var fileFormats = map[FileFormat]struct{}{FileFormatYAML: {}, FileFormatJSON: {}, FileFormatTOML: {}}
-
-func (f FileFormat) IsValid() bool {
-	_, ok := fileFormats[f]
-	return ok
-}
-
+// Flagset groups flags served to relay proxies through its API keys. How a
+// relay proxy retrieves, exports and notifies is configured in the relay proxy
+// itself, not in Studio.
 type Flagset struct {
 	ID          string `db:"id" json:"id"`
 	TeamID      string `db:"team_id" json:"teamId"`
@@ -29,14 +15,9 @@ type Flagset struct {
 	Description string `db:"description" json:"description"`
 	// APIKeyCount, FlagCount and EnabledFlagCount are computed by the query;
 	// their db tags name the SELECT aliases.
-	APIKeyCount       int             `db:"api_key_count" json:"apiKeyCount"`
-	FlagCount         int             `db:"flag_count" json:"flagCount"`
-	EnabledFlagCount  int             `db:"enabled_flag_count" json:"enabledFlagCount"`
-	PollingIntervalMs *int            `db:"polling_interval_ms" json:"pollingIntervalMs,omitempty"`
-	FileFormat        *FileFormat     `db:"file_format" json:"fileFormat,omitempty"`
-	Retrievers        json.RawMessage `db:"retrievers" json:"retrievers,omitempty" swaggertype:"object"`
-	Exporters         json.RawMessage `db:"exporters" json:"exporters,omitempty" swaggertype:"object"`
-	Notifiers         json.RawMessage `db:"notifiers" json:"notifiers,omitempty" swaggertype:"object"`
+	APIKeyCount      int `db:"api_key_count" json:"apiKeyCount"`
+	FlagCount        int `db:"flag_count" json:"flagCount"`
+	EnabledFlagCount int `db:"enabled_flag_count" json:"enabledFlagCount"`
 	// EvaluationContextEnrichment is a free-form object merged into every
 	// evaluation context for flags in this flagset (enrichment value wins on
 	// key collision).
@@ -51,26 +32,15 @@ type Flagset struct {
 type CreateFlagsetRequest struct {
 	Name                            string          `json:"name" validate:"required" example:"production"`
 	Description                     string          `json:"description"`
-	PollingIntervalMs               *int            `json:"pollingIntervalMs,omitempty" example:"60000"`
-	FileFormat                      *FileFormat     `json:"fileFormat,omitempty" enums:"yaml,json,toml" example:"yaml"`
-	Retrievers                      json.RawMessage `json:"retrievers,omitempty" swaggertype:"object"`
-	Exporters                       json.RawMessage `json:"exporters,omitempty" swaggertype:"object"`
-	Notifiers                       json.RawMessage `json:"notifiers,omitempty" swaggertype:"object"`
 	EvaluationContextEnrichment     json.RawMessage `json:"evaluationContextEnrichment,omitempty" swaggertype:"object"`
 	DefaultTestingEvaluationContext json.RawMessage `json:"defaultTestingEvaluationContext,omitempty" swaggertype:"object"`
 }
 
-// UpdateFlagsetRequest is a partial update: absent fields are left unchanged.
-// Send null for PollingIntervalMs or FileFormat to reset it to the default.
+// UpdateFlagsetRequest is a partial update: absent fields are left unchanged,
+// and null clears a JSON setting.
 type UpdateFlagsetRequest struct {
-	Name              *string              `json:"name,omitempty"`
-	Description       *string              `json:"description,omitempty"`
-	PollingIntervalMs Nullable[int]        `json:"pollingIntervalMs" swaggertype:"integer" example:"60000"`
-	FileFormat        Nullable[FileFormat] `json:"fileFormat" swaggertype:"string" enums:"yaml,json,toml" example:"yaml"`
-
-	Retrievers                      json.RawMessage `json:"retrievers,omitempty" swaggertype:"object"`
-	Exporters                       json.RawMessage `json:"exporters,omitempty" swaggertype:"object"`
-	Notifiers                       json.RawMessage `json:"notifiers,omitempty" swaggertype:"object"`
+	Name                            *string         `json:"name,omitempty"`
+	Description                     *string         `json:"description,omitempty"`
 	EvaluationContextEnrichment     json.RawMessage `json:"evaluationContextEnrichment,omitempty" swaggertype:"object"`
 	DefaultTestingEvaluationContext json.RawMessage `json:"defaultTestingEvaluationContext,omitempty" swaggertype:"object"`
 }

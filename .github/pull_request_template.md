@@ -17,4 +17,4 @@ Resolve #
 # Checklist
 - [ ] I have tested this code
 - [ ] I have added unit test to cover this code
-- [ ] I have followed the [contributing guide](CONTRIBUTING.md)
+- [ ] I have followed the [contributing guide](https://github.com/go-feature-flag/studio/blob/main/CONTRIBUTING.md)

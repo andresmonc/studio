@@ -118,6 +118,8 @@ func TestFlagHandlerListByTeamSort(t *testing.T) {
 		{name: "name descending", query: "sort=name&order=desc", wantNames: []string{"c", "b", "a"}},
 		{name: "state: enabled first", query: "sort=state", wantNames: []string{"a", "c", "b"}},
 		{name: "unknown sort and order", query: "sort=size&order=up", wantFields: []string{"sort", "order"}},
+		{name: "owner by user id", query: "sort=name&owner=" + actor.ID, wantNames: []string{"a", "b", "c"}},
+		{name: "unassigned owner", query: "owner=__unassigned__", wantNames: []string{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -142,6 +144,19 @@ func TestFlagHandlerListByTeamSort(t *testing.T) {
 			assert.Equal(t, tt.wantNames, names)
 		})
 	}
+}
+
+// The owner filter is a user id: a malformed one is the client's error.
+func TestFlagHandlerListByTeamMalformedOwner(t *testing.T) {
+	s := newStack(t)
+	h := NewFlagHandler(s.flagSvc)
+	team := testutil.SeedTeam(t, s.db, testutil.SeedCompany(t, s.db, "Acme").ID, "Platform")
+	c, rec := reqCtxQuery("owner=Alice")
+	params(c, "teamId", team.ID)
+	withClaims(c, missingUUID, true)
+	require.NoError(t, h.ListByTeam(c))
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, "invalid value", decodeResp(t, rec).Message)
 }
 
 func TestFlagHandlerSingle(t *testing.T) {

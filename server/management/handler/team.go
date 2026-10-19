@@ -16,7 +16,9 @@ func NewTeamHandler(svc *service.TeamService) *TeamHandler { return &TeamHandler
 // List godoc
 // @Summary List teams visible to the user
 // @Tags    teams
+// @Produce json
 // @Success 200 {object} model.APIResponse{data=[]model.Team}
+// @Failure 401 {object} model.APIResponse "no valid session"
 // @Router  /teams [get]
 func (h *TeamHandler) List(c *echo.Context) error {
 	claims := middleware.MustClaims(c)
@@ -30,8 +32,11 @@ func (h *TeamHandler) List(c *echo.Context) error {
 // Get godoc
 // @Summary Get team
 // @Tags    teams
+// @Produce json
 // @Param   id path string true "team id"
 // @Success 200 {object} model.APIResponse{data=model.Team}
+// @Failure 401 {object} model.APIResponse "no valid session"
+// @Failure 403 {object} model.APIResponse "insufficient role"
 // @Failure 404 {object} model.APIResponse
 // @Router  /teams/{id} [get]
 func (h *TeamHandler) Get(c *echo.Context) error {
@@ -51,9 +56,11 @@ func (h *TeamHandler) Get(c *echo.Context) error {
 // @Param   body body model.UpdateTeamRequest true  "fields to update"
 // @Success 200  {object} model.APIResponse{data=model.Team}
 // @Failure 400  {object} model.APIResponse
+// @Failure 401  {object} model.APIResponse "no valid session"
 // @Failure 403  {object} model.APIResponse
 // @Failure 404  {object} model.APIResponse
 // @Failure 409  {object} model.APIResponse "team name already used in the company"
+// @Failure 413  {object} model.APIResponse "body larger than 256 KiB"
 // @Router  /teams/{id} [patch]
 func (h *TeamHandler) Update(c *echo.Context) error {
 	var req model.UpdateTeamRequest
@@ -71,8 +78,10 @@ func (h *TeamHandler) Update(c *echo.Context) error {
 // Delete godoc
 // @Summary Delete a team (team admin; cascades to its flagsets, flags, versions and API keys)
 // @Tags    teams
+// @Produce json
 // @Param   id path string true "team id"
 // @Success 204 "No Content"
+// @Failure 401 {object} model.APIResponse "no valid session"
 // @Failure 403 {object} model.APIResponse
 // @Failure 404 {object} model.APIResponse
 // @Router  /teams/{id} [delete]
@@ -90,6 +99,9 @@ func (h *TeamHandler) Delete(c *echo.Context) error {
 // @Produce json
 // @Param   id path string true "team id"
 // @Success 200 {object} model.APIResponse{data=[]model.TeamMember}
+// @Failure 401 {object} model.APIResponse "no valid session"
+// @Failure 403 {object} model.APIResponse "insufficient role"
+// @Failure 404 {object} model.APIResponse "not found, or a malformed id"
 // @Router  /teams/{id}/members [get]
 func (h *TeamHandler) ListMembers(c *echo.Context) error {
 	items, err := h.svc.ListMembers(c.Request().Context(), c.Param("id"))
@@ -105,6 +117,9 @@ func (h *TeamHandler) ListMembers(c *echo.Context) error {
 // @Produce json
 // @Param   id path string true "team id"
 // @Success 200 {object} model.APIResponse{data=[]model.CompanyMember}
+// @Failure 401 {object} model.APIResponse "no valid session"
+// @Failure 403 {object} model.APIResponse "insufficient role"
+// @Failure 404 {object} model.APIResponse "not found, or a malformed id"
 // @Router  /teams/{id}/addable-members [get]
 func (h *TeamHandler) AddableMembers(c *echo.Context) error {
 	items, err := h.svc.AddableMembers(c.Request().Context(), c.Param("id"))
@@ -124,8 +139,11 @@ func (h *TeamHandler) AddableMembers(c *echo.Context) error {
 // @Success 201  {object} model.APIResponse{data=model.TeamMember} "member added"
 // @Success 200  {object} model.APIResponse{data=model.TeamMember} "existing member: role updated"
 // @Failure 400  {object} model.APIResponse
+// @Failure 401  {object} model.APIResponse "no valid session"
 // @Failure 403  {object} model.APIResponse "insufficient role"
 // @Failure 404  {object} model.APIResponse "no user with this email in the team's company"
+// @Failure 409 {object} model.APIResponse "the team must keep at least one admin"
+// @Failure 413  {object} model.APIResponse "body larger than 256 KiB"
 // @Router  /teams/{id}/members [post]
 func (h *TeamHandler) AddMember(c *echo.Context) error {
 	var req model.AddMemberRequest
@@ -153,8 +171,11 @@ func (h *TeamHandler) AddMember(c *echo.Context) error {
 // @Param   body body model.UpdateMemberRequest true "new role"
 // @Success 204  "No Content"
 // @Failure 400  {object} model.APIResponse
+// @Failure 401  {object} model.APIResponse "no valid session"
 // @Failure 403  {object} model.APIResponse
 // @Failure 404  {object} model.APIResponse
+// @Failure 409 {object} model.APIResponse "the team must keep at least one admin"
+// @Failure 413  {object} model.APIResponse "body larger than 256 KiB"
 // @Router  /teams/{id}/members/{uid} [patch]
 func (h *TeamHandler) UpdateMember(c *echo.Context) error {
 	var req model.UpdateMemberRequest
@@ -172,12 +193,14 @@ func (h *TeamHandler) UpdateMember(c *echo.Context) error {
 // RemoveMember godoc
 // @Summary Remove a member from a team (team admin)
 // @Tags    teams
+// @Produce json
 // @Param   id  path string true "team id"
 // @Param   uid path string true "user id"
 // @Success 204 "No Content"
-// @Failure 400 {object} model.APIResponse "malformed id"
+// @Failure 401 {object} model.APIResponse "no valid session"
 // @Failure 403 {object} model.APIResponse
 // @Failure 404 {object} model.APIResponse
+// @Failure 409 {object} model.APIResponse "the team must keep at least one admin"
 // @Router  /teams/{id}/members/{uid} [delete]
 func (h *TeamHandler) RemoveMember(c *echo.Context) error {
 	claims := middleware.MustClaims(c)

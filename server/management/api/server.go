@@ -40,6 +40,7 @@ type Services struct {
 func New(cfg config.Config, log *slog.Logger, h Handlers, s Services) *echo.Echo {
 	e := echo.New()
 	e.Logger = log
+	e.IPExtractor = ipExtractor(cfg.Server)
 	// First, so the route reaches otelhttp before any middleware swaps the request.
 	e.Use(middleware.RouteTelemetry())
 	// Tag every log line written through c.Logger() with the request id.
@@ -99,30 +100,9 @@ func New(cfg config.Config, log *slog.Logger, h Handlers, s Services) *echo.Echo
 		return c.JSON(200, model.APIResponse{Data: map[string]string{"status": "ok"}})
 	})
 
-	// Login is the public surface and each callback costs an OAuth exchange.
-	// Keyed by RealIP, i.e. the socket address: behind a reverse proxy every
-	// client shares the proxy's IP, so this becomes a global 5 req/s limit
-	// (configure e.IPExtractor for trusted proxies if that bites).
-	loginLimit := rateLimit(5, nil)
-	e.GET("/auth/login", h.Auth.Login, loginLimit)
-	e.GET("/auth/callback", h.Auth.Callback, loginLimit)
-	e.POST("/auth/logout", h.Auth.Logout)
-	// Outside the auth group so an expired session can still log out.
-	e.POST("/api/v1/auth/logout", h.Auth.Logout)
-
-	// Public: the webui reads it before login.
-	e.GET("/api/v1/config", h.Config.Get)
-
-	auth := middleware.RequireAuth(s.Auth)
-
-	// Off by default; when on, still requires a session (it is HTML served on
-	// the origin that holds the session cookie).
-	if cfg.Server.EnableSwagger {
-		e.GET("/swagger/*", echoSwagger.WrapHandler, auth)
-	}
-
-	// Authenticated responses (flagset API keys included) must not be cached.
-	// They are JSON only, so a CSP that loads nothing costs nothing (kept off
+	// Authenticated and auth responses must not be cached: they carry API keys,
+	// session cookies, or (the callback URL) the one-time code. They are JSON
+	// or redirects, so a CSP that loads nothing costs nothing (kept off
 	// /swagger/*, which needs scripts).
 	apiHeaders := func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
@@ -133,7 +113,28 @@ func New(cfg config.Config, log *slog.Logger, h Handlers, s Services) *echo.Echo
 		}
 	}
 
-	api := e.Group("/api/v1", apiHeaders, auth)
+	// Login is the public surface and each callback costs an OAuth exchange.
+	// Keyed by RealIP: behind a reverse proxy, set server.trustedProxies or
+	// every client shares the proxy's IP and this becomes a global 5 req/s limit.
+	loginLimit := rateLimit(5, nil)
+	e.GET("/auth/login", h.Auth.Login, apiHeaders, loginLimit)
+	e.GET("/auth/callback", h.Auth.Callback, apiHeaders, loginLimit)
+	e.POST("/auth/logout", h.Auth.Logout, apiHeaders)
+	// Outside the auth group so an expired session can still log out.
+	e.POST("/api/v1/auth/logout", h.Auth.Logout, apiHeaders)
+
+	// Public: the webui reads it before login.
+	e.GET("/api/v1/config", h.Config.Get)
+
+	auth := middleware.RequireAuth(s.Auth, middleware.SessionCookieName(cfg.Auth))
+
+	// Off by default; when on, still requires a session (it is HTML served on
+	// the origin that holds the session cookie).
+	if cfg.Server.EnableSwagger {
+		e.GET("/swagger/*", echoSwagger.WrapHandler, auth)
+	}
+
+	api := e.Group("/api/v1", apiHeaders, auth, middleware.ValidIDs())
 	api.GET("/auth/me", h.Auth.Me)
 
 	registerOnboardingRoutes(api, h)
@@ -145,6 +146,22 @@ func New(cfg config.Config, log *slog.Logger, h Handlers, s Services) *echo.Echo
 	api.GET("/audit", h.Audit.List)
 
 	return e
+}
+
+// ipExtractor resolves c.RealIP(). Without trusted proxies it is the socket
+// address (nil: echo's default). With them, the nearest X-Forwarded-For hop
+// outside those ranges, so a client can't spoof its IP by sending the header:
+// echo's own trust of private, loopback and link-local peers is turned off.
+func ipExtractor(cfg config.ServerConfig) echo.IPExtractor {
+	nets, _ := cfg.TrustedProxyNets() // Validate already rejected bad entries
+	if len(nets) == 0 {
+		return nil
+	}
+	opts := []echo.TrustOption{echo.TrustLoopback(false), echo.TrustLinkLocal(false), echo.TrustPrivateNet(false)}
+	for _, n := range nets {
+		opts = append(opts, echo.TrustIPRange(n))
+	}
+	return echo.ExtractIPFromXFFHeader(opts...)
 }
 
 // rateLimit caps each identifier (default: client IP) at perSec requests per

@@ -29,10 +29,8 @@ func TestCompanyRepoCRUD(t *testing.T) {
 	require.NotNil(t, got)
 	assert.Equal(t, created.ID, got.ID)
 
-	// GetByID missing -> nil, nil
-	missing, err := repo.GetByID(ctx, "00000000-0000-0000-0000-000000000000")
-	require.NoError(t, err)
-	assert.Nil(t, missing)
+	_, err = repo.GetByID(ctx, "00000000-0000-0000-0000-000000000000")
+	assert.ErrorIs(t, err, repository.ErrNotFound)
 
 	// List
 	_ = testutil.SeedCompany(t, db, "Beta")
@@ -58,7 +56,6 @@ func TestCompanyRepoCRUD(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, mem)
 	assert.ErrorIs(t, repo.Delete(ctx, created.ID), repository.ErrNotFound)
-	assert.ErrorIs(t, repo.Delete(ctx, "not-a-uuid"), repository.ErrNotFound)
 }
 
 func TestCompanyRepoMembership(t *testing.T) {

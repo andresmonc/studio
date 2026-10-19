@@ -54,9 +54,11 @@ func (r *AuditRepo) Record(ctx context.Context, tx pgx.Tx, in AuditInput) error 
 		// the caller's change committable when it drops the audit error.
 		err = pgx.BeginFunc(ctx, tx, func(sp pgx.Tx) error { return r.record(ctx, sp.Exec, in) })
 	}
-	// Most callers treat audit as best-effort and drop the error, so log it here
-	// to keep a broken audit pipeline visible.
-	if err != nil {
+	// Callers outside a tx treat audit as best-effort and drop the error, so log
+	// it here to keep a broken audit pipeline visible. In a tx the caller
+	// returns it (and the handler logs it), and a client that went away isn't a
+	// broken pipeline: logging those too would only add duplicates and noise.
+	if err != nil && tx == nil && !errors.Is(err, context.Canceled) {
 		slog.ErrorContext(ctx, "audit write failed",
 			"action", in.Action, "target_type", in.TargetType, "target_id", in.TargetID, "error", err)
 	}

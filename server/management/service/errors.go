@@ -9,8 +9,10 @@ import (
 
 var (
 	ErrForbidden = errors.New("forbidden")
-	ErrNotFound  = errors.New("not found")
-	ErrConflict  = errors.New("conflict")
+	// ErrNotFound is the repository's, so a lookup's not found passes through
+	// a service unchanged.
+	ErrNotFound = repository.ErrNotFound
+	ErrConflict = errors.New("conflict")
 
 	errInvalidRole = model.ValidationError{Field: "role", Message: "invalid role"}
 )

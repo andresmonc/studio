@@ -52,7 +52,7 @@ func (r *FlagRepo) GetByID(ctx context.Context, id string) (*model.Flag, error) 
 
 // GetForUpdate reads the live flag inside tx and locks its row until tx ends,
 // so a save works from the current version and a concurrent delete or save
-// waits. Returns (nil, nil) when the flag is missing or deleted.
+// waits. ErrNotFound when the flag is missing or deleted.
 func (r *FlagRepo) GetForUpdate(ctx context.Context, tx pgx.Tx, id string) (*model.Flag, error) {
 	// Lock first, then read in a second statement: a single SELECT … FOR
 	// UPDATE OF f that waited on the lock would re-check only the flag row and
@@ -64,7 +64,7 @@ func (r *FlagRepo) GetForUpdate(ctx context.Context, tx pgx.Tx, id string) (*mod
 		return nil, err
 	}
 	if tag.RowsAffected() == 0 {
-		return nil, nil
+		return nil, ErrNotFound
 	}
 	return getFlag(ctx, tx, id)
 }
@@ -81,7 +81,7 @@ func getFlag(ctx context.Context, q queryRower, id string) (*model.Flag, error) 
 		&f.Payload, &f.CurrentVersion)
 	if err != nil {
 		if isNoRows(err) {
-			return nil, nil
+			return nil, ErrNotFound
 		}
 		return nil, err
 	}
@@ -177,14 +177,14 @@ func (r *FlagRepo) ListByTeam(
 		qb.Add("COALESCE(fv.flag_type, 'unknown') = $%d", *filters.Type)
 	}
 	if filters.Owner != nil && !filters.Unassigned {
-		qb.Add("u.name = $%d", *filters.Owner)
+		qb.Add("fv.created_by = $%d", *filters.Owner)
 	}
 	if filters.Disabled != nil {
 		qb.Add("f.disabled = $%d", *filters.Disabled)
 	}
 	where, args := qb.Build()
 	if filters.Unassigned {
-		where += " AND u.name IS NULL"
+		where += " AND fv.created_by IS NULL"
 	}
 	countArgs := append([]any{teamID}, args...)
 
@@ -209,7 +209,7 @@ func (r *FlagRepo) ListByTeam(
 	_, args = qb.Build()
 	rows, err := r.db.Pool.Query(ctx, `
 		SELECT f.id, f.flagset_id, fs.name, f.name, fv.payload, COALESCE(fv.flag_type, 'unknown'),
-		       fv.version_number, f.disabled, u.name, f.updated_at`+teamFlagsFrom+where+`
+		       fv.version_number, f.disabled, fv.created_by::text, u.name, f.updated_at`+teamFlagsFrom+where+`
 		ORDER BY `+order+`
 		LIMIT `+limit+` OFFSET `+offset,
 		append([]any{teamID}, args...)...)
@@ -222,7 +222,7 @@ func (r *FlagRepo) ListByTeam(
 		var it model.FlagInstance
 		var payload json.RawMessage
 		if err := rows.Scan(&it.ID, &it.FlagsetID, &it.FlagsetName, &it.Name, &payload, &it.Type,
-			&it.CurrentVersion, &it.Disabled, &it.Owner, &it.UpdatedAt); err != nil {
+			&it.CurrentVersion, &it.Disabled, &it.OwnerID, &it.Owner, &it.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		it.Variations, it.Distribution, it.TargetingRuleCount, it.Progressive = model.FlagSummaryFromPayload(payload)
@@ -233,20 +233,20 @@ func (r *FlagRepo) ListByTeam(
 }
 
 // ListTeamOwners returns the distinct authors of a team's current flag
-// versions, sorted — the options of the flags list owner filter.
-func (r *FlagRepo) ListTeamOwners(ctx context.Context, teamID string) ([]string, error) {
+// versions, sorted by name — the options of the flags list owner filter.
+func (r *FlagRepo) ListTeamOwners(ctx context.Context, teamID string) ([]model.FlagOwner, error) {
 	rows, err := r.db.Pool.Query(ctx, `
-		SELECT DISTINCT u.name
+		SELECT DISTINCT u.id::text, u.name
 		FROM flags f
 		JOIN flagsets fs ON fs.id = f.flagset_id
 		JOIN flag_versions fv ON fv.id = f.current_version_id
 		JOIN users u ON u.id = fv.created_by
 		WHERE fs.team_id = $1 AND f.deleted_at IS NULL
-		ORDER BY u.name`, teamID)
+		ORDER BY u.name, u.id::text`, teamID)
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, pgx.RowTo[string])
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[model.FlagOwner])
 }
 
 // UpdateCurrentVersion points the flag at versionID and returns its new
@@ -303,9 +303,6 @@ func (r *FlagRepo) SetDisabled(ctx context.Context, tx pgx.Tx, flagID string, di
 	tag, err := exec(ctx,
 		`UPDATE flags SET disabled = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, flagID, disabled)
 	if err != nil {
-		if isNoRows(err) {
-			return ErrNotFound
-		}
 		return err
 	}
 	if tag.RowsAffected() == 0 {
@@ -329,9 +326,6 @@ func softDeleteFlag(ctx context.Context, tx pgx.Tx, flagID string) error {
 	tag, err := tx.Exec(ctx,
 		`UPDATE flags SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, flagID)
 	if err != nil {
-		if isNoRows(err) {
-			return ErrNotFound
-		}
 		return err
 	}
 	if tag.RowsAffected() == 0 {
@@ -341,15 +335,14 @@ func softDeleteFlag(ctx context.Context, tx pgx.Tx, flagID string) error {
 	return err
 }
 
-func (r *FlagRepo) GetFlagsetID(ctx context.Context, flagID string) (string, error) {
-	var fsID string
-	err := r.db.Pool.QueryRow(ctx,
-		`SELECT flagset_id FROM flags WHERE id = $1 AND deleted_at IS NULL`, flagID).Scan(&fsID)
-	if err != nil {
-		if isNoRows(err) {
-			return "", ErrNotFound
-		}
-		return "", err
+// TeamID returns the team owning the live flag (through its live flagset) in
+// one indexed lookup: RBAC and audit only need the team, not the flag.
+func (r *FlagRepo) TeamID(ctx context.Context, flagID string) (string, error) {
+	var teamID string
+	err := r.db.Pool.QueryRow(ctx, `SELECT fs.team_id FROM flags f JOIN flagsets fs ON fs.id = f.flagset_id
+		WHERE f.id = $1 AND f.deleted_at IS NULL AND fs.deleted_at IS NULL`, flagID).Scan(&teamID)
+	if isNoRows(err) {
+		return "", ErrNotFound
 	}
-	return fsID, nil
+	return teamID, err
 }

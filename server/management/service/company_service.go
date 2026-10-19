@@ -40,38 +40,53 @@ func ensureNoCompany(ctx context.Context, companies *repository.CompanyRepo) err
 	return nil
 }
 
-// Create adds a company without an admin: it is super-admin only, and the
-// super admin then adds the first admin. Onboarding creates the company
-// together with its admin instead. In mono company mode every user without a
+// Create adds a company with its first admin (super admin only), in one
+// transaction, so no company is ever admin-less. The admin must be an existing
+// user without a company. In mono company mode every other user without a
 // company joins it as a member.
 func (s *CompanyService) Create(
-	ctx context.Context, actorID string, req *model.CreateCompanyRequest,
+	ctx context.Context, actorID string, req *model.CreateCompanyWithAdminRequest,
 ) (*model.Company, error) {
-	if err := validateName(&req.DisplayName, "displayName"); err != nil {
+	errs := validateName(&req.DisplayName, "displayName")
+	if strings.TrimSpace(req.AdminEmail) == "" {
+		errs = append(errs, model.ValidationError{Field: "adminEmail", Message: "company admin is required"})
+	}
+	if err := errs.Err(); err != nil {
 		return nil, err
+	}
+	admin, err := s.users.GetByEmail(ctx, req.AdminEmail)
+	if errors.Is(err, ErrNotFound) {
+		return nil, newPublicError(ErrNotFound, "user with email "+req.AdminEmail+" not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if admin.CompanyID != nil {
+		return nil, newPublicError(ErrConflict, "user with email "+req.AdminEmail+" already belongs to a company")
 	}
 	if s.mono {
 		if err := ensureNoCompany(ctx, s.companies); err != nil {
 			return nil, err
 		}
 	}
-	c, _, err := s.companies.CreateWithAdmin(ctx, req.DisplayName, req.Description, "", s.mono)
+	c, m, err := s.companies.CreateWithAdmin(ctx, req.DisplayName, req.Description, admin.ID, s.mono)
 	if err != nil {
-		return nil, err
+		// The user joined a company or was deleted since the check above.
+		return nil, writeError(err)
 	}
 	_ = s.audit.Record(ctx, nil, repository.AuditInput{
 		ActorUserID: &actorID, CompanyID: &c.ID,
 		Action: model.AuditActionCreate, TargetType: model.AuditTargetCompany, TargetID: c.ID, After: c,
 	})
+	_ = s.audit.Record(ctx, nil, repository.AuditInput{
+		ActorUserID: &actorID, CompanyID: &c.ID,
+		Action: model.AuditActionCreate, TargetType: model.AuditTargetCompanyMember, TargetID: admin.ID, After: m,
+	})
 	return c, nil
 }
 
 func (s *CompanyService) Get(ctx context.Context, id string) (*model.Company, error) {
-	c, err := s.companies.GetByID(ctx, id)
-	if err == nil && c == nil {
-		return nil, ErrNotFound
-	}
-	return c, err
+	return s.companies.GetByID(ctx, id)
 }
 
 // List returns visible companies. SuperAdmin sees all; otherwise the user's company.
@@ -87,7 +102,10 @@ func (s *CompanyService) List(ctx context.Context, userID string, superAdmin boo
 		return []model.Company{}, nil
 	}
 	c, err := s.companies.GetByID(ctx, m.CompanyID)
-	if err != nil || c == nil {
+	if errors.Is(err, ErrNotFound) { // deleted since the membership read
+		return []model.Company{}, nil
+	}
+	if err != nil {
 		return nil, err
 	}
 	return []model.Company{*c}, nil
@@ -101,13 +119,13 @@ func (s *CompanyService) Update(
 	if err != nil {
 		return nil, err
 	}
-	if before == nil {
-		return nil, ErrNotFound
-	}
 	if req.DisplayName != nil {
 		if err := validateName(req.DisplayName, "displayName"); err != nil {
 			return nil, err
 		}
+	}
+	if !changes(req.DisplayName, before.DisplayName) && !changes(req.Description, before.Description) {
+		return before, nil
 	}
 	c, err := s.companies.Update(ctx, id, req.DisplayName, req.Description)
 	if err != nil {
@@ -125,9 +143,6 @@ func (s *CompanyService) Delete(ctx context.Context, actorID, id string) error {
 	before, err := s.companies.GetByID(ctx, id)
 	if err != nil {
 		return err
-	}
-	if before == nil {
-		return ErrNotFound
 	}
 	if err := s.companies.Delete(ctx, id); err != nil {
 		return writeError(err)
@@ -162,14 +177,17 @@ func (s *CompanyService) AddMember(
 	if err := errs.Err(); err != nil {
 		return nil, false, err
 	}
-	u, err := s.users.GetByEmail(ctx, req.Email)
-	if err != nil {
-		return nil, false, err
-	}
 	// A user of another company is reported as not found, like an unknown
 	// email, so callers can't probe which accounts exist in other tenants.
 	notFound := newPublicError(ErrNotFound, "user with email "+req.Email+" not found")
-	if u == nil || (u.CompanyID != nil && *u.CompanyID != companyID) {
+	u, err := s.users.GetByEmail(ctx, req.Email)
+	if errors.Is(err, ErrNotFound) {
+		return nil, false, notFound
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if u.CompanyID != nil && *u.CompanyID != companyID {
 		return nil, false, notFound
 	}
 	if req.Role != model.CompanyRoleAdmin {
@@ -192,6 +210,9 @@ func (s *CompanyService) AddMember(
 	}
 	added := prev == ""
 	if !added {
+		if string(prev) == string(req.Role) {
+			return m, false, nil // same role: nothing changed, nothing to audit
+		}
 		in.Action, in.Before, in.After = model.AuditActionUpdate, memberRole{string(prev)}, memberRole{string(req.Role)}
 	}
 	_ = s.audit.Record(ctx, nil, in)
@@ -238,6 +259,9 @@ func (s *CompanyService) UpdateMember(
 	if err != nil {
 		return writeError(err)
 	}
+	if prev == role {
+		return nil
+	}
 	_ = s.audit.Record(ctx, nil, repository.AuditInput{
 		ActorUserID: &actorID, CompanyID: &companyID,
 		Action: model.AuditActionUpdate, TargetType: model.AuditTargetCompanyMember, TargetID: userID,
@@ -246,7 +270,15 @@ func (s *CompanyService) UpdateMember(
 	return nil
 }
 
+// ErrMonoRemoveMember refuses a removal that wouldn't stick: in mono company
+// mode the next login re-joins every user without a company.
+var ErrMonoRemoveMember = newPublicError(ErrConflict,
+	"members can't be removed in mono company mode: revoke their access at the identity provider")
+
 func (s *CompanyService) RemoveMember(ctx context.Context, actorID, companyID, userID string) error {
+	if s.mono {
+		return ErrMonoRemoveMember
+	}
 	if err := s.ensureNotLastAdmin(ctx, companyID, userID); err != nil {
 		return err
 	}

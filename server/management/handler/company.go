@@ -21,7 +21,9 @@ func NewCompanyHandler(svc *service.CompanyService, team *service.TeamService) *
 // List godoc
 // @Summary List all companies (super admin only)
 // @Tags    companies
+// @Produce json
 // @Success 200 {object} model.APIResponse{data=[]model.Company}
+// @Failure 401 {object} model.APIResponse "no valid session"
 // @Failure 403 {object} model.APIResponse
 // @Router  /companies [get]
 func (h *CompanyHandler) List(c *echo.Context) error {
@@ -34,17 +36,21 @@ func (h *CompanyHandler) List(c *echo.Context) error {
 }
 
 // Create godoc
-// @Summary Create a company (super admin only)
+// @Summary Create a company with its first admin (super admin only)
 // @Tags    companies
+// @Produce json
 // @Accept  json
-// @Param   body body model.CreateCompanyRequest true "company"
+// @Param   body body model.CreateCompanyWithAdminRequest true "company and admin email"
 // @Success 201 {object} model.APIResponse{data=model.Company}
 // @Failure 400 {object} model.APIResponse
+// @Failure 401 {object} model.APIResponse "no valid session"
 // @Failure 403 {object} model.APIResponse
-// @Failure 409 {object} model.APIResponse "a company already exists (mono company mode)"
+// @Failure 404 {object} model.APIResponse "no user with adminEmail"
+// @Failure 409 {object} model.APIResponse "admin already in a company, or a company exists (mono company mode)"
+// @Failure 413 {object} model.APIResponse "body larger than 256 KiB"
 // @Router  /companies [post]
 func (h *CompanyHandler) Create(c *echo.Context) error {
-	var req model.CreateCompanyRequest
+	var req model.CreateCompanyWithAdminRequest
 	if err := c.Bind(&req); err != nil {
 		return bindError(c, err)
 	}
@@ -59,8 +65,11 @@ func (h *CompanyHandler) Create(c *echo.Context) error {
 // Get godoc
 // @Summary Get company
 // @Tags    companies
+// @Produce json
 // @Param   companyId path string true "company id"
 // @Success 200 {object} model.APIResponse{data=model.Company}
+// @Failure 401 {object} model.APIResponse "no valid session"
+// @Failure 403 {object} model.APIResponse "insufficient role"
 // @Failure 404 {object} model.APIResponse
 // @Router  /companies/{companyId} [get]
 func (h *CompanyHandler) Get(c *echo.Context) error {
@@ -74,13 +83,16 @@ func (h *CompanyHandler) Get(c *echo.Context) error {
 // Update godoc
 // @Summary Update a company (company admin)
 // @Tags    companies
+// @Produce json
 // @Accept  json
 // @Param   companyId path string                    true "company id"
 // @Param   body      body model.UpdateCompanyRequest true "fields to update"
 // @Success 200 {object} model.APIResponse{data=model.Company}
 // @Failure 400 {object} model.APIResponse
+// @Failure 401 {object} model.APIResponse "no valid session"
 // @Failure 403 {object} model.APIResponse
 // @Failure 404 {object} model.APIResponse
+// @Failure 413 {object} model.APIResponse "body larger than 256 KiB"
 // @Router  /companies/{companyId} [patch]
 func (h *CompanyHandler) Update(c *echo.Context) error {
 	var req model.UpdateCompanyRequest
@@ -98,8 +110,10 @@ func (h *CompanyHandler) Update(c *echo.Context) error {
 // Delete godoc
 // @Summary Delete a company (super admin only; cascades to its teams, flagsets, flags, versions and API keys)
 // @Tags    companies
+// @Produce json
 // @Param   companyId path string true "company id"
 // @Success 204 "No Content"
+// @Failure 401 {object} model.APIResponse "no valid session"
 // @Failure 403 {object} model.APIResponse
 // @Failure 404 {object} model.APIResponse
 // @Router  /companies/{companyId} [delete]
@@ -114,8 +128,12 @@ func (h *CompanyHandler) Delete(c *echo.Context) error {
 // ListMembers godoc
 // @Summary List company members
 // @Tags    companies
+// @Produce json
 // @Param   companyId path string true "company id"
 // @Success 200 {object} model.APIResponse{data=[]model.CompanyMember}
+// @Failure 401 {object} model.APIResponse "no valid session"
+// @Failure 403 {object} model.APIResponse "insufficient role"
+// @Failure 404 {object} model.APIResponse "not found, or a malformed id"
 // @Router  /companies/{companyId}/members [get]
 func (h *CompanyHandler) ListMembers(c *echo.Context) error {
 	items, err := h.svc.ListMembers(c.Request().Context(), c.Param("companyId"))
@@ -128,15 +146,18 @@ func (h *CompanyHandler) ListMembers(c *echo.Context) error {
 // AddMember godoc
 // @Summary Add a member to a company, or set the role of an existing member (company admin)
 // @Tags    companies
+// @Produce json
 // @Accept  json
 // @Param   companyId path string                        true "company id"
 // @Param   body      body model.AddCompanyMemberRequest true "member to add"
 // @Success 201 {object} model.APIResponse{data=model.CompanyMember} "member added"
 // @Success 200 {object} model.APIResponse{data=model.CompanyMember} "existing member: role updated"
 // @Failure 400 {object} model.APIResponse
+// @Failure 401 {object} model.APIResponse "no valid session"
 // @Failure 403 {object} model.APIResponse
 // @Failure 404 {object} model.APIResponse "no user with this email (users of other companies included)"
 // @Failure 409 {object} model.APIResponse "demoting the last company admin"
+// @Failure 413 {object} model.APIResponse "body larger than 256 KiB"
 // @Router  /companies/{companyId}/members [post]
 func (h *CompanyHandler) AddMember(c *echo.Context) error {
 	var req model.AddCompanyMemberRequest
@@ -157,15 +178,18 @@ func (h *CompanyHandler) AddMember(c *echo.Context) error {
 // UpdateMember godoc
 // @Summary Update a company member's role (company admin)
 // @Tags    companies
+// @Produce json
 // @Accept  json
 // @Param   companyId path string                            true "company id"
 // @Param   uid       path string                            true "user id"
 // @Param   body      body model.UpdateCompanyMemberRequest  true "new role"
 // @Success 204 "No Content"
 // @Failure 400 {object} model.APIResponse
+// @Failure 401 {object} model.APIResponse "no valid session"
 // @Failure 403 {object} model.APIResponse
 // @Failure 404 {object} model.APIResponse
 // @Failure 409 {object} model.APIResponse "demoting the last company admin"
+// @Failure 413 {object} model.APIResponse "body larger than 256 KiB"
 // @Router  /companies/{companyId}/members/{uid} [patch]
 func (h *CompanyHandler) UpdateMember(c *echo.Context) error {
 	var req model.UpdateCompanyMemberRequest
@@ -183,13 +207,14 @@ func (h *CompanyHandler) UpdateMember(c *echo.Context) error {
 // RemoveMember godoc
 // @Summary Remove a member from a company (company admin; also drops their team roles there)
 // @Tags    companies
+// @Produce json
 // @Param   companyId path string true "company id"
 // @Param   uid       path string true "user id"
 // @Success 204 "No Content"
-// @Failure 400 {object} model.APIResponse "malformed id"
+// @Failure 401 {object} model.APIResponse "no valid session"
 // @Failure 403 {object} model.APIResponse
 // @Failure 404 {object} model.APIResponse
-// @Failure 409 {object} model.APIResponse "removing the last company admin"
+// @Failure 409 {object} model.APIResponse "removing the last company admin, or any member in mono company mode"
 // @Router  /companies/{companyId}/members/{uid} [delete]
 func (h *CompanyHandler) RemoveMember(c *echo.Context) error {
 	claims := middleware.MustClaims(c)
@@ -202,8 +227,12 @@ func (h *CompanyHandler) RemoveMember(c *echo.Context) error {
 // ListTeams godoc
 // @Summary List teams in a company
 // @Tags    companies
+// @Produce json
 // @Param   companyId path string true "company id"
 // @Success 200 {object} model.APIResponse{data=[]model.Team}
+// @Failure 401 {object} model.APIResponse "no valid session"
+// @Failure 403 {object} model.APIResponse "insufficient role"
+// @Failure 404 {object} model.APIResponse "not found, or a malformed id"
 // @Router  /companies/{companyId}/teams [get]
 func (h *CompanyHandler) ListTeams(c *echo.Context) error {
 	items, err := h.team.ListByCompany(c.Request().Context(), c.Param("companyId"))
@@ -216,14 +245,17 @@ func (h *CompanyHandler) ListTeams(c *echo.Context) error {
 // CreateTeam godoc
 // @Summary Create a team in a company (company admin)
 // @Tags    companies
+// @Produce json
 // @Accept  json
 // @Param   companyId path string                  true "company id"
 // @Param   body      body model.CreateTeamRequest true "team"
 // @Success 201 {object} model.APIResponse{data=model.Team}
 // @Failure 400 {object} model.APIResponse
+// @Failure 401 {object} model.APIResponse "no valid session"
 // @Failure 403 {object} model.APIResponse "insufficient role"
 // @Failure 404 {object} model.APIResponse "no user with the admin email in the company"
 // @Failure 409 {object} model.APIResponse "team name already used in the company"
+// @Failure 413 {object} model.APIResponse "body larger than 256 KiB"
 // @Router  /companies/{companyId}/teams [post]
 func (h *CompanyHandler) CreateTeam(c *echo.Context) error {
 	var req model.CreateTeamRequest

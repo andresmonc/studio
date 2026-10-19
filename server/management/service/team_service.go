@@ -44,7 +44,7 @@ func (s *TeamService) Create(
 	// Validate the team admin before creating the team so we never leave an
 	// admin-less team behind. The admin must already belong to the company.
 	admin, err := s.users.GetByEmail(ctx, req.AdminEmail)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
 	// A user of another company is reported as not found, like an unknown
@@ -76,11 +76,7 @@ func (s *TeamService) ListByCompany(ctx context.Context, companyID string) ([]mo
 }
 
 func (s *TeamService) Get(ctx context.Context, id string) (*model.Team, error) {
-	t, err := s.teams.GetByID(ctx, id)
-	if err == nil && t == nil {
-		return nil, ErrNotFound
-	}
-	return t, err
+	return s.teams.GetByID(ctx, id)
 }
 
 func (s *TeamService) Update(
@@ -90,13 +86,13 @@ func (s *TeamService) Update(
 	if err != nil {
 		return nil, err
 	}
-	if before == nil {
-		return nil, ErrNotFound
-	}
 	if req.Name != nil {
 		if err := validateName(req.Name, "name"); err != nil {
 			return nil, err
 		}
+	}
+	if !changes(req.Name, before.Name) && !changes(req.Description, before.Description) {
+		return before, nil
 	}
 	t, err := s.teams.Update(ctx, id, req.Name, req.Description)
 	if err != nil {
@@ -113,9 +109,6 @@ func (s *TeamService) Delete(ctx context.Context, actorID, id string) error {
 	before, err := s.teams.GetByID(ctx, id)
 	if err != nil {
 		return err
-	}
-	if before == nil {
-		return ErrNotFound
 	}
 	if err := s.teams.Delete(ctx, id); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
@@ -142,9 +135,6 @@ func (s *TeamService) AddableMembers(ctx context.Context, teamID string) ([]mode
 	team, err := s.teams.GetByID(ctx, teamID)
 	if err != nil {
 		return nil, err
-	}
-	if team == nil {
-		return nil, ErrNotFound
 	}
 	companyMembers, err := s.companies.ListMembers(ctx, team.CompanyID)
 	if err != nil {
@@ -184,20 +174,22 @@ func (s *TeamService) AddMember(
 		return nil, false, err
 	}
 	u, err := s.users.GetByEmail(ctx, req.Email)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrNotFound) {
 		return nil, false, err
 	}
 	team, err := s.teams.GetByID(ctx, teamID)
 	if err != nil {
 		return nil, false, err
 	}
-	if team == nil {
-		return nil, false, ErrNotFound
-	}
 	// User must belong to the team's company. Anyone else is "not found", like
 	// an unknown email, so callers can't probe accounts in other tenants.
 	if u == nil || u.CompanyID == nil || *u.CompanyID != team.CompanyID {
 		return nil, false, newPublicError(ErrNotFound, "user with email "+req.Email+" not found")
+	}
+	if req.Role != model.RoleAdmin {
+		if err := s.ensureNotLastAdmin(ctx, teamID, u.ID); err != nil {
+			return nil, false, err
+		}
 	}
 	m, prev, err := s.teams.SetMember(ctx, teamID, u.ID, req.Role)
 	if err != nil {
@@ -211,19 +203,53 @@ func (s *TeamService) AddMember(
 	}
 	added := prev == ""
 	if !added {
+		if string(prev) == string(req.Role) {
+			return m, false, nil // same role: nothing changed, nothing to audit
+		}
 		in.Action, in.Before, in.After = model.AuditActionUpdate, memberRole{string(prev)}, memberRole{string(req.Role)}
 	}
 	_ = s.audit.Record(ctx, nil, in)
 	return m, added, nil
 }
 
+// ensureNotLastAdmin fails with ErrConflict when userID is the team's only
+// explicit admin: Create never makes an admin-less team, and a demotion or
+// removal must not either (company admins would still inherit admin).
+// ponytail: check-then-act like the company guard; concurrent demotes of two
+// admins can both pass. Lock the admin rows in one tx if that ever matters.
+func (s *TeamService) ensureNotLastAdmin(ctx context.Context, teamID, userID string) error {
+	members, err := s.teams.ListMembers(ctx, teamID)
+	if err != nil {
+		return err
+	}
+	admins, isAdmin := 0, false
+	for _, m := range members {
+		if m.Role == model.RoleAdmin {
+			admins++
+			isAdmin = isAdmin || m.UserID == userID
+		}
+	}
+	if isAdmin && admins == 1 {
+		return newPublicError(ErrConflict, "team must keep at least one admin")
+	}
+	return nil
+}
+
 func (s *TeamService) UpdateMember(ctx context.Context, actorID, teamID, userID string, role model.Role) error {
 	if !role.IsValid() {
 		return model.ValidationErrors{errInvalidRole}
 	}
+	if role != model.RoleAdmin {
+		if err := s.ensureNotLastAdmin(ctx, teamID, userID); err != nil {
+			return err
+		}
+	}
 	prev, err := s.teams.UpdateMemberRole(ctx, teamID, userID, role)
 	if err != nil {
 		return writeError(err)
+	}
+	if prev == role {
+		return nil
 	}
 	_ = s.audit.Record(ctx, nil, repository.AuditInput{
 		ActorUserID: &actorID, TeamID: &teamID,
@@ -234,6 +260,9 @@ func (s *TeamService) UpdateMember(ctx context.Context, actorID, teamID, userID 
 }
 
 func (s *TeamService) RemoveMember(ctx context.Context, actorID, teamID, userID string) error {
+	if err := s.ensureNotLastAdmin(ctx, teamID, userID); err != nil {
+		return err
+	}
 	prev, err := s.teams.RemoveMember(ctx, teamID, userID)
 	if err != nil {
 		return writeError(err)
@@ -252,11 +281,11 @@ func (s *TeamService) RemoveMember(ctx context.Context, actorID, teamID, userID 
 // over from a former company membership grants nothing.
 func (s *TeamService) Role(ctx context.Context, teamID, userID string) (model.Role, error) {
 	team, err := s.teams.GetByID(ctx, teamID)
+	if errors.Is(err, ErrNotFound) {
+		return "", nil
+	}
 	if err != nil {
 		return "", err
-	}
-	if team == nil {
-		return "", nil
 	}
 
 	cm, err := s.companies.Membership(ctx, userID)

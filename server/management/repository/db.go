@@ -9,11 +9,13 @@ import (
 	"github.com/exaring/otelpgx"
 	"github.com/gofeatureflag/flag-management-system/server/management/config"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
+	// ErrNotFound is returned by lookups (GetByID, GetByEmail...) when no live
+	// row matches. Optional reads (Membership, GetRole, First) return nil or ""
+	// instead: having none is a normal state there.
 	ErrNotFound           = errors.New("not found")
 	ErrConflictOrNotFound = errors.New("conflict or not found")
 )
@@ -49,11 +51,35 @@ func NewDB(ctx context.Context, cfg config.DBConfig) (*DB, error) {
 		pool.Close()
 		return nil, fmt.Errorf("ping db: %w", err)
 	}
+	var versionNum int
+	var version string
+	if err := pool.QueryRow(pingCtx, `SELECT current_setting('server_version_num')::int,
+		current_setting('server_version')`).Scan(&versionNum, &version); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("read db server version: %w", err)
+	}
+	if err := requireServerVersion(versionNum, version); err != nil {
+		pool.Close()
+		return nil, err
+	}
 	if err := otelpgx.RecordStats(pool); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("db pool metrics: %w", err)
 	}
 	return &DB{Pool: pool}, nil
+}
+
+// minServerVersionNum is the oldest Postgres the schema runs on (as in
+// server_version_num): uuidv7() and VIRTUAL generated columns are new in 18.
+const minServerVersionNum = 180000
+
+// requireServerVersion fails on a server older than PostgreSQL 18 with a clear
+// message, instead of an obscure error at migration time.
+func requireServerVersion(num int, version string) error {
+	if num < minServerVersionNum {
+		return fmt.Errorf("PostgreSQL 18 or later is required, found %s", version)
+	}
+	return nil
 }
 
 func (d *DB) Close() {
@@ -74,9 +100,7 @@ func (d *DB) execOne(ctx context.Context, q string, args ...any) error {
 	return nil
 }
 
-// isNoRows also covers a malformed id (pg 22P02, e.g. "abc" for a uuid column):
-// it can't match a row, so lookups report not found instead of a server error.
-func isNoRows(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.Is(err, pgx.ErrNoRows) || (errors.As(err, &pgErr) && pgErr.Code == "22P02")
-}
+// isNoRows reports a query that matched nothing. A malformed id (pg 22P02) is
+// not folded in: the API rejects those before any query (middleware.ValidIDs),
+// so a failed cast here is a bug to surface, not a missing row.
+func isNoRows(err error) bool { return errors.Is(err, pgx.ErrNoRows) }

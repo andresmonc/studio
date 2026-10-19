@@ -37,9 +37,6 @@ func (s *OnboardingService) CreateCompanyForNewUser(
 	if err != nil {
 		return nil, err
 	}
-	if u == nil {
-		return nil, ErrNotFound
-	}
 	if u.CompanyID != nil || (s.mono && !superAdmin) {
 		return nil, ErrForbidden
 	}

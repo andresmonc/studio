@@ -74,8 +74,21 @@ func TestVersionHandler(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
 
+	t.Run("Rollback to the served payload -> 200, nothing written", func(t *testing.T) {
+		c, rec := reqCtx(http.MethodPost, `{"comment":"noop"}`)
+		params(c, "id", flag.ID, "n", "1")
+		withClaims(c, actor.ID, true)
+		require.NoError(t, h.Rollback(c))
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.InDelta(t, 1, dataMap(t, decodeResp(t, rec).Data)["versionNumber"], 0)
+	})
+
 	t.Run("Rollback success", func(t *testing.T) {
-		// Roll back to the flag's existing version 1, creating a new current version.
+		// v2 serves "off", so rolling back to v1 creates a new current version.
+		_, err := s.flagSvc.Update(t.Context(), actor.ID, flag.ID, &model.UpdateFlagRequest{
+			Payload: json.RawMessage(`{"variations":{"on":true,"off":false},"defaultRule":{"variation":"off"}}`),
+		})
+		require.NoError(t, err)
 		c, rec := reqCtx(http.MethodPost, `{"comment":"revert"}`)
 		params(c, "id", flag.ID, "n", "1")
 		withClaims(c, actor.ID, true)
@@ -86,7 +99,7 @@ func TestVersionHandler(t *testing.T) {
 
 	t.Run("Rollback without body", func(t *testing.T) {
 		c, rec := reqCtx(http.MethodPost, "")
-		params(c, "id", flag.ID, "n", "1")
+		params(c, "id", flag.ID, "n", "2")
 		withClaims(c, actor.ID, true)
 		require.NoError(t, h.Rollback(c))
 		assert.Equal(t, http.StatusCreated, rec.Code)

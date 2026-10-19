@@ -1,6 +1,6 @@
 // Package testutil provides a shared Postgres test harness for the management
 // server's integration tests. It boots a throwaway Postgres container (via
-// testcontainers), applies the goose migrations, and hands out a clean
+// testcontainers), applies the embedded migrations, and hands out a clean
 // repository.DB to each test.
 //
 // Tests that call StartPostgres are skipped (not failed) when Docker is
@@ -11,43 +11,32 @@ package testutil
 
 import (
 	"context"
-	"database/sql"
+	"net"
+	"net/url"
 	"os"
-	"path/filepath"
-	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/gofeatureflag/flag-management-system/server/management/config"
+	"github.com/gofeatureflag/flag-management-system/server/management/db/migrations"
 	"github.com/gofeatureflag/flag-management-system/server/management/repository"
-	_ "github.com/jackc/pgx/v5/stdlib" // database/sql driver for goose migrations
-	"github.com/pressly/goose/v3"
+	"github.com/jackc/pgx/v5"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// allTables lists every table created by the migrations, used to reset state
-// between tests. Order is irrelevant because the TRUNCATE uses CASCADE.
-var allTables = []string{
-	"audit_log",
-	"flagset_api_keys",
-	"flag_tags",
-	"flag_versions",
-	"flags",
-	"flagsets",
-	"team_members",
-	"teams",
-	"users",
-	"companies",
-}
-
+// The container is reaped by the testcontainers Ryuk reaper when the test
+// process exits, so the harness keeps no teardown of its own.
 type harness struct {
-	db        *repository.DB
-	terminate func()
-	err       error
+	db *repository.DB
+	// truncate resets every table the migrations created (read from
+	// pg_tables once they ran), so a new table can't keep rows between tests.
+	truncate string
+	err      error
 	// unavailable marks err as "container could not start" (e.g. no Docker),
 	// the only error worth skipping on.
 	unavailable bool
@@ -82,7 +71,9 @@ func StartPostgres(t *testing.T) *repository.DB {
 		// A docker-less environment is an expected condition: skip rather than fail.
 		t.Skipf("postgres test harness unavailable (is Docker running?): %v", shared.err)
 	}
-	truncateAll(t, shared.db)
+	if _, err := shared.db.Pool.Exec(context.Background(), shared.truncate); err != nil {
+		t.Fatalf("truncate tables: %v", err)
+	}
 	return shared.db
 }
 
@@ -108,45 +99,56 @@ func bootstrap() harness {
 		return harness{err: err}
 	}
 
-	if err := runMigrations(connStr); err != nil {
-		terminate()
-		return harness{err: err}
-	}
-
 	db, err := repository.NewDB(ctx, config.DBConfig{URL: connStr, MaxConns: 8, MinConns: 1})
 	if err != nil {
 		terminate()
 		return harness{err: err}
 	}
-	return harness{db: db, terminate: func() { db.Close(); terminate() }}
-}
-
-func runMigrations(connStr string) error {
-	sqlDB, err := sql.Open("pgx", connStr)
+	// The same embedded migrations the server applies at startup.
+	if _, err := migrations.Up(ctx, db.Pool); err != nil {
+		db.Close()
+		terminate()
+		return harness{err: err}
+	}
+	tables, err := migratedTables(ctx, db)
 	if err != nil {
-		return err
+		db.Close()
+		terminate()
+		return harness{err: err}
 	}
-	defer func() { _ = sqlDB.Close() }()
-
-	goose.SetBaseFS(nil)
-	if err := goose.SetDialect("postgres"); err != nil {
-		return err
-	}
-	goose.SetLogger(goose.NopLogger())
-	return goose.Up(sqlDB, migrationsDir())
+	// Order is irrelevant: CASCADE follows the foreign keys.
+	return harness{db: db, truncate: "TRUNCATE TABLE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE"}
 }
 
-// migrationsDir resolves the migrations directory relative to this source file
-// so it works regardless of the test's working directory.
-func migrationsDir() string {
-	_, thisFile, _, _ := runtime.Caller(0) //nolint:dogsled // only the file path is needed
-	return filepath.Join(filepath.Dir(thisFile), "..", "..", "db", "migrations")
+// migratedTables lists the tables in the public schema, quoted, without
+// goose's version table.
+func migratedTables(ctx context.Context, db *repository.DB) ([]string, error) {
+	rows, err := db.Pool.Query(ctx, `SELECT format('%I', tablename) FROM pg_tables
+		WHERE schemaname = 'public' AND tablename <> 'goose_db_version' ORDER BY tablename`)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 
-func truncateAll(t *testing.T, db *repository.DB) {
+// EmptyDatabase creates a fresh database, without any migration applied, in
+// the shared container and returns its URL. It is dropped when the test ends.
+func EmptyDatabase(t *testing.T) string {
 	t.Helper()
-	sql := "TRUNCATE TABLE " + strings.Join(allTables, ", ") + " RESTART IDENTITY CASCADE"
-	if _, err := db.Pool.Exec(context.Background(), sql); err != nil {
-		t.Fatalf("truncate tables: %v", err)
+	db := StartPostgres(t)
+	name := "empty_" + strings.ToLower(strings.NewReplacer("/", "_", " ", "_").Replace(t.Name()))
+	name = pgx.Identifier{name}.Sanitize()
+	if _, err := db.Pool.Exec(t.Context(), "CREATE DATABASE "+name); err != nil {
+		t.Fatalf("create database: %v", err)
 	}
+	t.Cleanup(func() {
+		_, _ = db.Pool.Exec(context.Background(), "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)")
+	})
+	cfg := db.Pool.Config().ConnConfig.Copy()
+	u := url.URL{
+		Scheme: "postgres", User: url.UserPassword(cfg.User, cfg.Password),
+		Host: net.JoinHostPort(cfg.Host, strconv.Itoa(int(cfg.Port))), Path: "/" + strings.Trim(name, `"`),
+		RawQuery: "sslmode=disable",
+	}
+	return u.String()
 }

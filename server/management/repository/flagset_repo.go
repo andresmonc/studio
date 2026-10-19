@@ -23,13 +23,11 @@ const flagsetCols = `id, team_id, name, description,
 	(SELECT COUNT(*) FROM flags f WHERE f.flagset_id = flagsets.id AND f.deleted_at IS NULL) AS flag_count,
 	(SELECT COUNT(*) FROM flags f
 	 WHERE f.flagset_id = flagsets.id AND f.deleted_at IS NULL AND f.disabled = FALSE) AS enabled_flag_count,
-	polling_interval_ms, file_format, retrievers, exporters, notifiers,
 	evaluation_context_enrichment, default_testing_evaluation_context, created_at, updated_at`
 
 func scanFlagset(row pgx.Row, fs *model.Flagset) error {
 	return row.Scan(
 		&fs.ID, &fs.TeamID, &fs.Name, &fs.Description, &fs.APIKeyCount, &fs.FlagCount, &fs.EnabledFlagCount,
-		&fs.PollingIntervalMs, &fs.FileFormat, &fs.Retrievers, &fs.Exporters, &fs.Notifiers,
 		&fs.EvaluationContextEnrichment, &fs.DefaultTestingEvaluationContext, &fs.CreatedAt, &fs.UpdatedAt,
 	)
 }
@@ -74,19 +72,17 @@ func (r *FlagsetRepo) CreateWithAPIKey(
 func createFlagset(
 	ctx context.Context, q queryRower, teamID string, req *model.CreateFlagsetRequest,
 ) (*model.Flagset, error) {
-	j, err := flagsetJSON(req.Retrievers, req.Exporters, req.Notifiers,
-		req.EvaluationContextEnrichment, req.DefaultTestingEvaluationContext)
+	j, err := flagsetJSON(req.EvaluationContextEnrichment, req.DefaultTestingEvaluationContext)
 	if err != nil {
 		return nil, err
 	}
 	var fs model.Flagset
 	err = scanFlagset(q.QueryRow(ctx, `
-		INSERT INTO flagsets (team_id, name, description, polling_interval_ms, file_format, retrievers, exporters,
-		                      notifiers, evaluation_context_enrichment, default_testing_evaluation_context)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		INSERT INTO flagsets (team_id, name, description, evaluation_context_enrichment,
+		                      default_testing_evaluation_context)
+		VALUES ($1,$2,$3,$4,$5)
 		RETURNING `+flagsetCols,
-		teamID, req.Name, req.Description, req.PollingIntervalMs, req.FileFormat,
-		j[0], j[1], j[2], j[3], j[4],
+		teamID, req.Name, req.Description, j[0], j[1],
 	), &fs)
 	if err != nil {
 		return nil, mapFlagsetNameTaken(err)
@@ -101,11 +97,23 @@ func (r *FlagsetRepo) GetByID(ctx context.Context, id string) (*model.Flagset, e
 	), &fs)
 	if err != nil {
 		if isNoRows(err) {
-			return nil, nil
+			return nil, ErrNotFound
 		}
 		return nil, err
 	}
 	return &fs, nil
+}
+
+// TeamID returns the team owning the live flagset, without the counts
+// flagsetCols computes: RBAC and audit only need the team.
+func (r *FlagsetRepo) TeamID(ctx context.Context, id string) (string, error) {
+	var teamID string
+	err := r.db.Pool.QueryRow(ctx,
+		`SELECT team_id FROM flagsets WHERE id = $1 AND deleted_at IS NULL`, id).Scan(&teamID)
+	if isNoRows(err) {
+		return "", ErrNotFound
+	}
+	return teamID, err
 }
 
 func (r *FlagsetRepo) ListByTeam(ctx context.Context, teamID string) ([]model.Flagset, error) {
@@ -118,33 +126,27 @@ func (r *FlagsetRepo) ListByTeam(ctx context.Context, teamID string) ([]model.Fl
 }
 
 func (r *FlagsetRepo) Update(ctx context.Context, id string, req *model.UpdateFlagsetRequest) (*model.Flagset, error) {
-	j, err := flagsetJSON(req.Retrievers, req.Exporters, req.Notifiers,
-		req.EvaluationContextEnrichment, req.DefaultTestingEvaluationContext)
+	j, err := flagsetJSON(req.EvaluationContextEnrichment, req.DefaultTestingEvaluationContext)
 	if err != nil {
 		return nil, err
 	}
+	// An absent JSON setting (empty RawMessage) leaves the column unchanged; an
+	// explicit null clears it.
 	var fs model.Flagset
 	err = scanFlagset(r.db.Pool.QueryRow(ctx, `
 		UPDATE flagsets SET
 			name = COALESCE($2, name),
 			description = COALESCE($3, description),
-			polling_interval_ms = CASE WHEN $4 THEN $5 ELSE polling_interval_ms END,
-			file_format = CASE WHEN $6 THEN $7 ELSE file_format END,
-			retrievers = COALESCE($8, retrievers),
-			exporters = COALESCE($9, exporters),
-			notifiers = COALESCE($10, notifiers),
-			evaluation_context_enrichment = COALESCE($11, evaluation_context_enrichment),
-			default_testing_evaluation_context = COALESCE($12, default_testing_evaluation_context),
+			evaluation_context_enrichment = CASE WHEN $4 THEN $5 ELSE evaluation_context_enrichment END,
+			default_testing_evaluation_context = CASE WHEN $6 THEN $7 ELSE default_testing_evaluation_context END,
 			updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING `+flagsetCols,
 		id, req.Name, req.Description,
-		req.PollingIntervalMs.Set, req.PollingIntervalMs.Value, req.FileFormat.Set, req.FileFormat.Value,
-		j[0], j[1], j[2], j[3], j[4],
+		len(req.EvaluationContextEnrichment) > 0, j[0], len(req.DefaultTestingEvaluationContext) > 0, j[1],
 	), &fs)
 	if err != nil {
-		// Not isNoRows: 22P02 here is usually invalid jsonb input, not a bad id.
-		if errors.Is(err, pgx.ErrNoRows) {
+		if isNoRows(err) {
 			return nil, ErrNotFound
 		}
 		return nil, mapFlagsetNameTaken(err)
@@ -153,12 +155,10 @@ func (r *FlagsetRepo) Update(ctx context.Context, id string, req *model.UpdateFl
 }
 
 // flagsetJSONFields names the flagsetJSON arguments, in order, for errors.
-var flagsetJSONFields = []string{
-	"retrievers", "exporters", "notifiers", "evaluationContextEnrichment", "defaultTestingEvaluationContext",
-}
+var flagsetJSONFields = []string{"evaluationContextEnrichment", "defaultTestingEvaluationContext"}
 
 // flagsetJSON encodes the flagset's JSON settings; empty or null ones become SQL
-// NULL, so Create stores NULL and Update leaves the column unchanged.
+// NULL.
 func flagsetJSON(raws ...json.RawMessage) ([]any, error) {
 	out := make([]any, len(raws))
 	errs := make([]error, 0, len(raws))
@@ -183,9 +183,6 @@ func (r *FlagsetRepo) SoftDelete(ctx context.Context, id string) error {
 		tag, err := tx.Exec(ctx,
 			`UPDATE flagsets SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, id)
 		if err != nil {
-			if isNoRows(err) {
-				return ErrNotFound
-			}
 			return err
 		}
 		if tag.RowsAffected() == 0 {

@@ -414,28 +414,31 @@ func withRules(vars map[string]*any, def *flag.Rule, queries ...string) coredto.
 	return coredto.DTO{Variations: &vars, DefaultRule: def, Rules: &rules}
 }
 
+// InferFlagTypeCases is exported (test-only) so flag_type_db_test.go can run
+// them through the flag_versions.flag_type column, which mirrors InferFlagType.
+var InferFlagTypeCases = []struct {
+	Name, Payload, Want string
+}{
+	{"boolean", `{"variations":{"on":true,"off":false}}`, "boolean"},
+	{"string", `{"variations":{"a":"x","b":"y"}}`, "string"},
+	{"int", `{"variations":{"a":1,"b":2}}`, "int"},
+	{"float", `{"variations":{"a":1.5,"b":2.5}}`, "float"},
+	{"mixed int/float is float", `{"variations":{"a":1,"b":2.5}}`, "float"},
+	{"mixed float/int is float", `{"variations":{"a":2.5,"b":1}}`, "float"},
+	{"mixed types are unknown", `{"variations":{"on":true,"off":"off"}}`, "unknown"},
+	{"json object", `{"variations":{"a":{"k":"v"},"b":{"k":"w"}}}`, "json"},
+	{"json array", `{"variations":{"a":[1,2],"b":[3]}}`, "json"},
+	// Lax jsonpath once typed a one-string array as a string.
+	{"json array of one string", `{"variations":{"a":["a"],"b":["b"]}}`, "json"},
+	{"no variations", `{"defaultRule":{}}`, "unknown"},
+	{"empty payload", ``, "unknown"},
+	{"invalid json", `not-json`, "unknown"},
+}
+
 func TestInferFlagType(t *testing.T) {
-	tests := []struct {
-		name    string
-		payload string
-		want    string
-	}{
-		{"boolean", `{"variations":{"on":true,"off":false}}`, "boolean"},
-		{"string", `{"variations":{"a":"x","b":"y"}}`, "string"},
-		{"int", `{"variations":{"a":1,"b":2}}`, "int"},
-		{"float", `{"variations":{"a":1.5,"b":2.5}}`, "float"},
-		{"mixed int/float is float", `{"variations":{"a":1,"b":2.5}}`, "float"},
-		{"mixed float/int is float", `{"variations":{"a":2.5,"b":1}}`, "float"},
-		{"mixed types are unknown", `{"variations":{"on":true,"off":"off"}}`, "unknown"},
-		{"json object", `{"variations":{"a":{"k":"v"},"b":{"k":"w"}}}`, "json"},
-		{"json array", `{"variations":{"a":[1,2],"b":[3]}}`, "json"},
-		{"no variations", `{"defaultRule":{}}`, "unknown"},
-		{"empty payload", ``, "unknown"},
-		{"invalid json", `not-json`, "unknown"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, InferFlagType(json.RawMessage(tt.payload)))
+	for _, tt := range InferFlagTypeCases {
+		t.Run(tt.Name, func(t *testing.T) {
+			assert.Equal(t, tt.Want, InferFlagType(json.RawMessage(tt.Payload)))
 		})
 	}
 }

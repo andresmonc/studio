@@ -45,13 +45,14 @@ func runAuth(t testing.TB, auth *service.AuthService, cookie string) (*httptest.
 	t.Helper()
 	var got *service.Claims
 	called := false
-	handler := RequireAuth(auth)(func(c *echo.Context) error {
+	name := SessionCookieName(config.AuthConfig{})
+	handler := RequireAuth(auth, name)(func(c *echo.Context) error {
 		called, got = true, MustClaims(c)
 		return c.NoContent(http.StatusOK)
 	})
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	if cookie != "" {
-		req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: cookie})
+		req.AddCookie(&http.Cookie{Name: name, Value: cookie})
 	}
 	rec := httptest.NewRecorder()
 	require.NoError(t, handler(echo.New().NewContext(req, rec)))
@@ -142,4 +143,23 @@ func FuzzRequireAuthCookie(f *testing.F) {
 		assert.Equal(t, http.StatusUnauthorized, rec.Code)
 		assert.False(t, called)
 	})
+}
+
+func TestCookieName(t *testing.T) {
+	tests := []struct {
+		name   string
+		secure bool
+		domain string
+		want   string
+	}{
+		{"secure host-only gets the prefix", true, "", "__Host-c"},
+		{"a domain forbids the prefix", true, "goff.local", "c"},
+		{"plain http forbids the prefix", false, "", "c"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, CookieName("c", tt.secure, tt.domain))
+		})
+	}
+	assert.Equal(t, "__Host-goff_mgmt_session", SessionCookieName(config.AuthConfig{CookieSecure: true}))
 }

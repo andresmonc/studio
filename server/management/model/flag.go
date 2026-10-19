@@ -87,7 +87,8 @@ type FlagFilters struct {
 }
 
 // TeamFlagFilters narrows the team-wide flags list. Tags use AND semantics;
-// Unassigned selects flags whose current version has no author.
+// Owner is the user id of the current version's author, and Unassigned selects
+// flags whose current version has no author.
 type TeamFlagFilters struct {
 	Tags       []string
 	Name       *string
@@ -106,16 +107,25 @@ type TeamFlagFilters struct {
 // defaults to descending order.
 var TeamFlagSorts = map[string]bool{"updated": true, "name": false, "state": false}
 
+// FlagOwner is an author of a team's current flag versions, an option of the
+// flags list owner filter.
+type FlagOwner struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // FlagInstance is a flag enriched with its flagset name, inferred type and
 // current owner — used by the cross-flagset (team-wide) flags list.
 type FlagInstance struct {
-	ID             string    `json:"id"`
-	FlagsetID      string    `json:"flagsetId"`
-	FlagsetName    string    `json:"flagsetName"`
-	Name           string    `json:"name"`
-	Type           string    `json:"type"`
-	Disabled       bool      `json:"disabled"`
-	Owner          *string   `json:"owner,omitempty"`
+	ID          string  `json:"id"`
+	FlagsetID   string  `json:"flagsetId"`
+	FlagsetName string  `json:"flagsetName"`
+	Name        string  `json:"name"`
+	Type        string  `json:"type"`
+	Disabled    bool    `json:"disabled"`
+	Owner       *string `json:"owner,omitempty"`
+	// OwnerID identifies the owner: names aren't unique, and may be empty.
+	OwnerID        *string   `json:"ownerId,omitempty"`
 	CurrentVersion *int      `json:"currentVersion,omitempty"`
 	UpdatedAt      time.Time `json:"updatedAt"`
 	// Variations are the flag's variation names in payload document order; the

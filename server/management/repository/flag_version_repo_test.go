@@ -44,10 +44,8 @@ func TestFlagVersionRepoInsertAndList(t *testing.T) {
 	require.NotNil(t, got.CreatedByName)
 	assert.Equal(t, "Author", *got.CreatedByName)
 
-	// Missing version -> nil, nil.
-	missing, err := versions.GetByFlagAndNumber(ctx, flag.ID, 99)
-	require.NoError(t, err)
-	assert.Nil(t, missing)
+	_, err = versions.GetByFlagAndNumber(ctx, flag.ID, 99)
+	assert.ErrorIs(t, err, repository.ErrNotFound)
 
 	// ListByFlag is ordered version DESC with a correct total.
 	list, total, err := versions.ListByFlag(ctx, flag.ID, 10, 0)
@@ -66,9 +64,8 @@ func TestFlagVersionRepoInsertAndList(t *testing.T) {
 
 	// A deleted flag's history is hidden.
 	require.NoError(t, repository.NewFlagRepo(db).SoftDelete(ctx, nil, flag.ID))
-	gone, err := versions.GetByFlagAndNumber(ctx, flag.ID, 1)
-	require.NoError(t, err)
-	assert.Nil(t, gone)
+	_, err = versions.GetByFlagAndNumber(ctx, flag.ID, 1)
+	assert.ErrorIs(t, err, repository.ErrNotFound)
 	list, total, err = versions.ListByFlag(ctx, flag.ID, 10, 0)
 	require.NoError(t, err)
 	assert.Zero(t, total)

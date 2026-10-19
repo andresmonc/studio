@@ -52,6 +52,7 @@ func timePtr(s, field string, errs *model.ValidationErrors) *time.Time {
 // @Param    pageSize  query int    false "items per page" minimum(1) maximum(200) default(50)
 // @Success  200       {object} model.PaginatedResponse[model.AuditEntry]
 // @Failure  400       {object} model.APIResponse "bad from/to, page/pageSize or action"
+// @Failure  401       {object} model.APIResponse "no valid session"
 // @Router   /audit [get]
 func (h *AuditHandler) List(c *echo.Context) error {
 	var verrs model.ValidationErrors

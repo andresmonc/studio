@@ -5,8 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
-	"math"
 
 	"github.com/gofeatureflag/flag-management-system/server/management/model"
 	"github.com/gofeatureflag/flag-management-system/server/management/repository"
@@ -25,47 +23,29 @@ func NewFlagsetService(repo *repository.FlagsetRepo, audit *repository.AuditRepo
 // "not provided".
 type flagsetSettings struct {
 	name                                    *string
-	pollingMs                               *int
-	fileFormat                              *model.FileFormat
-	retrievers, exporters, notifiers        json.RawMessage
 	enrichment, defaultTestingEvaluationCtx json.RawMessage
 }
 
 // validate returns every problem at once. The evaluation-context fields must be
-// a JSON object or null, the relay-proxy ones an object, array or null.
+// a JSON object or null.
 func (f flagsetSettings) validate() error {
 	var errs model.ValidationErrors
 	if f.name != nil {
 		errs = append(errs, validateName(f.name, "name")...)
 	}
-	// The column is an INTEGER: a larger value would fail to encode (500).
-	if f.pollingMs != nil && (*f.pollingMs <= 0 || *f.pollingMs > math.MaxInt32) {
-		errs = append(errs, model.ValidationError{
-			Field: "pollingIntervalMs", Message: fmt.Sprintf("pollingIntervalMs must be between 1 and %d", math.MaxInt32),
-		})
-	}
-	if f.fileFormat != nil && !f.fileFormat.IsValid() {
-		errs = append(errs, model.ValidationError{Field: "fileFormat", Message: "fileFormat must be one of yaml, json, toml"})
-	}
-	const objArrNull, objNull = "a JSON object, array or null", "a JSON object or null"
 	for _, c := range []struct {
-		field   string
-		raw     json.RawMessage
-		allowed string
-		ok      func(any) bool
+		field string
+		raw   json.RawMessage
 	}{
-		{"retrievers", f.retrievers, objArrNull, isObjectArrayOrNull},
-		{"exporters", f.exporters, objArrNull, isObjectArrayOrNull},
-		{"notifiers", f.notifiers, objArrNull, isObjectArrayOrNull},
-		{"evaluationContextEnrichment", f.enrichment, objNull, isObjectOrNull},
-		{"defaultTestingEvaluationContext", f.defaultTestingEvaluationCtx, objNull, isObjectOrNull},
+		{"evaluationContextEnrichment", f.enrichment},
+		{"defaultTestingEvaluationContext", f.defaultTestingEvaluationCtx},
 	} {
 		if len(c.raw) == 0 {
 			continue
 		}
 		var v any
-		if json.Unmarshal(c.raw, &v) != nil || !c.ok(v) {
-			errs = append(errs, model.ValidationError{Field: c.field, Message: c.field + " must be " + c.allowed})
+		if json.Unmarshal(c.raw, &v) != nil || !isObjectOrNull(v) {
+			errs = append(errs, model.ValidationError{Field: c.field, Message: c.field + " must be a JSON object or null"})
 		}
 	}
 	return errs.Err()
@@ -79,19 +59,13 @@ func isObjectOrNull(v any) bool {
 	return false
 }
 
-func isObjectArrayOrNull(v any) bool {
-	_, isArray := v.([]any)
-	return isArray || isObjectOrNull(v)
-}
-
 // Create creates the flagset with a "default" API key, so it is usable
 // immediately; both are written in one transaction.
 func (s *FlagsetService) Create(
 	ctx context.Context, actorID, teamID string, req *model.CreateFlagsetRequest,
 ) (*model.Flagset, error) {
 	err := flagsetSettings{
-		name: &req.Name, pollingMs: req.PollingIntervalMs, fileFormat: req.FileFormat,
-		retrievers: req.Retrievers, exporters: req.Exporters, notifiers: req.Notifiers,
+		name:       &req.Name,
 		enrichment: req.EvaluationContextEnrichment, defaultTestingEvaluationCtx: req.DefaultTestingEvaluationContext,
 	}.validate()
 	if err != nil {
@@ -114,11 +88,12 @@ func (s *FlagsetService) Create(
 }
 
 func (s *FlagsetService) Get(ctx context.Context, id string) (*model.Flagset, error) {
-	fs, err := s.repo.GetByID(ctx, id)
-	if err == nil && fs == nil {
-		return nil, ErrNotFound
-	}
-	return fs, err
+	return s.repo.GetByID(ctx, id)
+}
+
+// TeamID returns the team owning the live flagset.
+func (s *FlagsetService) TeamID(ctx context.Context, id string) (string, error) {
+	return s.repo.TeamID(ctx, id)
 }
 
 func (s *FlagsetService) ListByTeam(ctx context.Context, teamID string) ([]model.Flagset, error) {
@@ -129,8 +104,7 @@ func (s *FlagsetService) Update(
 	ctx context.Context, actorID, id string, req *model.UpdateFlagsetRequest,
 ) (*model.Flagset, error) {
 	err := flagsetSettings{
-		name: req.Name, pollingMs: req.PollingIntervalMs.Value, fileFormat: req.FileFormat.Value,
-		retrievers: req.Retrievers, exporters: req.Exporters, notifiers: req.Notifiers,
+		name:       req.Name,
 		enrichment: req.EvaluationContextEnrichment, defaultTestingEvaluationCtx: req.DefaultTestingEvaluationContext,
 	}.validate()
 	if err != nil {
@@ -139,6 +113,11 @@ func (s *FlagsetService) Update(
 	before, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if !changes(req.Name, before.Name) && !changes(req.Description, before.Description) &&
+		!jsonChanges(req.EvaluationContextEnrichment, before.EvaluationContextEnrichment) &&
+		!jsonChanges(req.DefaultTestingEvaluationContext, before.DefaultTestingEvaluationContext) {
+		return before, nil
 	}
 	fs, err := s.repo.Update(ctx, id, req)
 	if err != nil {

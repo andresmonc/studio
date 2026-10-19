@@ -28,25 +28,78 @@ func TestCompanyServiceCreate(t *testing.T) {
 	ctx := t.Context()
 	actor := testutil.SeedUser(t, db, "actor@acme.com", "Actor", true)
 
+	// founder seeds a user without a company to be a new company's admin.
+	founder := func(t *testing.T) *model.User {
+		t.Helper()
+		return testutil.SeedUser(t, db, strings.ReplaceAll(t.Name(), "/", "-")+"@acme.com", "F", false)
+	}
+
 	t.Run("happy path with audit", func(t *testing.T) {
-		c, err := svc.Create(ctx, actor.ID, &model.CreateCompanyRequest{
-			DisplayName: "Acme",
-			Description: "desc",
-		})
+		f := founder(t)
+		req := companyReq("Acme", f.Email)
+		req.Description = "desc"
+		c, err := svc.Create(ctx, actor.ID, req)
 		require.NoError(t, err)
 		assert.Equal(t, "Acme", c.DisplayName)
 		assert.Equal(t, 1, auditCount(t, db, model.AuditActionCreate, model.AuditTargetCompany))
+		assert.Equal(t, 1, auditCount(t, db, model.AuditActionCreate, model.AuditTargetCompanyMember), "admin added")
+		role, err := svc.Role(ctx, c.ID, f.ID)
+		require.NoError(t, err)
+		assert.Equal(t, model.CompanyRoleAdmin, role, "created with its admin")
 	})
 
-	t.Run("empty display name -> validation error", func(t *testing.T) {
-		_, err := svc.Create(ctx, actor.ID, &model.CreateCompanyRequest{DisplayName: "  "})
-		assert.Equal(t, []string{"displayName"}, validationFields(t, err))
+	errTests := []struct {
+		name       string
+		req        *model.CreateCompanyWithAdminRequest
+		wantFields []string
+		wantErr    error
+		wantMsg    string
+	}{
+		{name: "blank name and admin", req: companyReq("  ", " "), wantFields: []string{"displayName", "adminEmail"}},
+		{name: "unknown admin", req: companyReq("X", "nobody@acme.com"), wantErr: service.ErrNotFound,
+			wantMsg: "user with email nobody@acme.com not found"},
+		{name: "admin already in a company", req: companyReq("X", "actor@acme.com"), wantErr: service.ErrConflict,
+			wantMsg: "user with email actor@acme.com already belongs to a company"},
+	}
+	testutil.SetCompanyMember(t, db, testutil.SeedCompany(t, db, "Taken").ID, actor.ID, model.CompanyRoleAdmin)
+	for _, tt := range errTests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := auditCount(t, db, model.AuditActionCreate, model.AuditTargetCompany)
+			_, err := svc.Create(ctx, actor.ID, tt.req)
+			if tt.wantFields != nil {
+				assert.Equal(t, tt.wantFields, validationFields(t, err))
+			} else {
+				assert.ErrorIs(t, err, tt.wantErr)
+				assert.Equal(t, tt.wantMsg, service.PublicMessage(err))
+			}
+			assert.Equal(t, before, auditCount(t, db, model.AuditActionCreate, model.AuditTargetCompany))
+		})
+	}
+
+	t.Run("a failed insert leaves no company, admin or audit entry", func(t *testing.T) {
+		f := founder(t)
+		_, err := db.Pool.Exec(ctx, `
+			CREATE FUNCTION fail_company() RETURNS trigger LANGUAGE plpgsql AS $$
+			BEGIN RAISE EXCEPTION 'companies down'; END $$;
+			CREATE TRIGGER fail_company BEFORE INSERT ON companies FOR EACH STATEMENT EXECUTE FUNCTION fail_company();`)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			_, _ = db.Pool.Exec(context.Background(),
+				`DROP TRIGGER fail_company ON companies; DROP FUNCTION fail_company();`)
+		})
+		before := auditCount(t, db, model.AuditActionCreate, model.AuditTargetCompany)
+		_, err = svc.Create(ctx, actor.ID, companyReq("Down", f.Email))
+		require.ErrorContains(t, err, "companies down")
+		assert.Equal(t, before, auditCount(t, db, model.AuditActionCreate, model.AuditTargetCompany))
+		m, err := svc.Membership(ctx, f.ID)
+		require.NoError(t, err)
+		assert.Nil(t, m, "the admin was not attached")
 	})
 
 	t.Run("display name limit counts characters, not bytes", func(t *testing.T) {
-		_, err := svc.Create(ctx, actor.ID, &model.CreateCompanyRequest{DisplayName: strings.Repeat("é", 120)})
+		_, err := svc.Create(ctx, actor.ID, companyReq(strings.Repeat("é", 120), founder(t).Email))
 		require.NoError(t, err)
-		_, err = svc.Create(ctx, actor.ID, &model.CreateCompanyRequest{DisplayName: strings.Repeat("é", 121)})
+		_, err = svc.Create(ctx, actor.ID, companyReq(strings.Repeat("é", 121), founder(t).Email))
 		assert.Equal(t, []string{"displayName"}, validationFields(t, err))
 	})
 }
@@ -161,9 +214,9 @@ func TestCompanyServiceMembers(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.False(t, added)
-		assert.Equal(t, 1, auditCount(t, db, model.AuditActionCreate, model.AuditTargetCompanyMember), "a re-add is audited as a role update")
-		assert.Equal(t, 1, auditCount(t, db, model.AuditActionUpdate, model.AuditTargetCompanyMember))
-		assertLastAudit(t, db, model.AuditTargetCompanyMember, user.ID, `{"role":"member"}`, `{"role":"member"}`)
+		assert.Equal(t, 1, auditCount(t, db, model.AuditActionCreate, model.AuditTargetCompanyMember))
+		assert.Equal(t, 0, auditCount(t, db, model.AuditActionUpdate, model.AuditTargetCompanyMember),
+			"same role: nothing changed, nothing audited")
 	})
 
 	t.Run("add member invalid request -> every field reported", func(t *testing.T) {
@@ -199,8 +252,11 @@ func TestCompanyServiceMembers(t *testing.T) {
 	t.Run("update member role happy path", func(t *testing.T) {
 		err := svc.UpdateMember(ctx, actor.ID, company.ID, user.ID, model.CompanyRoleAdmin)
 		require.NoError(t, err)
-		assert.Equal(t, 2, auditCount(t, db, model.AuditActionUpdate, model.AuditTargetCompanyMember))
+		assert.Equal(t, 1, auditCount(t, db, model.AuditActionUpdate, model.AuditTargetCompanyMember))
 		assertLastAudit(t, db, model.AuditTargetCompanyMember, user.ID, `{"role":"member"}`, `{"role":"admin"}`)
+		require.NoError(t, svc.UpdateMember(ctx, actor.ID, company.ID, user.ID, model.CompanyRoleAdmin))
+		assert.Equal(t, 1, auditCount(t, db, model.AuditActionUpdate, model.AuditTargetCompanyMember),
+			"same role again: not audited")
 	})
 
 	t.Run("update member invalid role -> validation error", func(t *testing.T) {
@@ -275,11 +331,25 @@ func TestCompanyServiceMonoCompany(t *testing.T) {
 		repository.NewCompanyRepo(db), repository.NewUserRepo(db), repository.NewAuditRepo(db), true)
 	actor := testutil.SeedUser(t, db, "actor@acme.com", "Actor", true)
 
-	_, err := svc.Create(t.Context(), actor.ID, &model.CreateCompanyRequest{DisplayName: "Acme"})
+	_, err := svc.Create(t.Context(), actor.ID, companyReq("Acme", actor.Email))
 	require.NoError(t, err)
-	_, err = svc.Create(t.Context(), actor.ID, &model.CreateCompanyRequest{DisplayName: "Beta"})
+	_, err = svc.Create(t.Context(), actor.ID, companyReq("Beta", testutil.SeedUser(t, db, "b@acme.com", "B", false).Email))
 	assert.ErrorIs(t, err, service.ErrMonoCompanyExists)
 	assert.ErrorIs(t, err, service.ErrConflict)
+
+	// The next login would re-join a removed user, so removal is refused and
+	// the member is left in place.
+	user := testutil.SeedUser(t, db, "u@acme.com", "U", false)
+	co, err := repository.NewCompanyRepo(db).First(t.Context())
+	require.NoError(t, err)
+	testutil.SetCompanyMember(t, db, co.ID, user.ID, model.CompanyRoleMember)
+	err = svc.RemoveMember(t.Context(), actor.ID, co.ID, user.ID)
+	assert.ErrorIs(t, err, service.ErrMonoRemoveMember)
+	assert.ErrorIs(t, err, service.ErrConflict)
+	role, err := svc.Role(t.Context(), co.ID, user.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.CompanyRoleMember, role)
+	assert.Equal(t, 0, auditCount(t, db, model.AuditActionDelete, model.AuditTargetCompanyMember))
 }
 
 func TestCompanyServiceQueryErrors(t *testing.T) {
@@ -291,9 +361,9 @@ func TestCompanyServiceQueryErrors(t *testing.T) {
 	cancel()
 	id := "00000000-0000-0000-0000-000000000000"
 
-	_, err := svc.Create(ctx, id, &model.CreateCompanyRequest{DisplayName: "x"})
+	_, err := svc.Create(ctx, id, companyReq("x", "a@x.com"))
 	assert.ErrorIs(t, err, context.Canceled)
-	_, err = mono.Create(ctx, id, &model.CreateCompanyRequest{DisplayName: "x"})
+	_, err = mono.Create(ctx, id, companyReq("x", "a@x.com"))
 	assert.ErrorIs(t, err, context.Canceled)
 	_, err = svc.List(ctx, id, false)
 	assert.ErrorIs(t, err, context.Canceled)

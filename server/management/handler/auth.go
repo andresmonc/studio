@@ -17,22 +17,28 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const stateCookie = "goff_mgmt_oidc_state"
-
 // AuthHandler serves the OIDC login, logout and the current user.
 type AuthHandler struct {
-	cfg       config.Config
-	auth      *service.AuthService
-	users     *repository.UserRepo
-	teams     *service.TeamService
-	companies *service.CompanyService
+	cfg config.Config
+	// sessionCookie and stateCookie are the names under cfg (__Host- when
+	// possible, see middleware.CookieName). The state cookie is always
+	// host-only, so it gets the prefix whenever cookies are Secure.
+	sessionCookie, stateCookie string
+	auth                       *service.AuthService
+	users                      *repository.UserRepo
+	teams                      *service.TeamService
+	companies                  *service.CompanyService
 }
 
 func NewAuthHandler(
 	cfg config.Config, auth *service.AuthService, users *repository.UserRepo, teams *service.TeamService,
 	companies *service.CompanyService,
 ) *AuthHandler {
-	return &AuthHandler{cfg: cfg, auth: auth, users: users, teams: teams, companies: companies}
+	return &AuthHandler{
+		cfg: cfg, auth: auth, users: users, teams: teams, companies: companies,
+		sessionCookie: middleware.SessionCookieName(cfg.Auth),
+		stateCookie:   middleware.CookieName("goff_mgmt_oidc_state", cfg.Auth.CookieSecure, ""),
+	}
 }
 
 // Login starts the OIDC login by redirecting the browser to the provider.
@@ -42,7 +48,7 @@ func (h *AuthHandler) Login(c *echo.Context) error {
 	state, nonce, verifier := h.auth.RandomState(), h.auth.RandomState(), oauth2.GenerateVerifier()
 	// The cookie carries all three (none contains a "."); only
 	// state and the PKCE challenge travel through the provider redirect.
-	ck := h.cookie(stateCookie, state+"."+verifier+"."+nonce) //nolint:gosec // Secure: see cookie()
+	ck := h.cookie(h.stateCookie, state+"."+verifier+"."+nonce) //nolint:gosec // Secure: see cookie()
 	ck.Domain, ck.MaxAge = "", int((10 * time.Minute).Seconds())
 	c.SetCookie(ck)
 	return c.Redirect(http.StatusFound, h.auth.AuthURL(state, verifier, nonce))
@@ -54,7 +60,7 @@ func (h *AuthHandler) Login(c *echo.Context) error {
 func (h *AuthHandler) Callback(c *echo.Context) error {
 	state := c.QueryParam("state")
 	code := c.QueryParam("code")
-	cookie, err := c.Cookie(stateCookie)
+	cookie, err := c.Cookie(h.stateCookie)
 	if err != nil {
 		return badRequest(c, "invalid state")
 	}
@@ -62,7 +68,7 @@ func (h *AuthHandler) Callback(c *echo.Context) error {
 	if len(parts) != 3 || parts[0] == "" || subtle.ConstantTimeCompare([]byte(parts[0]), []byte(state)) != 1 {
 		return badRequest(c, "invalid state")
 	}
-	cleared := h.cookie(stateCookie, "") //nolint:gosec // Secure: see cookie()
+	cleared := h.cookie(h.stateCookie, "") //nolint:gosec // Secure: see cookie()
 	cleared.Domain, cleared.MaxAge = "", -1
 	c.SetCookie(cleared)
 	// The IdP sends ?error=… (e.g. access_denied) instead of a code.
@@ -79,7 +85,7 @@ func (h *AuthHandler) Callback(c *echo.Context) error {
 		}
 		return internal(c, "login failed")
 	}
-	session := h.cookie(middleware.SessionCookieName, jwtStr) //nolint:gosec // Secure: see cookie()
+	session := h.cookie(h.sessionCookie, jwtStr) //nolint:gosec // Secure: see cookie()
 	// MaxAge, unlike Expires, doesn't depend on the browser's clock.
 	session.MaxAge = int(h.cfg.Auth.SessionMaxAge.Seconds())
 	c.SetCookie(session)
@@ -91,15 +97,22 @@ func (h *AuthHandler) Callback(c *echo.Context) error {
 }
 
 // Logout godoc
-// @Summary  Logout (clears the session cookie; no session required)
+// @Summary  Logout (ends every session of the user and clears the cookie; no session required)
 // @Tags     auth
 // @Produce  json
 // @Success  204 "No Content"
+// @Failure  500 {object} model.APIResponse "sessions not revoked; the cookie is still cleared"
 // @Router   /auth/logout [post]
 func (h *AuthHandler) Logout(c *echo.Context) error {
-	session := h.cookie(middleware.SessionCookieName, "") //nolint:gosec // Secure: see cookie()
+	session := h.cookie(h.sessionCookie, "") //nolint:gosec // Secure: see cookie()
 	session.MaxAge = -1
 	c.SetCookie(session)
+	if ck, err := c.Cookie(h.sessionCookie); err == nil && ck.Value != "" {
+		if err := h.auth.Logout(c.Request().Context(), ck.Value); err != nil {
+			slog.ErrorContext(c.Request().Context(), "failed to revoke sessions", "error", err)
+			return internal(c, "failed to revoke sessions")
+		}
+	}
 	return noContent(c)
 }
 
@@ -116,17 +129,19 @@ func (h *AuthHandler) cookie(name, value string) *http.Cookie {
 // Me godoc
 // @Summary  Get current user + memberships
 // @Tags     auth
+// @Produce  json
 // @Success  200 {object} model.APIResponse{data=model.MeResponse}
+// @Failure  401 {object} model.APIResponse "no valid session"
 // @Router   /auth/me [get]
 func (h *AuthHandler) Me(c *echo.Context) error {
 	claims := middleware.MustClaims(c)
 	u, err := h.users.GetByID(c.Request().Context(), claims.UserID)
+	if errors.Is(err, repository.ErrNotFound) {
+		return notFound(c, "user not found")
+	}
 	if err != nil {
 		slog.ErrorContext(c.Request().Context(), "failed to load user", "error", err)
 		return internal(c, "failed to load user")
-	}
-	if u == nil {
-		return notFound(c, "user not found")
 	}
 	// The stored flag isn't updated until the next login; the session's value
 	// also checks adminEmails.

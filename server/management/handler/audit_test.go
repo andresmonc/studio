@@ -18,7 +18,10 @@ func TestAuditHandler(t *testing.T) {
 	co := testutil.SeedCompany(t, s.db, "Acme")
 
 	// Generate at least one audit entry via a real service call.
-	_, err := s.companySvc.Create(t.Context(), actor.ID, &model.CreateCompanyRequest{DisplayName: "Logged"})
+	testutil.SeedUser(t, s.db, "founder@logged.com", "Founder", false)
+	_, err := s.companySvc.Create(t.Context(), actor.ID, &model.CreateCompanyWithAdminRequest{
+		CreateCompanyRequest: model.CreateCompanyRequest{DisplayName: "Logged"}, AdminEmail: "founder@logged.com",
+	})
 	require.NoError(t, err)
 
 	t.Run("List as super admin", func(t *testing.T) {
@@ -35,7 +38,7 @@ func TestAuditHandler(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 		var page model.PaginatedResponse[model.AuditEntry]
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &page))
-		assert.Equal(t, 1, page.Total, "the company create")
+		assert.Equal(t, 2, page.Total, "the company create and its first admin")
 	})
 
 	t.Run("unknown action -> 400", func(t *testing.T) {

@@ -43,9 +43,9 @@ INSERT INTO public.teams (id, name, description, created_at, updated_at, company
 -- Data for Name: flagsets; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-INSERT INTO public.flagsets (id, team_id, name, description, polling_interval_ms, file_format, retrievers, exporters, notifiers, created_at, updated_at, evaluation_context_enrichment) VALUES ('f69a0db8-8b25-4e09-ac4e-0b35b7a11235', 'eb5e5ec9-11f8-4b61-8399-565471e915d0', 'mobile-preprod', 'This is a mobile preprod', NULL, NULL, NULL, NULL, NULL, '2026-06-03 17:48:16.734915+00', '2026-06-04 14:54:41.948256+00', '{"hey": "you"}');
-INSERT INTO public.flagsets (id, team_id, name, description, polling_interval_ms, file_format, retrievers, exporters, notifiers, created_at, updated_at, evaluation_context_enrichment) VALUES ('74e777ee-91e2-40b4-bd92-50fc7a58964d', 'dde6726f-2d95-48d6-90c9-9ddaab99fa2a', 'mobile-prod', 'flrkhcebsakdlb', NULL, NULL, NULL, NULL, NULL, '2026-06-03 17:55:22.556842+00', '2026-06-04 14:59:20.618965+00', NULL);
-INSERT INTO public.flagsets (id, team_id, name, description, polling_interval_ms, file_format, retrievers, exporters, notifiers, created_at, updated_at, evaluation_context_enrichment) VALUES ('2b1375ac-82f4-435a-81ed-fe6b7fd74f9e', 'dde6726f-2d95-48d6-90c9-9ddaab99fa2a', 'member-team', '', NULL, NULL, NULL, NULL, NULL, '2026-06-15 16:18:55.474031+00', '2026-06-15 16:18:55.474031+00', '{"team": "member"}');
+INSERT INTO public.flagsets (id, team_id, name, description, created_at, updated_at, evaluation_context_enrichment) VALUES ('f69a0db8-8b25-4e09-ac4e-0b35b7a11235', 'eb5e5ec9-11f8-4b61-8399-565471e915d0', 'mobile-preprod', 'This is a mobile preprod', '2026-06-03 17:48:16.734915+00', '2026-06-04 14:54:41.948256+00', '{"hey": "you"}');
+INSERT INTO public.flagsets (id, team_id, name, description, created_at, updated_at, evaluation_context_enrichment) VALUES ('74e777ee-91e2-40b4-bd92-50fc7a58964d', 'dde6726f-2d95-48d6-90c9-9ddaab99fa2a', 'mobile-prod', 'flrkhcebsakdlb', '2026-06-03 17:55:22.556842+00', '2026-06-04 14:59:20.618965+00', NULL);
+INSERT INTO public.flagsets (id, team_id, name, description, created_at, updated_at, evaluation_context_enrichment) VALUES ('2b1375ac-82f4-435a-81ed-fe6b7fd74f9e', 'dde6726f-2d95-48d6-90c9-9ddaab99fa2a', 'member-team', '', '2026-06-15 16:18:55.474031+00', '2026-06-15 16:18:55.474031+00', '{"team": "member"}');
 
 
 --

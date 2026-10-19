@@ -51,25 +51,24 @@ func TestFlagsetServiceCRUD(t *testing.T) {
 		got, err := svc.Get(ctx, created.ID)
 		require.NoError(t, err)
 		assert.Equal(t, created.ID, got.ID)
+		teamID, err := svc.TeamID(ctx, created.ID)
+		require.NoError(t, err)
+		assert.Equal(t, team.ID, teamID)
+		_, err = svc.TeamID(ctx, "00000000-0000-0000-0000-000000000000")
+		assert.ErrorIs(t, err, service.ErrNotFound)
 		list, err := svc.ListByTeam(ctx, team.ID)
 		require.NoError(t, err)
 		assert.Len(t, list, 1)
 	})
 
 	t.Run("update with audit", func(t *testing.T) {
-		yaml := model.FileFormatTOML
 		fs, err := svc.Update(ctx, actor.ID, created.ID, &model.UpdateFlagsetRequest{
-			Description:       new("updated"),
-			PollingIntervalMs: model.Nullable[int]{Set: true, Value: new(30000)},
-			FileFormat:        model.Nullable[model.FileFormat]{Set: true, Value: &yaml},
-			Retrievers:        json.RawMessage(`[{"kind":"s3"}]`), Exporters: json.RawMessage(`{"kind":"file"}`),
-			Notifiers:                       json.RawMessage(`null`),
+			Description:                     new("updated"),
+			EvaluationContextEnrichment:     json.RawMessage(`null`),
 			DefaultTestingEvaluationContext: json.RawMessage(`{"targetingKey":"k"}`),
 		})
 		require.NoError(t, err)
 		assert.Equal(t, "updated", fs.Description)
-		assert.Equal(t, 30000, *fs.PollingIntervalMs)
-		assert.Equal(t, model.FileFormatTOML, *fs.FileFormat)
 		assert.JSONEq(t, `{"targetingKey":"k"}`, string(fs.DefaultTestingEvaluationContext))
 		assert.Equal(t, 1, auditCount(t, db, model.AuditActionUpdate, model.AuditTargetFlagset))
 	})
@@ -94,7 +93,6 @@ func TestFlagsetServiceValidation(t *testing.T) {
 	svc := newFlagsetService(db)
 	team := seedTeamForFlagset(t, db)
 	fs := testutil.SeedFlagset(t, db, team.ID, "prod")
-	xml := model.FileFormat("xml")
 
 	createTests := []struct {
 		name       string
@@ -102,17 +100,13 @@ func TestFlagsetServiceValidation(t *testing.T) {
 		wantFields []string
 	}{
 		{"empty name", model.CreateFlagsetRequest{}, []string{"name"}},
-		{"polling interval beyond INTEGER", model.CreateFlagsetRequest{Name: "big", PollingIntervalMs: new(3_000_000_000)},
-			[]string{"pollingIntervalMs"}},
 		{"non-object evaluation context", model.CreateFlagsetRequest{
 			Name: "ctx", EvaluationContextEnrichment: json.RawMessage(`["a"]`),
 		}, []string{"evaluationContextEnrichment"}},
 		{"every problem at once", model.CreateFlagsetRequest{
-			PollingIntervalMs: new(0), FileFormat: &xml, Retrievers: json.RawMessage(`"s3"`),
-			Exporters: json.RawMessage(`42`), Notifiers: json.RawMessage(`true`),
+			EvaluationContextEnrichment:     json.RawMessage(`42`),
 			DefaultTestingEvaluationContext: json.RawMessage(`{`),
-		}, []string{"name", "pollingIntervalMs", "fileFormat", "retrievers", "exporters", "notifiers",
-			"defaultTestingEvaluationContext"}},
+		}, []string{"name", "evaluationContextEnrichment", "defaultTestingEvaluationContext"}},
 	}
 	for _, tt := range createTests {
 		t.Run("create: "+tt.name, func(t *testing.T) {
@@ -127,12 +121,6 @@ func TestFlagsetServiceValidation(t *testing.T) {
 		wantFields []string
 	}{
 		{"blank name", model.UpdateFlagsetRequest{Name: new("  ")}, []string{"name"}},
-		{"negative polling", model.UpdateFlagsetRequest{
-			PollingIntervalMs: model.Nullable[int]{Set: true, Value: new(-5)},
-		}, []string{"pollingIntervalMs"}},
-		{"unknown file format", model.UpdateFlagsetRequest{
-			FileFormat: model.Nullable[model.FileFormat]{Set: true, Value: &xml},
-		}, []string{"fileFormat"}},
 		{"string evaluation context", model.UpdateFlagsetRequest{
 			DefaultTestingEvaluationContext: json.RawMessage(`"x"`),
 		}, []string{"defaultTestingEvaluationContext"}},

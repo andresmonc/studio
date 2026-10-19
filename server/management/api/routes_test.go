@@ -20,6 +20,7 @@ import (
 	"github.com/gofeatureflag/flag-management-system/server/management/model"
 	"github.com/gofeatureflag/flag-management-system/server/management/repository"
 	"github.com/gofeatureflag/flag-management-system/server/management/service"
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,8 +70,8 @@ var routeCases = []struct {
 	// Companies.
 	{"GET", "/api/v1/companies", superAdmin, "", 200},
 	{"GET", "/api/v1/companies", companyAdmin, "", 403},
-	{"POST", "/api/v1/companies", superAdmin, `{"displayName":"New Co"}`, 201},
-	{"POST", "/api/v1/companies", companyAdmin, `{"displayName":"New Co"}`, 403},
+	{"POST", "/api/v1/companies", superAdmin, `{"displayName":"New Co","adminEmail":"newbie@acme.test"}`, 201},
+	{"POST", "/api/v1/companies", companyAdmin, `{"displayName":"New Co","adminEmail":"newbie@acme.test"}`, 403},
 	{"GET", "/api/v1/companies/{company}", member, "", 200},
 	{"GET", "/api/v1/companies/{company}", outsider, "", 403},
 	{"PATCH", "/api/v1/companies/{company}", companyAdmin, `{"description":"d"}`, 200},
@@ -125,7 +126,8 @@ var routeCases = []struct {
 	{"DELETE", "/api/v1/flagsets/{flagset}", teamAdmin, "", 204},
 	{"DELETE", "/api/v1/flagsets/{flagset}", editor, "", 403},
 	{"GET", "/api/v1/flagsets/{flagset}/api-keys", teamAdmin, "", 200},
-	{"GET", "/api/v1/flagsets/{flagset}/api-keys", editor, "", 403}, // keys are secrets
+	{"GET", "/api/v1/flagsets/{flagset}/api-keys", editor, "", 200},
+	{"GET", "/api/v1/flagsets/{flagset}/api-keys", viewer, "", 403}, // keys are secrets
 	{"POST", "/api/v1/flagsets/{flagset}/api-keys", teamAdmin, `{"label":"k2"}`, 201},
 	{"POST", "/api/v1/flagsets/{flagset}/api-keys", editor, `{"label":"k2"}`, 403},
 	{"DELETE", "/api/v1/flagsets/{flagset}/api-keys/{key}", teamAdmin, "", 204},
@@ -162,17 +164,18 @@ var routeCases = []struct {
 	{"GET", "/api/v1/flags/{flag}/versions", member, "", 403},
 	{"GET", "/api/v1/flags/{flag}/versions/1", viewer, "", 200},
 	{"GET", "/api/v1/flags/{flag}/versions/1", member, "", 403},
-	{"POST", "/api/v1/flags/{flag}/versions/1/rollback", editor, `{}`, 201},
+	{"POST", "/api/v1/flags/{flag}/versions/1/rollback", editor, `{}`, 200}, // v1 is already served: nothing written
 	{"POST", "/api/v1/flags/{flag}/versions/1/rollback", viewer, `{}`, 403},
 
-	// Malformed ids are a client error, never a 500. Unknown flagsets and flags
-	// look like no access to non-super-admins (ids can't be probed).
+	// Malformed ids are a client error, never a 500: 404 for everyone, before
+	// any RBAC lookup (no row can match, so nothing can be probed).
 	{"GET", "/api/v1/companies/not-a-uuid", superAdmin, "", 404},
 	{"GET", "/api/v1/teams/not-a-uuid", superAdmin, "", 404},
-	{"GET", "/api/v1/flagsets/not-a-uuid", viewer, "", 403},
+	{"GET", "/api/v1/flagsets/not-a-uuid", viewer, "", 404},
 	{"GET", "/api/v1/flagsets/not-a-uuid", superAdmin, "", 404},
-	{"GET", "/api/v1/flags/not-a-uuid", viewer, "", 403},
+	{"GET", "/api/v1/flags/not-a-uuid", viewer, "", 404},
 	{"GET", "/api/v1/flags/not-a-uuid", superAdmin, "", 404},
+	{"GET", "/api/v1/flags/not-a-uuid", anon, "", 401}, // authentication first
 	{"GET", "/api/v1/flags/{flag}/versions/abc", viewer, "", 400},
 	{"PATCH", "/api/v1/teams/{team}/members/not-a-uuid", teamAdmin, `{"role":"viewer"}`, 404},
 	{"DELETE", "/api/v1/companies/{company}/members/not-a-uuid", companyAdmin, "", 404},
@@ -276,6 +279,73 @@ func TestRoutesAuditHidesOtherTeams(t *testing.T) {
 	assert.Equal(t, 0, total(outsider), "other company")
 }
 
+// Logout revokes the session itself, not just the cookie: replaying the same
+// token afterwards is refused.
+func TestRoutesLogoutRevokesSession(t *testing.T) {
+	e, auth := routesServer(t)
+	f := routesSeed(t, auth)
+
+	require.Equal(t, 200, f.do(e, "GET", "/api/v1/auth/me", viewer, "").Code)
+	require.Equal(t, 204, f.do(e, "POST", "/api/v1/auth/logout", viewer, "").Code)
+	assert.Equal(t, 401, f.do(e, "GET", "/api/v1/auth/me", viewer, "").Code)
+	assert.Equal(t, 200, f.do(e, "GET", "/api/v1/auth/me", editor, "").Code, "other users keep their session")
+}
+
+// A company admin can't reach another tenant's user through their own
+// company's routes: every write answers 404 (no hint that the user exists) and
+// leaves that user's company, role and teams untouched.
+func TestRoutesCrossTenantMemberWrites(t *testing.T) {
+	tests := []struct {
+		name, method, path, actor, body string
+		want                            int
+	}{
+		{"update another company's member", "PATCH", "/api/v1/companies/{company}/members/{outsider}",
+			companyAdmin, `{"role":"member"}`, 404},
+		{"remove another company's member", "DELETE", "/api/v1/companies/{company}/members/{outsider}",
+			companyAdmin, "", 404},
+		{"add another company's user", "POST", "/api/v1/companies/{company}/members",
+			companyAdmin, `{"email":"outsider@acme.test","role":"member"}`, 404},
+		{"add another company's user to a team", "POST", "/api/v1/teams/{team}/members",
+			teamAdmin, `{"email":"outsider@acme.test","role":"viewer"}`, 404},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e, auth := routesServer(t)
+			f := routesSeed(t, auth)
+			otherTeam := testutil.SeedTeam(t, f.db, f.ids["otherCompany"], "theirs")
+			testutil.AddTeamMember(t, f.db, otherTeam.ID, f.ids[outsider], model.RoleAdmin)
+
+			rec := f.do(e, tt.method, tt.path, tt.actor, tt.body)
+			assert.Equal(t, tt.want, rec.Code, rec.Body.String())
+
+			var companyID, role string
+			require.NoError(t, f.db.Pool.QueryRow(t.Context(),
+				`SELECT company_id::text, company_role FROM users WHERE id = $1`, f.ids[outsider]).Scan(&companyID, &role))
+			assert.Equal(t, f.ids["otherCompany"], companyID)
+			assert.Equal(t, "admin", role)
+			rows, err := f.db.Pool.Query(t.Context(),
+				`SELECT team_id::text FROM team_members WHERE user_id = $1`, f.ids[outsider])
+			require.NoError(t, err)
+			teams, err := pgx.CollectRows(rows, pgx.RowTo[string])
+			require.NoError(t, err)
+			assert.Equal(t, []string{otherTeam.ID}, teams)
+		})
+	}
+}
+
+// Team names are unique per company.
+func TestRoutesCreateTeamDuplicateName(t *testing.T) {
+	e, auth := routesServer(t)
+	f := routesSeed(t, auth)
+	rec := f.do(e, "POST", "/api/v1/companies/{company}/teams", companyAdmin,
+		`{"name":"team","adminEmail":"member@acme.test"}`)
+	assert.Equal(t, 409, rec.Code, rec.Body.String())
+	var n int
+	require.NoError(t, f.db.Pool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM teams WHERE company_id = $1`, f.ids["company"]).Scan(&n))
+	assert.Equal(t, 1, n)
+}
+
 // A cross-site browser write is rejected before it reaches the handler, even
 // with a valid session cookie.
 func TestRoutesCrossSiteWriteRejected(t *testing.T) {
@@ -359,8 +429,10 @@ func routesSeed(t *testing.T, auth *service.AuthService) routesFixture {
 	team := testutil.SeedTeam(t, db, acme.ID, "team")
 	fs := testutil.SeedFlagset(t, db, team.ID, "fs")
 	f := routesFixture{
-		db:     db,
-		ids:    map[string]string{"company": acme.ID, "team": team.ID, "flagset": fs.ID},
+		db: db,
+		ids: map[string]string{
+			"company": acme.ID, "otherCompany": other.ID, "team": team.ID, "flagset": fs.ID,
+		},
 		tokens: map[string]string{bogus: "not-a-jwt"},
 	}
 	for _, a := range []struct {
@@ -409,7 +481,7 @@ func (f routesFixture) req(method, path, actor, body string) *http.Request {
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	}
 	if tok := f.tokens[actor]; tok != "" {
-		req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: tok})
+		req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(config.AuthConfig{}), Value: tok})
 	}
 	return req
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/gofeatureflag/flag-management-system/server/management/internal/testutil"
 	"github.com/gofeatureflag/flag-management-system/server/management/model"
 	"github.com/gofeatureflag/flag-management-system/server/management/repository"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -341,6 +342,8 @@ func TestAuditRepoRecordInTx(t *testing.T) {
 	}
 }
 
+// Only best-effort failures are logged: in a tx the caller gets (and logs)
+// the error, and a canceled request is not a broken audit pipeline.
 func TestAuditRepoRecordLogsFailure(t *testing.T) {
 	db := testutil.StartPostgres(t)
 	repo := repository.NewAuditRepo(db)
@@ -350,12 +353,42 @@ func TestAuditRepoRecordLogsFailure(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
 	t.Cleanup(func() { slog.SetDefault(prev) })
 
-	ctx, cancel := context.WithCancel(t.Context())
+	canceled, cancel := context.WithCancel(t.Context())
 	cancel()
-	err := repo.Record(ctx, nil, repository.AuditInput{
-		Action: model.AuditActionCreate, TargetType: model.AuditTargetTeam, TargetID: "t1"})
-
-	require.Error(t, err)
-	assert.Contains(t, buf.String(), "audit write failed")
-	assert.Contains(t, buf.String(), "action=create")
+	// A channel can't be marshaled: a failure that isn't a cancellation.
+	valid := repository.AuditInput{Action: model.AuditActionCreate, TargetType: model.AuditTargetTeam, TargetID: "t1"}
+	broken := valid
+	broken.After = make(chan int)
+	tests := []struct {
+		name    string
+		ctx     context.Context
+		in      repository.AuditInput
+		inTx    bool
+		wantLog bool
+	}{
+		{"best-effort failure is logged", t.Context(), broken, false, true},
+		{"canceled request is not", canceled, valid, false, false},
+		{"failure in a tx is left to the caller", t.Context(), broken, true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf.Reset()
+			var err error
+			if tt.inTx {
+				err = pgx.BeginFunc(t.Context(), db.Pool, func(tx pgx.Tx) error {
+					_ = repo.Record(tt.ctx, tx, tt.in) // dropped: the tx still commits
+					return nil
+				})
+				require.NoError(t, err)
+			} else {
+				require.Error(t, repo.Record(tt.ctx, nil, tt.in))
+			}
+			if tt.wantLog {
+				assert.Contains(t, buf.String(), "audit write failed")
+				assert.Contains(t, buf.String(), "action=create")
+			} else {
+				assert.Empty(t, buf.String())
+			}
+		})
+	}
 }

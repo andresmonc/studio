@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -75,9 +77,34 @@ func TestLoad(t *testing.T) {
 			},
 		},
 		{
+			// Loads as 30ns; Validate is what rejects it (see config_validator_test).
+			name: "bare number duration is nanoseconds",
+			yaml: "server:\n  shutdownTimeout: 30\n",
+			want: func(c *Config) { c.Server.ShutdownTimeout = 30 },
+		},
+		{
 			name:    "missing config file",
 			args:    []string{"--config", "/no/such/file.yaml"},
 			wantErr: "load config file",
+		},
+		{
+			name: "empty env vars keep defaults",
+			env: map[string]string{
+				"GOFF_MGMT_AUTH_COOKIESECURE": "",
+				"GOFF_MGMT_DB_MAXCONNS":       "",
+				"GOFF_MGMT_OIDC_SCOPES":       "",
+			},
+			want: func(c *Config) {},
+		},
+		{
+			name: "empty env var does not override config file",
+			yaml: camelCaseYAML,
+			env:  map[string]string{"GOFF_MGMT_AUTH_JWTSECRET": ""},
+			want: func(c *Config) {
+				c.Auth.CookieSecure = false
+				c.Auth.JWTSecret = "yamlsecret"
+				c.Auth.AdminEmails = []string{"yaml@example.test"}
+			},
 		},
 		{
 			name:    "invalid value fails unmarshal",
@@ -132,12 +159,27 @@ func TestLoad(t *testing.T) {
 				"GOFF_MGMT_AUTH_SESSIONMAXAGE":     "2h",
 				"GOFF_MGMT_OIDC_SCOPES":            "openid,email,groups",
 				"GOFF_MGMT_AUTH_ADMINEMAILS":       "c@example.test,d@example.test",
+				"GOFF_MGMT_SERVER_TRUSTEDPROXIES":  "10.0.0.0/8,172.16.0.0/12",
 			},
 			want: func(c *Config) {
+				c.Server.TrustedProxies = []string{"10.0.0.0/8", "172.16.0.0/12"}
 				c.Server.ShutdownTimeout = 15 * time.Second
 				c.Auth.SessionMaxAge = 2 * time.Hour
 				c.OIDC.Scopes = []string{"openid", "email", "groups"}
 				c.Auth.AdminEmails = []string{"c@example.test", "d@example.test"}
+			},
+		},
+		{
+			name: "env lists are trimmed and skip empty items",
+			env: map[string]string{
+				"GOFF_MGMT_OIDC_SCOPES":           "openid, email ,, groups,",
+				"GOFF_MGMT_AUTH_ADMINEMAILS":      " a@example.test, b@example.test",
+				"GOFF_MGMT_SERVER_TRUSTEDPROXIES": "10.0.0.0/8 , 172.16.0.0/12",
+			},
+			want: func(c *Config) {
+				c.OIDC.Scopes = []string{"openid", "email", "groups"}
+				c.Auth.AdminEmails = []string{"a@example.test", "b@example.test"}
+				c.Server.TrustedProxies = []string{"10.0.0.0/8", "172.16.0.0/12"}
 			},
 		},
 	}
@@ -173,4 +215,26 @@ func TestLoad(t *testing.T) {
 			assert.Equal(t, want, *cfg)
 		})
 	}
+}
+
+// FuzzSplitList checks env list decoding on arbitrary input: no empty,
+// space-padded or comma-holding item, and decoding is idempotent.
+func FuzzSplitList(f *testing.F) {
+	for _, seed := range []string{"", "openid", "openid, email ,, groups,", " a@x, b@x", ",", " , "} {
+		f.Add(seed)
+	}
+	strType, sliceType := reflect.TypeFor[string](), reflect.TypeFor[[]string]()
+	f.Fuzz(func(t *testing.T, in string) {
+		out, err := splitList(strType, sliceType, in)
+		require.NoError(t, err)
+		items, _ := out.([]string)
+		for _, item := range items {
+			assert.NotEmpty(t, item)
+			assert.Equal(t, strings.TrimSpace(item), item)
+			assert.NotContains(t, item, ",")
+		}
+		again, err := splitList(strType, sliceType, strings.Join(items, ","))
+		require.NoError(t, err)
+		assert.Equal(t, items, again)
+	})
 }

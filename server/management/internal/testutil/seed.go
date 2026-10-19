@@ -23,7 +23,9 @@ func SeedCompany(t *testing.T, db *repository.DB, displayName string) *model.Com
 // oidc subject) and returns it.
 func SeedUser(t *testing.T, db *repository.DB, email, name string, superAdmin bool) *model.User {
 	t.Helper()
-	u, err := repository.NewUserRepo(db).UpsertFromOIDC(t.Context(), email, name, "", email, superAdmin)
+	u, err := repository.NewUserRepo(db).UpsertFromOIDC(t.Context(), repository.OIDCLogin{
+		Email: email, Name: name, Sub: email, SuperAdmin: superAdmin,
+	})
 	if err != nil {
 		t.Fatalf("seed user: %v", err)
 	}

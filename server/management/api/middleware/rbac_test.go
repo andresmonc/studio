@@ -44,7 +44,7 @@ func TestRBACWithoutLookups(t *testing.T) {
 		"team":    RequireTeamRole(nil, "id", model.RoleEditor),
 		"company": RequireCompanyRole(nil, "id", model.CompanyRoleAdmin),
 		"flagset": RequireFlagsetRole(nil, nil, "id", model.RoleEditor),
-		"flag":    RequireFlagRole(nil, nil, nil, "id", model.RoleEditor),
+		"flag":    RequireFlagRole(nil, nil, "id", model.RoleEditor),
 		"super":   RequireSuperAdmin(),
 	}
 	for name, mw := range gates {
@@ -119,7 +119,7 @@ func TestRBACRoleChecks(t *testing.T) {
 	team := RequireTeamRole(f.teams, "id", model.RoleEditor)
 	company := RequireCompanyRole(f.companies, "id", model.CompanyRoleAdmin)
 	flagset := RequireFlagsetRole(f.teams, f.flagsets, "id", model.RoleEditor)
-	flag := RequireFlagRole(f.teams, f.flagsets, f.flags, "id", model.RoleEditor)
+	flag := RequireFlagRole(f.teams, f.flags, "id", model.RoleEditor)
 
 	const (
 		denied        = "insufficient role"
@@ -183,7 +183,7 @@ func TestRBACServerErrors(t *testing.T) {
 		{"team", RequireTeamRole(f.teams, "id", model.RoleViewer), f.team},
 		{"company", RequireCompanyRole(f.companies, "id", model.CompanyRoleMember), f.company},
 		{"flagset", RequireFlagsetRole(f.teams, f.flagsets, "id", model.RoleViewer), f.flagset},
-		{"flag", RequireFlagRole(f.teams, f.flagsets, f.flags, "id", model.RoleViewer), f.flag},
+		{"flag", RequireFlagRole(f.teams, f.flags, "id", model.RoleViewer), f.flag},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

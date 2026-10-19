@@ -19,7 +19,9 @@ type denial struct {
 
 // denyRole answers both "no role" and "no such flagset/flag": telling them
 // apart would let anyone probe which ids exist in other tenants. Super admins
-// skip the gate and get the handler's real 404.
+// skip the gate and get the handler's real 404. A malformed id is denied before
+// any lookup: the API answers it with 404 earlier (ValidIDs), but a gate must
+// never turn client input into a 500.
 var denyRole = &denial{http.StatusForbidden, "insufficient role"}
 
 // gate is the shape every RBAC middleware shares: 401 without a session, a
@@ -53,7 +55,11 @@ func RequireSuperAdmin() echo.MiddlewareFunc {
 // empty or unknown id is a 403 like a missing role (as in every gate below).
 func RequireTeamRole(teams *service.TeamService, paramName string, minRole model.Role) echo.MiddlewareFunc {
 	return gate(func(c *echo.Context, userID string) *denial {
-		return teamRole(c, teams, c.Param(paramName), userID, minRole)
+		id := c.Param(paramName)
+		if !IsUUID(id) {
+			return denyRole
+		}
+		return teamRole(c, teams, id, userID, minRole)
 	})
 }
 
@@ -62,7 +68,11 @@ func RequireCompanyRole(
 	companies *service.CompanyService, paramName string, minRole model.CompanyRole,
 ) echo.MiddlewareFunc {
 	return gate(func(c *echo.Context, userID string) *denial {
-		role, err := companies.Role(c.Request().Context(), c.Param(paramName), userID)
+		id := c.Param(paramName)
+		if !IsUUID(id) {
+			return &denial{http.StatusForbidden, "insufficient company role"}
+		}
+		role, err := companies.Role(c.Request().Context(), id, userID)
 		if err != nil {
 			return serverError(c, err, "failed to load company membership")
 		}
@@ -80,39 +90,38 @@ func RequireFlagsetRole(
 	teams *service.TeamService, flagsets *service.FlagsetService, paramName string, minRole model.Role,
 ) echo.MiddlewareFunc {
 	return gate(func(c *echo.Context, userID string) *denial {
-		return flagsetRole(c, teams, flagsets, c.Param(paramName), userID, minRole)
+		return resourceRole(c, teams, flagsets.TeamID, c.Param(paramName), userID, minRole)
 	})
 }
 
-// RequireFlagRole resolves flag → flagset → team and checks the caller's role.
+// RequireFlagRole resolves the team owning the flag (path param paramName) and
+// checks the caller's role on it.
 func RequireFlagRole(
-	teams *service.TeamService, flagsets *service.FlagsetService, flags *service.FlagService,
-	paramName string, minRole model.Role,
+	teams *service.TeamService, flags *service.FlagService, paramName string, minRole model.Role,
 ) echo.MiddlewareFunc {
 	return gate(func(c *echo.Context, userID string) *denial {
-		fsID, err := flags.FlagsetID(c.Request().Context(), c.Param(paramName))
-		if errors.Is(err, service.ErrNotFound) {
-			return denyRole
-		}
-		if err != nil {
-			return serverError(c, err, "failed to load flag")
-		}
-		return flagsetRole(c, teams, flagsets, fsID, userID, minRole)
+		return resourceRole(c, teams, flags.TeamID, c.Param(paramName), userID, minRole)
 	})
 }
 
-func flagsetRole(
-	c *echo.Context, teams *service.TeamService, flagsets *service.FlagsetService, flagsetID, userID string,
-	minRole model.Role,
+// resourceRole checks the caller's role on the team owning a flagset or flag,
+// resolved by teamOf in one query. A missing resource is denied like a missing
+// role.
+func resourceRole(
+	c *echo.Context, teams *service.TeamService, teamOf func(context.Context, string) (string, error),
+	id, userID string, minRole model.Role,
 ) *denial {
-	fs, err := flagsets.Get(c.Request().Context(), flagsetID)
+	if !IsUUID(id) {
+		return denyRole
+	}
+	teamID, err := teamOf(c.Request().Context(), id)
 	if errors.Is(err, service.ErrNotFound) {
 		return denyRole
 	}
 	if err != nil {
-		return serverError(c, err, "failed to load flagset")
+		return serverError(c, err, "failed to load resource")
 	}
-	return teamRole(c, teams, fs.TeamID, userID, minRole)
+	return teamRole(c, teams, teamID, userID, minRole)
 }
 
 func teamRole(c *echo.Context, teams *service.TeamService, teamID, userID string, minRole model.Role) *denial {

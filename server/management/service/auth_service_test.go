@@ -140,9 +140,8 @@ func TestExchangeEmailVerified(t *testing.T) {
 			s := authExchangeService(t, users, `{"sub":"s1","email":"unverified@acme.com","email_verified":`+v+`}`)
 			_, _, err := s.Exchange(t.Context(), "code", "verifier", testNonce)
 			require.ErrorContains(t, err, "email not verified")
-			u, err := users.GetByEmail(t.Context(), "unverified@acme.com")
-			require.NoError(t, err)
-			assert.Nil(t, u, "no account is created")
+			_, err = users.GetByEmail(t.Context(), "unverified@acme.com")
+			assert.ErrorIs(t, err, repository.ErrNotFound, "no account is created")
 		})
 	}
 
@@ -315,6 +314,43 @@ func TestAuthenticateRevocation(t *testing.T) {
 	assert.ErrorIs(t, err, ErrUnauthenticated)
 }
 
+// Logout ends every session of the user (all devices, copied tokens
+// included); a new login works again, and a stale token can't log it out.
+func TestLogoutRevokesSessions(t *testing.T) {
+	db := testutil.StartPostgres(t)
+	users := repository.NewUserRepo(db)
+	s := authServiceForJWT(strings.Repeat("x", 32), time.Hour)
+	s.users = users
+	ctx := t.Context()
+	u := testutil.SeedUser(t, db, "u@acme.com", "U", false)
+	issue := func() string {
+		t.Helper()
+		cur, err := users.GetByID(ctx, u.ID)
+		require.NoError(t, err)
+		tok, err := s.IssueJWT(cur)
+		require.NoError(t, err)
+		return tok
+	}
+	laptop, phone := issue(), issue()
+
+	require.NoError(t, s.Logout(ctx, laptop))
+	for _, tok := range []string{laptop, phone} {
+		_, err := s.Authenticate(ctx, tok)
+		assert.ErrorIs(t, err, ErrUnauthenticated)
+		assert.ErrorContains(t, err, "session revoked")
+	}
+
+	fresh := issue()
+	require.NoError(t, s.Logout(ctx, laptop), "a revoked token is a no-op")
+	_, err := s.Authenticate(ctx, fresh)
+	assert.NoError(t, err, "a stale token doesn't revoke the new session")
+	assert.NoError(t, s.Logout(ctx, "garbage"))
+
+	ctxDone, cancel := context.WithCancel(ctx)
+	cancel()
+	assert.ErrorIs(t, s.Logout(ctxDone, fresh), context.Canceled)
+}
+
 func TestNewAuthService(t *testing.T) {
 	var issuer string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -327,11 +363,11 @@ func TestNewAuthService(t *testing.T) {
 
 	cfg := config.Config{
 		OIDC: config.OIDCConfig{Issuer: issuer, ClientID: "cid", RedirectURL: "http://app/cb", Scopes: []string{"openid"}},
-		Auth: config.AuthConfig{AdminEmails: []string{" Root@Acme.com "}},
+		Auth: config.AuthConfig{AdminEmails: []string{"Root@Acme.com"}},
 	}
 	s, err := NewAuthService(t.Context(), cfg, nil, nil)
 	require.NoError(t, err)
-	assert.True(t, s.isAdminEmail("root@acme.com"), "admin emails are trimmed and case-insensitive")
+	assert.True(t, s.isAdminEmail("root@acme.com"), "admin emails are case-insensitive")
 	assert.True(t, strings.HasPrefix(s.AuthURL("st", "v", "n"), issuer+"/auth?"))
 
 	cfg.OIDC.Issuer = "http://127.0.0.1:1"

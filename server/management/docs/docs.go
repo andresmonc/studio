@@ -111,6 +111,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
@@ -123,16 +129,25 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Logout (clears the session cookie; no session required)",
+                "summary": "Logout (ends every session of the user and clears the cookie; no session required)",
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "500": {
+                        "description": "sessions not revoked; the cookie is still cleared",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
         },
         "/auth/me": {
             "get": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "auth"
                 ],
@@ -155,12 +170,21 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
         },
         "/companies": {
             "get": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "companies"
                 ],
@@ -187,6 +211,12 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -199,18 +229,21 @@ const docTemplate = `{
                 "consumes": [
                     "application/json"
                 ],
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "companies"
                 ],
-                "summary": "Create a company (super admin only)",
+                "summary": "Create a company with its first admin (super admin only)",
                 "parameters": [
                     {
-                        "description": "company",
+                        "description": "company and admin email",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.CreateCompanyRequest"
+                            "$ref": "#/definitions/model.CreateCompanyWithAdminRequest"
                         }
                     }
                 ],
@@ -239,14 +272,32 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "404": {
+                        "description": "no user with adminEmail",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "409": {
-                        "description": "a company already exists (mono company mode)",
+                        "description": "admin already in a company, or a company exists (mono company mode)",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -256,6 +307,9 @@ const docTemplate = `{
         },
         "/companies/{companyId}": {
             "get": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "companies"
                 ],
@@ -288,6 +342,18 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -297,6 +363,9 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "companies"
                 ],
@@ -314,6 +383,12 @@ const docTemplate = `{
                     "204": {
                         "description": "No Content"
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -330,6 +405,9 @@ const docTemplate = `{
             },
             "patch": {
                 "consumes": [
+                    "application/json"
+                ],
+                "produces": [
                     "application/json"
                 ],
                 "tags": [
@@ -379,6 +457,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -390,12 +474,21 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
         },
         "/companies/{companyId}/members": {
             "get": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "companies"
                 ],
@@ -430,11 +523,32 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "not found, or a malformed id",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             },
             "post": {
                 "consumes": [
+                    "application/json"
+                ],
+                "produces": [
                     "application/json"
                 ],
                 "tags": [
@@ -502,6 +616,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -519,12 +639,21 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
         },
         "/companies/{companyId}/members/{uid}": {
             "delete": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "companies"
                 ],
@@ -549,8 +678,8 @@ const docTemplate = `{
                     "204": {
                         "description": "No Content"
                     },
-                    "400": {
-                        "description": "malformed id",
+                    "401": {
+                        "description": "no valid session",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -568,7 +697,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "removing the last company admin",
+                        "description": "removing the last company admin, or any member in mono company mode",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -577,6 +706,9 @@ const docTemplate = `{
             },
             "patch": {
                 "consumes": [
+                    "application/json"
+                ],
+                "produces": [
                     "application/json"
                 ],
                 "tags": [
@@ -618,6 +750,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -635,12 +773,21 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
         },
         "/companies/{companyId}/teams": {
             "get": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "companies"
                 ],
@@ -675,11 +822,32 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "not found, or a malformed id",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             },
             "post": {
                 "consumes": [
+                    "application/json"
+                ],
+                "produces": [
                     "application/json"
                 ],
                 "tags": [
@@ -729,6 +897,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "insufficient role",
                         "schema": {
@@ -743,6 +917,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "team name already used in the company",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -818,6 +998,18 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -880,6 +1072,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -891,10 +1089,19 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             },
             "delete": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "flags"
                 ],
@@ -911,6 +1118,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     },
                     "403": {
                         "description": "Forbidden",
@@ -968,6 +1181,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -976,6 +1195,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -1039,6 +1264,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -1047,6 +1278,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -1098,6 +1335,18 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "page/pageSize is not an integer",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -1161,6 +1410,18 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1181,7 +1442,7 @@ const docTemplate = `{
                 "tags": [
                     "versions"
                 ],
-                "summary": "Roll back to a previous version (team editor; creates a new current version)",
+                "summary": "Roll back to a previous version (team editor; creates a new current version, or 200 if already served)",
                 "parameters": [
                     {
                         "type": "string",
@@ -1207,8 +1468,26 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
+                    "200": {
+                        "description": "the flag already serves it; nothing written",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.FlagVersion"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
                     "201": {
-                        "description": "Created",
+                        "description": "new current version",
                         "schema": {
                             "allOf": [
                                 {
@@ -1231,6 +1510,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -1239,6 +1524,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -1305,6 +1596,24 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "not found, or a malformed id",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             },
@@ -1363,6 +1672,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -1377,6 +1692,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "flag name already used in the flagset",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -1421,6 +1742,18 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1430,6 +1763,9 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "flagsets"
                 ],
@@ -1446,6 +1782,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     },
                     "403": {
                         "description": "Forbidden",
@@ -1515,6 +1857,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -1532,6 +1880,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
@@ -1544,7 +1898,7 @@ const docTemplate = `{
                 "tags": [
                     "flagsets"
                 ],
-                "summary": "List API keys for a flagset (team admin: the keys are secrets)",
+                "summary": "List API keys for a flagset (team editor: the keys are secrets)",
                 "parameters": [
                     {
                         "type": "string",
@@ -1576,8 +1930,20 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "not found, or a malformed id",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -1638,6 +2004,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -1649,12 +2021,21 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
         },
         "/flagsets/{id}/api-keys/{keyId}": {
             "delete": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "flagsets"
                 ],
@@ -1678,6 +2059,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     },
                     "403": {
                         "description": "Forbidden",
@@ -1742,6 +2129,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "already in a company (or, in mono company mode, not a super admin)",
                         "schema": {
@@ -1759,12 +2152,21 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
         },
         "/teams": {
             "get": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "teams"
                 ],
@@ -1790,12 +2192,21 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
         },
         "/teams/{id}": {
             "get": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "teams"
                 ],
@@ -1828,6 +2239,18 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1837,6 +2260,9 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "teams"
                 ],
@@ -1853,6 +2279,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     },
                     "403": {
                         "description": "Forbidden",
@@ -1922,6 +2354,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -1936,6 +2374,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "team name already used in the company",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -1982,6 +2426,24 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "not found, or a malformed id",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
@@ -2024,6 +2486,24 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "not found, or a malformed id",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
                         }
                     }
                 }
@@ -2100,6 +2580,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "insufficient role",
                         "schema": {
@@ -2111,12 +2597,27 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
+                    },
+                    "409": {
+                        "description": "the team must keep at least one admin",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
         },
         "/teams/{id}/members/{uid}": {
             "delete": {
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "teams"
                 ],
@@ -2141,8 +2642,8 @@ const docTemplate = `{
                     "204": {
                         "description": "No Content"
                     },
-                    "400": {
-                        "description": "malformed id",
+                    "401": {
+                        "description": "no valid session",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -2155,6 +2656,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "the team must keep at least one admin",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -2207,6 +2714,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -2215,6 +2728,18 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "the team must keep at least one admin",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -2273,7 +2798,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "current version author name; __unassigned__ for flags without one",
+                        "description": "current version author's user id; __unassigned__ for flags without one",
                         "name": "owner",
                         "in": "query"
                     },
@@ -2335,6 +2860,24 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "not found, or a malformed id",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
                     }
                 }
             }
@@ -2377,6 +2920,24 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "not found, or a malformed id",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
                         }
                     }
                 }
@@ -2435,6 +2996,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -2449,6 +3016,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "flagset name already used in the team",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "body larger than 256 KiB",
                         "schema": {
                             "$ref": "#/definitions/model.APIResponse"
                         }
@@ -2488,12 +3061,30 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "type": "string"
+                                                "$ref": "#/definitions/model.FlagOwner"
                                             }
                                         }
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "not found, or a malformed id",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
                         }
                     }
                 }
@@ -2537,6 +3128,24 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "401": {
+                        "description": "no valid session",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient role",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "not found, or a malformed id",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIResponse"
                         }
                     }
                 }
@@ -2796,6 +3405,26 @@ const docTemplate = `{
                 }
             }
         },
+        "model.CreateCompanyWithAdminRequest": {
+            "type": "object",
+            "required": [
+                "adminEmail",
+                "displayName"
+            ],
+            "properties": {
+                "adminEmail": {
+                    "type": "string",
+                    "example": "jane@acme.com"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string",
+                    "example": "Acme Corp"
+                }
+            }
+        },
         "model.CreateFlagRequest": {
             "type": "object",
             "required": [
@@ -2831,35 +3460,9 @@ const docTemplate = `{
                 "evaluationContextEnrichment": {
                     "type": "object"
                 },
-                "exporters": {
-                    "type": "object"
-                },
-                "fileFormat": {
-                    "enum": [
-                        "yaml",
-                        "json",
-                        "toml"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/model.FileFormat"
-                        }
-                    ],
-                    "example": "yaml"
-                },
                 "name": {
                     "type": "string",
                     "example": "production"
-                },
-                "notifiers": {
-                    "type": "object"
-                },
-                "pollingIntervalMs": {
-                    "type": "integer",
-                    "example": 60000
-                },
-                "retrievers": {
-                    "type": "object"
                 }
             }
         },
@@ -2953,19 +3556,6 @@ const docTemplate = `{
                 }
             }
         },
-        "model.FileFormat": {
-            "type": "string",
-            "enum": [
-                "yaml",
-                "json",
-                "toml"
-            ],
-            "x-enum-varnames": [
-                "FileFormatYAML",
-                "FileFormatJSON",
-                "FileFormatTOML"
-            ]
-        },
         "model.Flag": {
             "type": "object",
             "properties": {
@@ -3031,6 +3621,10 @@ const docTemplate = `{
                 "owner": {
                     "type": "string"
                 },
+                "ownerId": {
+                    "description": "OwnerID identifies the owner: names aren't unique, and may be empty.",
+                    "type": "string"
+                },
                 "progressiveRollout": {
                     "description": "Progressive is set only when the default rule is a progressive rollout; the\nlist renders it as a rocket + initial→end indicator instead of a bar.",
                     "allOf": [
@@ -3088,6 +3682,17 @@ const docTemplate = `{
                 }
             }
         },
+        "model.FlagOwner": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "model.FlagVersion": {
             "type": "object",
             "properties": {
@@ -3141,12 +3746,6 @@ const docTemplate = `{
                     "description": "EvaluationContextEnrichment is a free-form object merged into every\nevaluation context for flags in this flagset (enrichment value wins on\nkey collision).",
                     "type": "object"
                 },
-                "exporters": {
-                    "type": "object"
-                },
-                "fileFormat": {
-                    "$ref": "#/definitions/model.FileFormat"
-                },
                 "flagCount": {
                     "type": "integer"
                 },
@@ -3155,15 +3754,6 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
-                },
-                "notifiers": {
-                    "type": "object"
-                },
-                "pollingIntervalMs": {
-                    "type": "integer"
-                },
-                "retrievers": {
-                    "type": "object"
                 },
                 "teamId": {
                     "type": "string"
@@ -3477,30 +4067,8 @@ const docTemplate = `{
                 "evaluationContextEnrichment": {
                     "type": "object"
                 },
-                "exporters": {
-                    "type": "object"
-                },
-                "fileFormat": {
-                    "type": "string",
-                    "enum": [
-                        "yaml",
-                        "json",
-                        "toml"
-                    ],
-                    "example": "yaml"
-                },
                 "name": {
                     "type": "string"
-                },
-                "notifiers": {
-                    "type": "object"
-                },
-                "pollingIntervalMs": {
-                    "type": "integer",
-                    "example": 60000
-                },
-                "retrievers": {
-                    "type": "object"
                 }
             }
         },

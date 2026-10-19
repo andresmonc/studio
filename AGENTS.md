@@ -6,7 +6,7 @@ Work in progress; APIs and data model can change freely, no backward-compat shim
 ## Layout
 - `server/management/` — Go module for the management API (`config/`, `model/`, `telemetry/`).
 - `webui/` — planned frontend (Vite/React), not created yet.
-- `TODOS.md` — known follow-ups, grouped by area.
+- `TODOS.md` — known follow-ups, ordered by priority (P0–P3).
 
 ## Commands (run from repo root)
 - `make build` · `make vet` · `make test` (writes `<module>/coverage.out`) · `make lint` · `make tidy`
@@ -45,5 +45,5 @@ Work in progress; APIs and data model can change freely, no backward-compat shim
 - Fill `.github/pull_request_template.md` (what & why, how to test, linked issue).
 
 ## Follow-ups
-- Issues found but out of scope go in `TODOS.md` under the relevant section, with the concrete failure
+- Issues found but out of scope go in `TODOS.md` under the matching priority (P0–P3), tagged with their `[Area]`, with the concrete failure
   and the suggested fix. Remove the entry when it's resolved.

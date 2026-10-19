@@ -271,6 +271,35 @@ func TestTeamServiceMembers(t *testing.T) {
 		assert.ErrorIs(t, svc.UpdateMember(ctx, actor.ID, team.ID, user.ID, model.RoleAdmin), service.ErrNotFound)
 	})
 
+	t.Run("the last admin can't be demoted, re-added lower or removed", func(t *testing.T) {
+		team, user := seed(t)
+		testutil.AddTeamMember(t, db, team.ID, user.ID, model.RoleAdmin)
+		before := audited(t)
+		for name, err := range map[string]error{
+			"update": svc.UpdateMember(ctx, actor.ID, team.ID, user.ID, model.RoleEditor),
+			"re-add": func() error {
+				_, _, err := svc.AddMember(ctx, actor.ID, team.ID, &model.AddMemberRequest{
+					Email: user.Email, Role: model.RoleViewer,
+				})
+				return err
+			}(),
+			"remove": svc.RemoveMember(ctx, actor.ID, team.ID, user.ID),
+		} {
+			assert.ErrorIs(t, err, service.ErrConflict, name)
+			assert.Equal(t, "team must keep at least one admin", service.PublicMessage(err), name)
+		}
+		assert.Equal(t, before, audited(t), "nothing written")
+		role, err := svc.Role(ctx, team.ID, user.ID)
+		require.NoError(t, err)
+		assert.Equal(t, model.RoleAdmin, role)
+
+		// With a second admin, the first can go.
+		other := testutil.SeedUser(t, db, "second-"+user.Email, "S", false)
+		testutil.SetCompanyMember(t, db, company.ID, other.ID, model.CompanyRoleMember)
+		testutil.AddTeamMember(t, db, team.ID, other.ID, model.RoleAdmin)
+		require.NoError(t, svc.RemoveMember(ctx, actor.ID, team.ID, user.ID))
+	})
+
 	t.Run("remove member", func(t *testing.T) {
 		team, user := seed(t)
 		testutil.AddTeamMember(t, db, team.ID, user.ID, model.RoleViewer)

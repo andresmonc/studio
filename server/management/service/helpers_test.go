@@ -50,3 +50,10 @@ func assertLastAudit(
 		}
 	}
 }
+
+// companyReq builds a super admin create-company body.
+func companyReq(name, adminEmail string) *model.CreateCompanyWithAdminRequest {
+	return &model.CreateCompanyWithAdminRequest{
+		CreateCompanyRequest: model.CreateCompanyRequest{DisplayName: name}, AdminEmail: adminEmail,
+	}
+}

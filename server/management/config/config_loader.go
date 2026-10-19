@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -40,12 +41,17 @@ func Load(flags *pflag.FlagSet) (*Config, error) {
 		}
 	}
 
-	envCb := func(s string) string {
-		s = strings.TrimPrefix(s, EnvPrefix)
-		s = strings.ToLower(s)
-		return strings.ReplaceAll(s, "_", ".")
+	// An empty var (Compose `VAR=${UNSET}`, `docker run -e VAR`) is skipped:
+	// WeaklyTypedInput would turn "" into a zero value that silently replaces
+	// the default (cookieSecure=false, maxConns=0).
+	envCb := func(key, value string) (string, any) {
+		if value == "" {
+			return "", nil
+		}
+		key = strings.ToLower(strings.TrimPrefix(key, EnvPrefix))
+		return strings.ReplaceAll(key, "_", "."), value
 	}
-	_ = k.Load(env.Provider(EnvPrefix, ".", envCb), nil)
+	_ = k.Load(env.ProviderWithValue(EnvPrefix, ".", envCb), nil)
 
 	if flags != nil {
 		_ = k.Load(posflag.Provider(flags, ".", k), nil)
@@ -59,7 +65,7 @@ func Load(flags *pflag.FlagSet) (*Config, error) {
 		DecoderConfig: &mapstructure.DecoderConfig{
 			DecodeHook: mapstructure.ComposeDecodeHookFunc(
 				mapstructure.StringToTimeDurationHookFunc(),
-				mapstructure.StringToSliceHookFunc(","),
+				splitList,
 				mapstructure.TextUnmarshallerHookFunc()),
 			WeaklyTypedInput: true,
 		},
@@ -67,6 +73,22 @@ func Load(flags *pflag.FlagSet) (*Config, error) {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
 	}
 	return &out, nil
+}
+
+// splitList decodes a comma-separated string (an env var) into a list, trimming
+// each item and dropping empty ones: "openid, email," is [openid email], so
+// " email" never reaches the IdP and "a@x, b@x" matches both admins.
+func splitList(from, to reflect.Type, data any) (any, error) {
+	if from.Kind() != reflect.String || to.Kind() != reflect.Slice {
+		return data, nil
+	}
+	var items []string
+	for item := range strings.SplitSeq(data.(string), ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			items = append(items, item)
+		}
+	}
+	return items, nil
 }
 
 // structToMap returns default values keyed using the same lowercase scheme
@@ -83,6 +105,7 @@ func structToMap(c Config) map[string]any {
 		"db.maxconns":            c.DB.MaxConns,
 		"db.minconns":            c.DB.MinConns,
 		"db.connmaxlifetime":     c.DB.ConnMaxLifetime,
+		"db.migrate":             c.DB.Migrate,
 		"oidc.scopes":            c.OIDC.Scopes,
 		"auth.sessionmaxage":     c.Auth.SessionMaxAge,
 		"auth.cookiesecure":      c.Auth.CookieSecure,

@@ -54,6 +54,9 @@ func intParam(s, field string, def int, errs *model.ValidationErrors) int {
 // @Param    pageSize  query int    false "items per page"  minimum(1) maximum(200) default(50)
 // @Success  200       {object} model.PaginatedResponse[model.FlagListItem]
 // @Failure  400       {object} model.APIResponse "disabled is not a boolean, or page/pageSize is not an integer"
+// @Failure  401       {object} model.APIResponse "no valid session"
+// @Failure  403       {object} model.APIResponse "insufficient role"
+// @Failure  404       {object} model.APIResponse "not found, or a malformed id"
 // @Router   /flagsets/{flagsetId}/flags [get]
 func (h *FlagHandler) List(c *echo.Context) error {
 	flagsetID := c.Param("flagsetId")
@@ -84,7 +87,7 @@ func (h *FlagHandler) List(c *echo.Context) error {
 // @Param    name      query string false "name contains filter (case-insensitive)"
 // @Param    flagsetId query string false "only flags of this flagset"
 // @Param    type      query string false "flag type" Enums(boolean, string, int, float, json)
-// @Param    owner     query string false "current version author name; __unassigned__ for flags without one"
+// @Param    owner     query string false "current version author's user id; __unassigned__ for flags without one"
 // @Param    disabled  query bool   false "filter disabled flags"
 // @Param    sort      query string false "sort field" Enums(updated, name, state) default(updated)
 // @Param    order     query string false "sort direction; defaults to desc for updated, asc otherwise" Enums(asc, desc)
@@ -92,6 +95,9 @@ func (h *FlagHandler) List(c *echo.Context) error {
 // @Param    pageSize  query int    false "items per page"  minimum(1) maximum(200) default(50)
 // @Success  200       {object} model.PaginatedResponse[model.FlagInstance]
 // @Failure  400       {object} model.APIResponse "invalid disabled, sort, order, page or pageSize"
+// @Failure  401       {object} model.APIResponse "no valid session"
+// @Failure  403       {object} model.APIResponse "insufficient role"
+// @Failure  404       {object} model.APIResponse "not found, or a malformed id"
 // @Router   /teams/{teamId}/flags [get]
 func (h *FlagHandler) ListByTeam(c *echo.Context) error {
 	var errs model.ValidationErrors
@@ -157,7 +163,10 @@ const unassignedOwner = "__unassigned__"
 // @Tags     flags
 // @Produce  json
 // @Param    teamId path string true "team id"
-// @Success  200    {object} model.APIResponse{data=[]string}
+// @Success  200    {object} model.APIResponse{data=[]model.FlagOwner}
+// @Failure  401    {object} model.APIResponse "no valid session"
+// @Failure  403    {object} model.APIResponse "insufficient role"
+// @Failure  404    {object} model.APIResponse "not found, or a malformed id"
 // @Router   /teams/{teamId}/owners [get]
 func (h *FlagHandler) ListTeamOwners(c *echo.Context) error {
 	owners, err := h.svc.ListTeamOwners(c.Request().Context(), c.Param("teamId"))
@@ -188,6 +197,9 @@ func parseTags(raw string) []string {
 // @Produce  json
 // @Param    teamId path string true "team id"
 // @Success  200    {object} model.APIResponse{data=[]string}
+// @Failure  401    {object} model.APIResponse "no valid session"
+// @Failure  403    {object} model.APIResponse "insufficient role"
+// @Failure  404    {object} model.APIResponse "not found, or a malformed id"
 // @Router   /teams/{teamId}/tags [get]
 func (h *FlagHandler) ListTeamTags(c *echo.Context) error {
 	tags, err := h.svc.ListTeamTags(c.Request().Context(), c.Param("teamId"))
@@ -209,9 +221,11 @@ func (h *FlagHandler) ListTeamTags(c *echo.Context) error {
 // @Param    body      body model.CreateFlagRequest true "flag payload (GOFF DTO)"
 // @Success  201       {object} model.APIResponse{data=model.Flag}
 // @Failure  400       {object} model.APIResponse
+// @Failure  401       {object} model.APIResponse "no valid session"
 // @Failure  403       {object} model.APIResponse
 // @Failure  404       {object} model.APIResponse
 // @Failure  409       {object} model.APIResponse "flag name already used in the flagset"
+// @Failure  413       {object} model.APIResponse "body larger than 256 KiB"
 // @Router   /flagsets/{flagsetId}/flags [post]
 func (h *FlagHandler) Create(c *echo.Context) error {
 	var req model.CreateFlagRequest
@@ -232,6 +246,8 @@ func (h *FlagHandler) Create(c *echo.Context) error {
 // @Produce  json
 // @Param    id path string true "flag id"
 // @Success  200 {object} model.APIResponse{data=model.Flag}
+// @Failure  401 {object} model.APIResponse "no valid session"
+// @Failure  403 {object} model.APIResponse "insufficient role"
 // @Failure  404 {object} model.APIResponse
 // @Router   /flags/{id} [get]
 func (h *FlagHandler) Get(c *echo.Context) error {
@@ -254,8 +270,10 @@ func (h *FlagHandler) Get(c *echo.Context) error {
 // @Param    body body model.EvaluateFlagRequest true "evaluation context"
 // @Success  200  {object} model.APIResponse{data=model.EvaluationResult}
 // @Failure  400  {object} model.APIResponse
+// @Failure  401  {object} model.APIResponse "no valid session"
 // @Failure  403  {object} model.APIResponse
 // @Failure  404  {object} model.APIResponse
+// @Failure  413  {object} model.APIResponse "body larger than 256 KiB"
 // @Router   /flags/{id}/evaluate [post]
 func (h *FlagHandler) Evaluate(c *echo.Context) error {
 	var req model.EvaluateFlagRequest
@@ -278,8 +296,10 @@ func (h *FlagHandler) Evaluate(c *echo.Context) error {
 // @Param    body body model.UpdateFlagRequest true "new payload"
 // @Success  200  {object} model.APIResponse{data=model.Flag}
 // @Failure  400  {object} model.APIResponse
+// @Failure  401  {object} model.APIResponse "no valid session"
 // @Failure  403  {object} model.APIResponse
 // @Failure  404  {object} model.APIResponse
+// @Failure  413  {object} model.APIResponse "body larger than 256 KiB"
 // @Router   /flags/{id} [put]
 func (h *FlagHandler) Update(c *echo.Context) error {
 	var req model.UpdateFlagRequest
@@ -305,8 +325,10 @@ func (h *FlagHandler) Update(c *echo.Context) error {
 // @Param    body body model.DisableFlagRequest true "disabled state"
 // @Success  204  "No Content"
 // @Failure  400  {object} model.APIResponse "invalid body, or disabled missing"
+// @Failure  401  {object} model.APIResponse "no valid session"
 // @Failure  403  {object} model.APIResponse
 // @Failure  404  {object} model.APIResponse
+// @Failure  413  {object} model.APIResponse "body larger than 256 KiB"
 // @Router   /flags/{id}/disable [post]
 func (h *FlagHandler) Disable(c *echo.Context) error {
 	var req model.DisableFlagRequest
@@ -326,8 +348,10 @@ func (h *FlagHandler) Disable(c *echo.Context) error {
 // Delete godoc
 // @Summary  Soft-delete a flag (team editor; audited; versions remain)
 // @Tags     flags
+// @Produce  json
 // @Param    id path string true "flag id"
 // @Success  204 "No Content"
+// @Failure  401 {object} model.APIResponse "no valid session"
 // @Failure  403 {object} model.APIResponse
 // @Failure  404 {object} model.APIResponse
 // @Router   /flags/{id} [delete]

@@ -1,7 +1,9 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"unicode/utf8"
 
@@ -24,3 +26,22 @@ func validateName(name *string, field string) model.ValidationErrors {
 }
 
 const maxNameLength = 120
+
+// changes reports whether an optional PATCH field (nil: absent) differs from
+// the current value. Unchanged updates skip the write and the audit entry.
+func changes(field *string, current string) bool { return field != nil && *field != current }
+
+// jsonChanges is changes for a JSON setting (empty: absent; null: clear). It
+// compares values, not bytes: the column is jsonb, which normalizes formatting
+// and key order. field has been validated as JSON already.
+func jsonChanges(field, current json.RawMessage) bool {
+	if len(field) == 0 {
+		return false
+	}
+	var a, b any
+	_ = json.Unmarshal(field, &a)
+	if len(current) > 0 {
+		_ = json.Unmarshal(current, &b)
+	}
+	return !reflect.DeepEqual(a, b)
+}

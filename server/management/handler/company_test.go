@@ -15,8 +15,9 @@ func TestCompanyHandler(t *testing.T) {
 	h := NewCompanyHandler(s.companySvc, s.teamSvc)
 	admin := testutil.SeedUser(t, s.db, "admin@acme.com", "Admin", true)
 
+	testutil.SeedUser(t, s.db, "founder@acme.com", "Founder", false)
 	t.Run("Create success", func(t *testing.T) {
-		c, rec := reqCtx(http.MethodPost, `{"displayName":"Acme"}`)
+		c, rec := reqCtx(http.MethodPost, `{"displayName":"Acme","adminEmail":"founder@acme.com"}`)
 		withClaims(c, admin.ID, true)
 		require.NoError(t, h.Create(c))
 		assert.Equal(t, http.StatusCreated, rec.Code)
@@ -31,12 +32,13 @@ func TestCompanyHandler(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
-	t.Run("Create validation error empty name", func(t *testing.T) {
+	t.Run("Create validation error empty name and admin", func(t *testing.T) {
 		c, rec := reqCtx(http.MethodPost, `{"displayName":""}`)
 		withClaims(c, admin.ID, true)
 		require.NoError(t, h.Create(c))
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 		assert.Contains(t, decodeResp(t, rec).Errors, "displayName")
+		assert.Contains(t, decodeResp(t, rec).Errors, "adminEmail")
 	})
 
 	t.Run("List as super admin", func(t *testing.T) {
