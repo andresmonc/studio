@@ -27,7 +27,7 @@ export function LoginPage() {
     >
       <Card className={cn("sm:w-[420px]", "p-8")}>
         <CardHeader className="px-0">
-          <GoffLogo className="mb-4 h-20 w-auto justify-self-center" />
+          <GoffLogo className="mb-4 size-20 justify-self-center" />
           <CardTitle className="text-2xl font-semibold">
             {t("login.title")}
           </CardTitle>
