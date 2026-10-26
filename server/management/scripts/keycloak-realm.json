@@ -4,6 +4,7 @@
   "registrationAllowed": false,
   "users": [
     {
+      "id": "ff0c0ba4-b6b4-4e87-9302-1bdb528eaaff",
       "username": "admin@local",
       "email": "admin@local.io",
       "emailVerified": true,
@@ -19,6 +20,7 @@
       ]
     },
     {
+      "id": "63ba90c9-79ed-4802-b7cc-640155bc6b7f",
       "username": "user@local",
       "email": "user@local.io",
       "emailVerified": true,
@@ -34,6 +36,7 @@
       ]
     },
     {
+      "id": "6e0ef05b-32b1-4738-8247-3e2ae2883a7b",
       "username": "user1@local",
       "email": "user1@local.io",
       "emailVerified": true,
@@ -49,6 +52,7 @@
       ]
     },
     {
+      "id": "d410aa0b-267e-44e6-bbcb-2c6997268e59",
       "username": "user2@local",
       "email": "user2@local.io",
       "emailVerified": true,

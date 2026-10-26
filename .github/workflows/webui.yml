@@ -1,0 +1,55 @@
+name: webui
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'webui/**'
+      - '.github/workflows/webui.yml'
+  pull_request:
+    paths:
+      - 'webui/**'
+      - '.github/workflows/webui.yml'
+
+defaults:
+  run:
+    working-directory: webui
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: webui/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: webui/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm exec eslint .
+
+      - name: Build
+        run: pnpm build
+
+      - name: Build Storybook
+        run: pnpm build-storybook
+
+      - name: Test
+        run: pnpm test:run --coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: webui/coverage/lcov.info
+          flags: webui
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}

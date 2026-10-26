@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -186,23 +185,4 @@ func serveUntilHealthy(t *testing.T, dbURL string) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("run did not return after cancel")
 	}
-}
-
-// TestSeed keeps scripts/seed.sql loadable as the schema changes.
-func TestSeed(t *testing.T) {
-	db := testutil.StartPostgres(t)
-	seed, err := os.ReadFile("scripts/seed.sql")
-	require.NoError(t, err)
-	// Its own connection: the dump clears search_path for the session.
-	conn, err := pgx.Connect(t.Context(), db.Pool.Config().ConnString())
-	require.NoError(t, err)
-	defer func() { _ = conn.Close(context.Background()) }()
-
-	for range 2 { // idempotent
-		_, err = conn.Exec(t.Context(), string(seed))
-		require.NoError(t, err)
-	}
-	var flags int
-	require.NoError(t, db.Pool.QueryRow(t.Context(), `SELECT COUNT(*) FROM goff_flags`).Scan(&flags))
-	assert.Equal(t, 6, flags, "every seeded flag is served")
 }

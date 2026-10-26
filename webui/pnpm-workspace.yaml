@@ -1,0 +1,8 @@
+# pnpm 10.26+/11 blocks dependency build scripts by default and no longer
+# reads the "pnpm" field in package.json. Approve the packages that need
+# their install scripts here (esbuild fetches its platform binary; msw runs
+# a postinstall). Without this a clean install fails with
+# ERR_PNPM_IGNORED_BUILDS.
+allowBuilds:
+  esbuild: true
+  msw: true

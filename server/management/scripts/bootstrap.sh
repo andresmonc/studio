@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Wait for the database and apply migrations. With GOFF_MGMT_SEED=1, also load
-# scripts/seed.sql, which first TRUNCATEs every table.
+# Wait for the database and apply migrations.
 # Requires: psql, goose.
 set -euo pipefail
 
@@ -29,10 +28,5 @@ done
 echo "==> Applying goose migrations"
 cd "${SERVICE_DIR}"
 goose -dir ./db/migrations postgres "${GOFF_MGMT_DB_URL}" up
-
-if [ -f "${SCRIPT_DIR}/seed.sql" ] && [ "${GOFF_MGMT_SEED:-0}" = "1" ]; then
-  echo "==> Seeding (scripts/seed.sql): replaces all data"
-  psql -v ON_ERROR_STOP=1 "${GOFF_MGMT_DB_URL}" -f "${SCRIPT_DIR}/seed.sql"
-fi
 
 echo "==> Done."

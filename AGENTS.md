@@ -5,7 +5,8 @@ Work in progress; APIs and data model can change freely, no backward-compat shim
 
 ## Layout
 - `server/management/` — Go module for the management API (`config/`, `model/`, `telemetry/`).
-- `webui/` — planned frontend (Vite/React), not created yet.
+- `webui/` — frontend (Vite, React, Refine, pnpm). Run from `webui/`: `pnpm install`, `pnpm dev`,
+  `pnpm exec eslint .`, `pnpm build`, `pnpm test:run`. CI: `.github/workflows/webui.yml`.
 - `TODOS.md` — known follow-ups, ordered by priority (P0–P3).
 
 ## Commands (run from repo root)
