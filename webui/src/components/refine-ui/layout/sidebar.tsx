@@ -15,26 +15,20 @@ import {
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent as ShadcnSidebarContent,
-  SidebarHeader as ShadcnSidebarHeader,
   SidebarRail as ShadcnSidebarRail,
-  SidebarTrigger as ShadcnSidebarTrigger,
   useSidebar as useShadcnSidebar,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import {
   useLink,
   useMenu,
-  useRefineOptions,
   useTranslate,
   type TreeMenuItem,
 } from "@refinedev/core";
 import { ChevronRight, ListIcon, ToggleLeftIcon } from "lucide-react";
 import { useLocation } from "react-router";
 import React from "react";
-import {
-  canSync,
-  type ResourceAccessMeta,
-} from "@/providers/access-control";
+import { canSync, type ResourceAccessMeta } from "@/providers/access-control";
 import { useActiveCompany } from "@/hooks/use-active-company";
 import { CompanySwitcher } from "@/components/company-switcher";
 import { TeamSwitcher } from "@/components/team-switcher";
@@ -89,7 +83,6 @@ export function Sidebar() {
   return (
     <ShadcnSidebar collapsible="icon" className={cn("border-none")}>
       <ShadcnSidebarRail />
-      <SidebarHeader />
       <ShadcnSidebarContent
         className={cn(
           "transition-discrete",
@@ -104,7 +97,7 @@ export function Sidebar() {
           {
             "px-3": open,
             "px-1": !open,
-          }
+          },
         )}
       >
         {open && (
@@ -177,7 +170,7 @@ function SidebarItemGroup({ item, selectedKey }: MenuItemProps) {
             "opacity-100": open,
             "pointer-events-none": !open,
             "pointer-events-auto": open,
-          }
+          },
         )}
       >
         {getDisplayName(item, t)}
@@ -209,7 +202,7 @@ function SidebarItemCollapsible({ item, selectedKey }: MenuItemProps) {
         "text-muted-foreground",
         "transition-transform",
         "duration-200",
-        "group-data-[state=open]:rotate-90"
+        "group-data-[state=open]:rotate-90",
       )}
     />
   );
@@ -281,69 +274,6 @@ function SidebarItemLink({ item, selectedKey }: MenuItemProps) {
       (pathname === route || pathname.startsWith(`${route}/`)));
 
   return <SidebarButton item={item} isSelected={isSelected} asLink={true} />;
-}
-
-function SidebarHeader() {
-  const { title } = useRefineOptions();
-  const { open, isMobile } = useShadcnSidebar();
-
-  return (
-    <ShadcnSidebarHeader
-      className={cn(
-        "p-0",
-        "h-16",
-        "border-b",
-        "border-border",
-        "flex-row",
-        "items-center",
-        "justify-between",
-        "overflow-hidden"
-      )}
-    >
-      <div
-        className={cn(
-          "whitespace-nowrap",
-          "flex",
-          "flex-row",
-          "h-full",
-          "items-center",
-          "justify-start",
-          "gap-2",
-          "transition-discrete",
-          "duration-200",
-          {
-            "pl-3": !open,
-            "pl-5": open,
-          }
-        )}
-      >
-        <div>{title.icon}</div>
-        <h2
-          className={cn(
-            "text-sm",
-            "font-bold",
-            "transition-opacity",
-            "duration-200",
-            {
-              "opacity-0": !open,
-              "opacity-100": open,
-            }
-          )}
-        >
-          {title.text}
-        </h2>
-      </div>
-
-      <ShadcnSidebarTrigger
-        className={cn("text-muted-foreground", "mr-1.5", {
-          "opacity-0": !open,
-          "opacity-100": open || isMobile,
-          "pointer-events-auto": open || isMobile,
-          "pointer-events-none": !open && !isMobile,
-        })}
-      />
-    </ShadcnSidebarHeader>
-  );
 }
 
 function getDisplayName(
@@ -427,7 +357,7 @@ function SidebarButton({
           "text-sidebar-primary-foreground": isSelected,
           "hover:text-sidebar-primary-foreground": isSelected,
         },
-        className
+        className,
       )}
       onClick={onClick}
       {...props}

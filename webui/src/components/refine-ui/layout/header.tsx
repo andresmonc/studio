@@ -1,4 +1,3 @@
-import { ThemeToggle } from "@/components/refine-ui/theme/theme-toggle";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useRefineOptions } from "@refinedev/core";
@@ -6,34 +5,11 @@ import { useRefineOptions } from "@refinedev/core";
 export const Header = () => {
   const { isMobile } = useSidebar();
 
-  return <>{isMobile ? <MobileHeader /> : <DesktopHeader />}</>;
+  // Desktop has no top bar: the sidebar already carries navigation and the user menu.
+  return isMobile ? <MobileHeader /> : null;
 };
 
-function DesktopHeader() {
-  return (
-    <header
-      className={cn(
-        "sticky",
-        "top-0",
-        "flex",
-        "h-16",
-        "shrink-0",
-        "items-center",
-        "gap-4",
-        "border-b",
-        "border-border",
-        "bg-sidebar",
-        "pr-3",
-        "justify-end",
-        "z-40"
-      )}
-    />
-  );
-}
-
 function MobileHeader() {
-  const { open, isMobile } = useSidebar();
-
   const { title } = useRefineOptions();
 
   return (
@@ -49,19 +25,12 @@ function MobileHeader() {
         "border-b",
         "border-border",
         "bg-sidebar",
-        "pr-3",
-        "justify-between",
-        "z-40"
+        "px-1",
+        "justify-start",
+        "z-40",
       )}
     >
-      <SidebarTrigger
-        className={cn("text-muted-foreground", "rotate-180", "ml-1", {
-          "opacity-0": open,
-          "opacity-100": !open || isMobile,
-          "pointer-events-auto": !open || isMobile,
-          "pointer-events-none": open && !isMobile,
-        })}
-      />
+      <SidebarTrigger className={cn("text-muted-foreground", "rotate-180")} />
 
       <div
         className={cn(
@@ -72,33 +41,10 @@ function MobileHeader() {
           "items-center",
           "justify-start",
           "gap-2",
-          "transition-discrete",
-          "duration-200",
-          {
-            "pl-3": !open,
-            "pl-5": open,
-          }
         )}
       >
         <div>{title.icon}</div>
-        <h2
-          className={cn(
-            "text-sm",
-            "font-bold",
-            "transition-opacity",
-            "duration-200",
-            {
-              "opacity-0": !open,
-              "opacity-100": open,
-            }
-          )}
-        >
-          {title.text}
-        </h2>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <ThemeToggle className={cn("h-8", "w-8")} />
+        <h2 className={cn("text-sm", "font-bold")}>{title.text}</h2>
       </div>
     </header>
   );
