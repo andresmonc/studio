@@ -11,19 +11,25 @@ You need:
 
 - Go, at the version in `server/management/go.mod`,
 - Docker (for the local Postgres and Keycloak, and for the database tests),
+- Node and pnpm (for the web UI),
 - `make`.
 
-Start everything locally:
+Start everything locally, from the repository root:
 
 ```sh
-cd server/management
-./scripts/dev.sh        # Postgres 18 + Keycloak, then the API on http://goff.local:8080
+make dev            # API stack + web UI (Ctrl-C stops both)
+make start-api-dev  # Postgres 18 + Keycloak, then the API on http://goff.local:8080
+make start-ui-dev   # web UI on http://goff.local:5173
+make stop-dev       # stop both and remove the containers (wipes the database)
 ```
 
-Add `127.0.0.1 goff.local` to `/etc/hosts` first: the dev Keycloak realm only accepts
-`goff.local` redirects. Log in at `http://goff.local:8080/auth/login` with `admin@local` /
-`admin` (a super admin) or `user@local` / `user`. `./scripts/dev.sh --help` lists the options,
-and `.env.example` the settings it uses.
+`make stop-api-dev` and `make stop-ui-dev` stop one side only.
+
+The dev Keycloak realm only accepts `goff.local` redirects, so the start targets add
+`127.0.0.1 goff.local` to `/etc/hosts` when it is missing (it asks for your sudo password once).
+Log in at `http://goff.local:8080/auth/login` with `admin@local` / `admin` (a super admin) or
+`user@local` / `user`. `server/management/scripts/dev.sh --help` lists the API options, and
+`server/management/.env.example` the settings it uses.
 
 ## Build, test, lint
 
