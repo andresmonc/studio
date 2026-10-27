@@ -4,6 +4,7 @@ import { ActorAvatar } from "./actor-avatar";
 import { VerbChip } from "./verb-chip";
 import { actorName, hhmm } from "./format";
 import { auditKey, type TranslateFn } from "./vocabulary";
+import { CodeChip } from "@/components/ui/code-chip";
 
 // One clickable event line in the stream: time, actor, verb, target, and an
 // optional flagset hint. The selected row gets a chroma left-border cue.
@@ -42,9 +43,9 @@ export function AuditRow({
           <b className="text-xs font-semibold">{actorName(e)}</b>
           <VerbChip action={auditKey(e)} t={t} />
           <span className="text-2xs text-muted-foreground">{typeLabel}</span>
-          <code className="rounded bg-muted px-1.5 py-px font-mono text-2xs font-medium">
+          <CodeChip size="sm" className="font-medium">
             {target}
-          </code>
+          </CodeChip>
         </span>
         {flagsetName && e.targetType === "flag" && (
           <span className="mt-1 block text-xs text-muted-foreground">

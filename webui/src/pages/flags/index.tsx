@@ -3,17 +3,8 @@ import { useCustom, useCustomMutation, useTranslate } from "@refinedev/core";
 import { keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { ArrowDown, ArrowUp, ChevronsUpDown, Home } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { ListView } from "@/components/refine-ui/views/list-view";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,6 +48,8 @@ import { formatExactDateTime, formatRelativeTime } from "@/lib/relative-time";
 import { FlagWizard } from "./flag-wizard";
 import { TagFilter } from "./tag-filter";
 import type { FlagInstance, FlagOwner, Flagset, PaginatedResponse } from "@/types/api";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 
 const ALL = "__all__";
 const UNASSIGNED = "__unassigned__";
@@ -274,34 +267,11 @@ export function FlagsPage() {
   return (
     <ListView>
       <div className="flex flex-col gap-4">
-        <div className="flex items-center relative gap-2">
-          <div className="bg-background z-[2] pr-4">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/">
-                      <Home className="h-4 w-4" />
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{t("flag.title")}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-          <Separator className="absolute left-0 right-0 z-[1]" />
-        </div>
-
-        <div className="flex items-end gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{t("flag.title")}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t("flag.subtitle", { total, flagsets: flagsets.length })}
-            </p>
-          </div>
+        <PageHeader
+          breadcrumb={[{ label: t("flag.title") }]}
+          title={t("flag.title")}
+          description={t("flag.subtitle", { total, flagsets: flagsets.length })}
+        >
           {activeTeamId && canToggle && (
             <FlagWizard
               teamId={activeTeamId}
@@ -314,14 +284,12 @@ export function FlagsPage() {
               onClosed={() => setParam("create", "", { replace: true })}
             />
           )}
-        </div>
+        </PageHeader>
 
         {!activeTeamId ? (
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground">
-              {t("flag.noTeam")}
-            </CardContent>
-          </Card>
+          <EmptyState>
+            {t("flag.noTeam")}
+          </EmptyState>
         ) : (
           <>
             {/* Filters */}

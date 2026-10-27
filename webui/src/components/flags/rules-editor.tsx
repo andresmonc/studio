@@ -20,6 +20,7 @@ import {
   nextRuleName,
 } from "./flag-form-helpers";
 import type { Outcome, Rule, Tr } from "./flag-form-types";
+import { EmptyState } from "@/components/ui/empty-state";
 
 // Shared keyword marker (IF / ELSE IF / OTHERWISE) so the chip styling stays in
 // one place and the branch labels can't visually drift apart.
@@ -85,9 +86,9 @@ export function RulesEditor({
         <CardContent>
           <div className="flex flex-col gap-3">
           {rules.length === 0 && (
-            <div className="rounded-md border border-dashed bg-muted/30 p-3 text-center text-xs text-muted-foreground">
+            <EmptyState variant="inline" className="p-3">
               {t("flag.wizard.noRules")}
-            </div>
+            </EmptyState>
           )}
           {rules.map((r, i) => (
             <div key={r.id} className="rounded-md border p-3">

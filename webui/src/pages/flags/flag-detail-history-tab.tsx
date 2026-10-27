@@ -20,6 +20,7 @@ import { API_URL } from "@/providers/constants";
 import { errMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import type { FlagVersion, PaginatedResponse } from "@/types/api";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export function HistoryTab({
   t,
@@ -80,11 +81,9 @@ export function HistoryTab({
 
   if (!query.isLoading && versions.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">
-          {t("flag.detail.history.empty")}
-        </CardContent>
-      </Card>
+      <EmptyState>
+        {t("flag.detail.history.empty")}
+      </EmptyState>
     );
   }
 

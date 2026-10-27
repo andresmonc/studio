@@ -22,7 +22,10 @@
     "details": "Details",
     "displayName": "Display name",
     "maxChars": "Max 500 characters",
-    "optional": "optional"
+    "optional": "optional",
+    "copy": "Copy",
+    "copied": "Copied to clipboard",
+    "copyError": "Couldn't copy to clipboard"
   },
   "nav": {
     "company": "Company",
@@ -36,7 +39,8 @@
     "flags": "Flags",
     "auditLog": "Audit log",
     "recentlyEdited": "Recently edited",
-    "create": "Create flag"
+    "create": "Create flag",
+    "home": "Home"
   },
   "auditLog": {
     "title": "Audit log",
@@ -148,7 +152,6 @@
     "detail": {
       "notFound": "Flag not found.",
       "copyKey": "Copy Feature Flag Name",
-      "keyCopied": "Flag key copied",
       "flagsetLabel": "Flagset",
       "createdBy": "Created by",
       "flagsetBadgeTooltip": "This is the flagset this flag belongs to",
@@ -419,9 +422,6 @@
       "labelPlaceholder": "e.g., Android App",
       "keyLabel": "Label",
       "key": "Key",
-      "copy": "Copy",
-      "copied": "Copied to clipboard",
-      "copyError": "Couldn't copy to clipboard",
       "keyCreated": "API key created",
       "keyCreateError": "Failed to create API key",
       "keysEmpty": "No API keys yet.",

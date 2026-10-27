@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 import { variationColor } from "./variation-colors";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Gran = "day" | "minute" | "second";
 
@@ -253,9 +254,7 @@ export function RolloutCurve({
   // Without both dates there is no time axis to plot — show a hint instead.
   if (!startDate || !endDate) {
     return (
-      <div className="rounded-md border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-        {t("flag.wizard.rolloutCurveEmpty")}
-      </div>
+      <EmptyState variant="inline">{t("flag.wizard.rolloutCurveEmpty")}</EmptyState>
     );
   }
 
@@ -267,9 +266,7 @@ export function RolloutCurve({
   // tell the user the real cause instead of drawing a broken vertical step.
   if (span <= 0) {
     return (
-      <div className="rounded-md border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-        {t("flag.wizard.rolloutCurveInvalid")}
-      </div>
+      <EmptyState variant="inline">{t("flag.wizard.rolloutCurveInvalid")}</EmptyState>
     );
   }
 

@@ -1,17 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import type { FlagRule } from "@/types/api";
 import type { Tr } from "@/components/flags/flag-form";
 
-const h = vi.hoisted(() => ({ copy: vi.fn() }));
-
-vi.mock("@/lib/clipboard", () => ({
-  copyToClipboard: (v: string) => h.copy(v),
-}));
-
 import {
-  CopyKeyButton,
   DefaultRuleCard,
   SettingsCard,
   TargetingCard,
@@ -22,50 +15,6 @@ const t = ((key: string, params?: Record<string, unknown>) =>
   [key, ...Object.values(params ?? {})].join(" ")) as Tr;
 
 const names = ["on", "off"];
-
-beforeEach(() => {
-  h.copy.mockReset().mockResolvedValue(true);
-});
-
-describe("CopyKeyButton", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  const button = () => screen.getByRole("button", { name: "flag.detail.copyKey" });
-  const checkIcon = () => button().querySelector(".text-success");
-
-  it("shows a checkmark after copying, then reverts", async () => {
-    vi.useFakeTimers();
-    render(<CopyKeyButton t={t} value="my-flag" />);
-
-    await act(async () => {
-      fireEvent.click(button());
-    });
-    expect(h.copy).toHaveBeenCalledWith("my-flag");
-    expect(checkIcon()).not.toBeNull();
-
-    // A second copy restarts the revert timer instead of stacking another.
-    await act(async () => {
-      fireEvent.click(button());
-    });
-    act(() => vi.advanceTimersByTime(1499));
-    expect(checkIcon()).not.toBeNull();
-    act(() => vi.advanceTimersByTime(1));
-    expect(checkIcon()).toBeNull();
-  });
-
-  it("keeps the copy icon when the clipboard write fails", async () => {
-    h.copy.mockResolvedValue(false);
-    render(<CopyKeyButton t={t} value="my-flag" />);
-
-    await act(async () => {
-      fireEvent.click(button());
-    });
-    expect(h.copy).toHaveBeenCalledWith("my-flag");
-    expect(checkIcon()).toBeNull();
-  });
-});
 
 describe("TargetingCard", () => {
   it("shows the empty state when there are no rules", () => {

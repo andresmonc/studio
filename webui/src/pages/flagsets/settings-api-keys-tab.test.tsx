@@ -100,15 +100,15 @@ describe("ApiKeysTab roles", () => {
 
 describe("ApiKeysTab copy", () => {
   const tests = [
-    { name: "toasts success when copied", ok: true, wantToast: () => h.toastSuccess, msg: "flagset.settings.copied" },
-    { name: "toasts an error when the copy fails", ok: false, wantToast: () => h.toastError, msg: "flagset.settings.copyError" },
+    { name: "toasts success when copied", ok: true, wantToast: () => h.toastSuccess, msg: "common.copied" },
+    { name: "toasts an error when the copy fails", ok: false, wantToast: () => h.toastError, msg: "common.copyError" },
   ];
   for (const tt of tests) {
     it(tt.name, async () => {
       h.keys = [key({ apiKey: "goff_secret" })];
       h.copyToClipboard.mockResolvedValue(tt.ok);
       render(<ApiKeysTab flagsetId="fs-1" canManage={false} />);
-      await user().click(screen.getByRole("button", { name: "flagset.settings.copy" }));
+      await user().click(screen.getByRole("button", { name: "common.copy" }));
       expect(h.copyToClipboard).toHaveBeenCalledWith("goff_secret");
       await waitFor(() => expect(tt.wantToast()).toHaveBeenCalledWith(tt.msg));
     });

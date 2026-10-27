@@ -31,7 +31,7 @@ export function Segmented<T extends string>({
         <ToggleGroupItem
           key={o.value}
           value={o.value}
-          className="h-auto min-w-0 rounded px-2.5 py-1 text-xs text-muted-foreground first:rounded last:rounded hover:bg-transparent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+          className="h-auto min-w-fit rounded px-2.5 py-1 text-xs text-muted-foreground first:rounded last:rounded hover:bg-transparent hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
         >
           {o.label}
         </ToggleGroupItem>

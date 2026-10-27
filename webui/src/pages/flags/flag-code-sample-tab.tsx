@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import { useCustom, useTranslate } from "@refinedev/core";
-import { CopyIcon, InfoIcon } from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { InfoIcon } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,8 +19,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { inferFlagType } from "@/components/flags/payload";
 import { API_URL } from "@/providers/constants";
-import { copyToClipboard } from "@/lib/clipboard";
 import { CodeBlock } from "@/components/ui/code-block";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Segmented } from "@/components/ui/segmented";
 import type { Flag, FlagsetAPIKey, FlagType } from "@/types/api";
 import {
@@ -77,12 +75,6 @@ export function FlagCodeSampleTab({ flag, canReadKeys }: { flag: Flag; canReadKe
     () => sample.code.replaceAll(API_KEY_PLACEHOLDER, () => resolvedKey),
     [sample.code, resolvedKey],
   );
-
-  const copy = async () => {
-    const ok = await copyToClipboard(snippet);
-    if (ok) toast.success(t("flagset.settings.copied"));
-    else toast.error(t("flagset.settings.copyError"));
-  };
 
   return (
     <Card>
@@ -153,15 +145,7 @@ export function FlagCodeSampleTab({ flag, canReadKeys }: { flag: Flag; canReadKe
                   </Select>
                 </div>
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                aria-label={t("flagset.settings.copy")}
-                onClick={copy}
-              >
-                <CopyIcon className="h-3.5 w-3.5" />
-              </Button>
+              <CopyButton value={snippet} label={t("common.copy")} />
             </div>
           </div>
           <CodeBlock code={snippet} language={sample.lang} rounded={false} />

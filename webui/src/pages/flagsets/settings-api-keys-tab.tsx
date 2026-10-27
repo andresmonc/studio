@@ -4,7 +4,7 @@
 import { useId, useState } from "react";
 import { useCustom, useCustomMutation, useTranslate } from "@refinedev/core";
 import { toast } from "sonner";
-import { CopyIcon, InfoIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { InfoIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -15,6 +15,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { CodeChip } from "@/components/ui/code-chip";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -45,7 +47,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { API_URL } from "@/providers/constants";
 import { errMessage } from "@/lib/errors";
-import { copyToClipboard } from "@/lib/clipboard";
 import type { FlagsetAPIKey } from "@/types/api";
 
 export function ApiKeysTab({
@@ -69,12 +70,6 @@ export function ApiKeysTab({
   const labelId = useId();
   const [label, setLabel] = useState("");
   const [pendingRevoke, setPendingRevoke] = useState<FlagsetAPIKey | null>(null);
-
-  const copy = async (value: string) => {
-    const ok = await copyToClipboard(value);
-    if (ok) toast.success(t("flagset.settings.copied"));
-    else toast.error(t("flagset.settings.copyError"));
-  };
 
   const onGenerate = () => {
     if (!label.trim()) return;
@@ -205,18 +200,10 @@ export function ApiKeysTab({
                   <TableCell className="font-medium">{k.label || "—"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
-                      <code className="block max-w-[220px] truncate rounded bg-muted px-2 py-1 font-mono text-xs">
+                      <CodeChip className="block max-w-[220px] truncate">
                         {k.apiKey}
-                      </code>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        aria-label={t("flagset.settings.copy")}
-                        onClick={() => copy(k.apiKey)}
-                      >
-                        <CopyIcon className="h-3.5 w-3.5" />
-                      </Button>
+                      </CodeChip>
+                      <CopyButton value={k.apiKey} label={t("common.copy")} />
                     </div>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">

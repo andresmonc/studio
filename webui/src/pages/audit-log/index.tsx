@@ -1,19 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCustom, useTranslate } from "@refinedev/core";
-import { Link, useSearchParams } from "react-router";
-import { DownloadIcon, Home } from "lucide-react";
+import { useSearchParams } from "react-router";
+import { DownloadIcon } from "lucide-react";
 import { ListView } from "@/components/refine-ui/views/list-view";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { useActiveTeam } from "@/hooks/use-active-team";
 import { API_URL } from "@/providers/constants";
 import type {
@@ -28,6 +18,8 @@ import { EventDetail } from "./event-detail";
 import { EventStream, type DayGroup } from "./event-stream";
 import { dayKey, dayLabel } from "./format";
 import { ALL, PAGE_SIZE, RANGE_DAYS, scopeOf, type Scope } from "./vocabulary";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 
 export function AuditLogPage() {
   const t = useTranslate();
@@ -228,36 +220,11 @@ export function AuditLogPage() {
   return (
     <ListView>
       <div className="flex flex-col gap-4">
-        <div className="flex items-center relative gap-2">
-          <div className="bg-background z-[2] pr-4">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/">
-                      <Home className="h-4 w-4" />
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{t("auditLog.title")}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-          <Separator className="absolute left-0 right-0 z-[1]" />
-        </div>
-
-        <div className="flex items-end gap-4">
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold tracking-tight">
-              {t("auditLog.title")}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t("auditLog.subtitle")}
-            </p>
-          </div>
+        <PageHeader
+          breadcrumb={[{ label: t("auditLog.title") }]}
+          title={t("auditLog.title")}
+          description={t("auditLog.subtitle")}
+        >
           {activeTeamId && (
             <Button
               variant="outline"
@@ -269,14 +236,12 @@ export function AuditLogPage() {
               {t("auditLog.exportCsv")}
             </Button>
           )}
-        </div>
+        </PageHeader>
 
         {!activeTeamId ? (
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground">
-              {t("auditLog.noTeam")}
-            </CardContent>
-          </Card>
+          <EmptyState>
+            {t("auditLog.noTeam")}
+          </EmptyState>
         ) : (
           <>
             <AuditFilters

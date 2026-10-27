@@ -5,20 +5,10 @@ import type { BaseRecord, HttpError as RefineHttpError } from "@refinedev/core";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Link } from "react-router";
-import { CheckIcon, FlagIcon, Home, PlusIcon, ZapIcon } from "lucide-react";
+import { CheckIcon, FlagIcon, PlusIcon, ZapIcon } from "lucide-react";
 import { ListView } from "@/components/refine-ui/views/list-view";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +37,8 @@ import { canEditTeam, effectiveTeamRole } from "@/providers/access-control";
 import { API_URL } from "@/providers/constants";
 import { errMessage } from "@/lib/errors";
 import type { Flagset } from "@/types/api";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 
 type FlagsetValues = {
   name: string;
@@ -176,39 +168,14 @@ export function FlagsetsPage() {
   return (
     <ListView>
       <div className="flex flex-col gap-4">
-        <div className="flex items-center relative gap-2">
-          <div className="bg-background z-[2] pr-4">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/">
-                      <Home className="h-4 w-4" />
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{t("flagset.cardTitle")}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-          <Separator className="absolute left-0 right-0 z-[1]" />
-        </div>
-
-        <div className="flex items-end gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              {t("flagset.cardTitle")}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {t("flagset.subtitle", {
-                count: flagsets.length,
-                team: teamName ?? "—",
-              })}
-            </p>
-          </div>
+        <PageHeader
+          breadcrumb={[{ label: t("flagset.cardTitle") }]}
+          title={t("flagset.cardTitle")}
+          description={t("flagset.subtitle", {
+            count: flagsets.length,
+            team: teamName ?? "—",
+          })}
+        >
           {canCreate && (
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
@@ -307,14 +274,12 @@ export function FlagsetsPage() {
               </DialogContent>
             </Dialog>
           )}
-        </div>
+        </PageHeader>
 
         {!activeTeamId ? (
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground">
-              {t("flagset.noTeam")}
-            </CardContent>
-          </Card>
+          <EmptyState>
+            {t("flagset.noTeam")}
+          </EmptyState>
         ) : (
           <>
             {/* Stats strip */}
@@ -326,17 +291,13 @@ export function FlagsetsPage() {
             </div>
 
             {query.isLoading ? (
-              <Card>
-                <CardContent className="py-10 text-center text-muted-foreground">
-                  {t("common.loading")}
-                </CardContent>
-              </Card>
+              <EmptyState>
+                {t("common.loading")}
+              </EmptyState>
             ) : flagsets.length === 0 ? (
-              <Card>
-                <CardContent className="py-10 text-center text-muted-foreground">
-                  {t("flagset.empty")}
-                </CardContent>
-              </Card>
+              <EmptyState>
+                {t("flagset.empty")}
+              </EmptyState>
             ) : (
               <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
                 {flagsets.map((fs) => (

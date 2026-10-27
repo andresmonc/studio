@@ -7,6 +7,7 @@ import { ActorAvatar } from "./actor-avatar";
 import { VerbChip } from "./verb-chip";
 import { actorName, isPrimitive } from "./format";
 import { auditKey, type TranslateFn } from "./vocabulary";
+import { CodeChip } from "@/components/ui/code-chip";
 
 // Right-rail detail for the selected event: actor + verb, target, a before/after
 // diff, and a provenance grid (target, actor, plus any primitive metadata).
@@ -40,9 +41,9 @@ export function EventDetail({
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">{t("auditLog.detail.title")}</h2>
-          <code className="ml-auto rounded bg-muted px-1.5 py-px font-mono text-2xs text-muted-foreground">
+          <CodeChip size="sm" className="ml-auto text-muted-foreground">
             #{e.id}
-          </code>
+          </CodeChip>
         </div>
 
         <div className="flex items-center gap-2.5">
@@ -57,9 +58,9 @@ export function EventDetail({
           </div>
         </div>
 
-        <code className="self-start rounded bg-muted px-1.5 py-px font-mono text-2xs font-medium">
+        <CodeChip size="sm" className="self-start font-medium">
           {target}
-        </code>
+        </CodeChip>
 
         <div>
           <div className="mb-1.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground">

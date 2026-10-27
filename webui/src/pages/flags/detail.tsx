@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useCustom, useCustomMutation, useTranslate } from "@refinedev/core";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import {
   CodeIcon,
@@ -8,7 +8,6 @@ import {
   FlaskConicalIcon,
   GitBranchIcon,
   HistoryIcon,
-  Home,
   SaveIcon,
   SettingsIcon,
   TagsIcon,
@@ -18,14 +17,6 @@ import {
   FlagIcon,
 } from "lucide-react";
 import { ListView } from "@/components/refine-ui/views/list-view";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -74,7 +65,6 @@ import {
 } from "@/pages/flagsets/enrichment-editor";
 import { FlagCodeSampleTab } from "@/pages/flags/flag-code-sample-tab";
 import {
-  CopyKeyButton,
   DefaultRuleCard,
   FlagsetLink,
   SettingsCard,
@@ -94,6 +84,9 @@ import type {
   FlagVersion,
   PaginatedResponse,
 } from "@/types/api";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageBreadcrumb } from "@/components/ui/page-header";
+import { CopyButton } from "@/components/ui/copy-button";
 
 type SectionKey =
   | "targeting"
@@ -356,49 +349,23 @@ export function FlagDetailPage() {
   return (
     <ListView>
       <div className="flex flex-col gap-4">
-        <div className="relative flex items-center gap-2">
-          <div className="z-[2] bg-background pr-4">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/">
-                      <Home className="h-4 w-4" />
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/flags">{t("flag.title")}</Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="font-mono">
-                    {flag?.name ?? id}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-          <Separator className="absolute left-0 right-0 z-[1]" />
-        </div>
+        <PageBreadcrumb
+          items={[
+            { label: t("flag.title"), to: "/flags" },
+            { label: flag?.name ?? id, className: "font-mono" },
+          ]}
+        />
 
         {query.isLoading && (
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground">
-              {t("common.loading")}
-            </CardContent>
-          </Card>
+          <EmptyState>
+            {t("common.loading")}
+          </EmptyState>
         )}
 
         {!query.isLoading && !flag && (
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground">
-              {t("flag.detail.notFound")}
-            </CardContent>
-          </Card>
+          <EmptyState>
+            {t("flag.detail.notFound")}
+          </EmptyState>
         )}
 
         {flag && (
@@ -410,7 +377,7 @@ export function FlagDetailPage() {
                   <h1 className="font-mono text-xl font-semibold tracking-tight">
                     {flag.name}
                   </h1>
-                  <CopyKeyButton t={t} value={flag.name} />
+                  <CopyButton value={flag.name} label={t("flag.detail.copyKey")} />
                   <Badge variant="outline" className="font-mono text-2xs">
                     {type}
                   </Badge>

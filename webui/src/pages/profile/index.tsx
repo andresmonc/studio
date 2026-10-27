@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/api";
+import { PageHeader } from "@/components/ui/page-header";
 
 function formatDate(value?: string): string {
   if (!value) return "-";
@@ -18,9 +19,7 @@ export function ProfilePage() {
 
   return (
     <div className={cn("flex", "flex-col", "gap-6")}>
-      <h1 className={cn("text-2xl", "font-semibold")}>
-        {t("profile.pageTitle")}
-      </h1>
+      <PageHeader title={t("profile.pageTitle")} />
       <Card className={cn("max-w-xl")}>
         <CardHeader>
           <CardTitle>{t("profile.settings")}</CardTitle>

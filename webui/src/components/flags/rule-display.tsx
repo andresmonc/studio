@@ -3,6 +3,7 @@ import { GripVerticalIcon } from "lucide-react";
 import { formatQuery, type RuleGroupType } from "react-querybuilder";
 import { parseJsonLogic } from "react-querybuilder/parseJsonLogic";
 import { cn } from "@/lib/utils";
+import { CodeChip } from "@/components/ui/code-chip";
 
 // humanizeQuery renders a stored targeting query as readable text. The flag
 // wizard stores queries as JSON-logic strings, so we parse and re-format them to
@@ -55,9 +56,9 @@ export function RuleDisplay({
         </div>
         <div className="mt-1.5 text-xs">
           <span className="mr-1.5 text-muted-foreground">IF</span>
-          <span className="break-all rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">
+          <CodeChip className="break-all text-foreground">
             {humanizeQuery(query)}
-          </span>
+          </CodeChip>
         </div>
         {children && (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

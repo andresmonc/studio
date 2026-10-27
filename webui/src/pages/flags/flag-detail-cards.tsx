@@ -3,15 +3,11 @@
 // settings cards. Extracted from detail.tsx; these are presentational and take
 // all data via props.
 
-import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
-  CheckIcon,
-  CopyIcon,
   RocketIcon,
   SettingsIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -19,11 +15,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { DistributionBar } from "@/components/flags/distribution-bar";
 import { variationColor } from "@/components/flags/variation-colors";
 import { VariationPill } from "@/components/flags/variation-pill";
@@ -35,52 +26,9 @@ import {
   type RuleOutcome,
 } from "@/components/flags/payload";
 import { RESERVED_META_KEYS, type Tr } from "@/components/flags/flag-form";
-import { copyToClipboard } from "@/lib/clipboard";
 import type { Flag, FlagRule } from "@/types/api";
-
-// CopyKeyButton copies the flag key to the clipboard and gives GitHub-style
-// feedback: the icon swaps to a checkmark for a moment, then reverts.
-export function CopyKeyButton({ t, value }: { t: Tr; value: string }) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, []);
-
-  const onCopy = async () => {
-    const ok = await copyToClipboard(value);
-    if (!ok) return;
-    setCopied(true);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setCopied(false), 1500);
-  };
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-muted-foreground"
-          onClick={onCopy}
-          aria-label={t("flag.detail.copyKey")}
-        >
-          {copied ? (
-            <CheckIcon className="h-4 w-4 text-success" />
-          ) : (
-            <CopyIcon className="h-4 w-4" />
-          )}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>
-        {copied ? t("flag.detail.keyCopied") : t("flag.detail.copyKey")}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
+import { CodeChip } from "@/components/ui/code-chip";
+import { EmptyState } from "@/components/ui/empty-state";
 
 // OutcomeView renders the served result of a rule or the default rule.
 function OutcomeView({
@@ -170,9 +118,7 @@ export function TargetingCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-2.5">
         {rules.length === 0 ? (
-          <div className="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-            {t("flag.detail.noRules")}
-          </div>
+          <EmptyState variant="inline">{t("flag.detail.noRules")}</EmptyState>
         ) : (
           rules.map((rule, i) => (
             <RuleDisplay key={i} index={i} name={rule.name} query={rule.query}>
@@ -249,9 +195,9 @@ export function VariationsCard({
             className="grid grid-cols-[180px_1fr] items-center gap-3 border-t border-dashed py-2.5 first:border-t-0"
           >
             <VariationPill name={name} index={i} />
-            <code className="overflow-x-auto rounded bg-muted px-2.5 py-1 font-mono text-xs">
+            <CodeChip className="overflow-x-auto">
               {formatVariationValue(payload?.variations?.[name])}
-            </code>
+            </CodeChip>
           </div>
         ))}
       </CardContent>

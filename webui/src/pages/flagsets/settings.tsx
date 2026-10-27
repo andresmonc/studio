@@ -7,25 +7,14 @@ import {
   Code2Icon,
   FlagIcon,
   FlaskConicalIcon,
-  Home,
   KeyRoundIcon,
   ListIcon,
   SettingsIcon,
   ZapIcon,
 } from "lucide-react";
 import { ListView } from "@/components/refine-ui/views/list-view";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { CodeSampleTab } from "./code-sample-tab";
 import { GeneralTab } from "./settings-general-tab";
 import { ApiKeysTab } from "./settings-api-keys-tab";
@@ -36,6 +25,8 @@ import { canEditTeam, effectiveTeamRole } from "@/providers/access-control";
 import { API_URL } from "@/providers/constants";
 import { cn } from "@/lib/utils";
 import type { Flagset } from "@/types/api";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageBreadcrumb } from "@/components/ui/page-header";
 
 type TabKey =
   | "general"
@@ -80,34 +71,12 @@ export function FlagsetSettingsPage() {
   return (
     <ListView>
       <div className="flex flex-col gap-4">
-        <div className="flex items-center relative gap-2">
-          <div className="bg-background z-[2] pr-4">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/">
-                      <Home className="h-4 w-4" />
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/flagsets">{t("flagset.cardTitle")}</Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>
-                    {flagset?.name ?? t("flagset.settings.title")}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-          <Separator className="absolute left-0 right-0 z-[1]" />
-        </div>
+        <PageBreadcrumb
+          items={[
+            { label: t("flagset.cardTitle"), to: "/flagsets" },
+            { label: flagset?.name ?? t("flagset.settings.title") },
+          ]}
+        />
 
         <div className="flex items-center gap-3">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -154,11 +123,9 @@ export function FlagsetSettingsPage() {
 
           <div className="min-w-0">
             {!flagset ? (
-              <Card>
-                <CardContent className="py-10 text-center text-muted-foreground">
-                  {t("common.loading")}
-                </CardContent>
-              </Card>
+              <EmptyState>
+                {t("common.loading")}
+              </EmptyState>
             ) : shownTab === "general" ? (
               <GeneralTab flagset={flagset} canWrite={canManage} onSaved={() => query.refetch()} />
             ) : shownTab === "keys" ? (

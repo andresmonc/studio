@@ -13,6 +13,7 @@ import type { CompanyMember, Team } from "@/types/api";
 import { CompanyDetailsCard } from "./details";
 import { CompanyMembersCard } from "./members";
 import { CompanyTeamsCard } from "./teams";
+import { PageHeader } from "@/components/ui/page-header";
 
 type Section = "details" | "members" | "teams";
 
@@ -61,12 +62,10 @@ export function CompanyPage({ section = "details" }: { section?: Section }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">{t("nav.company")}</h1>
-        <p className="text-sm text-muted-foreground">
-          {t("company.subtitle", { users: userCount, teams: teamCount })}
-        </p>
-      </div>
+      <PageHeader
+        title={t("nav.company")}
+        description={t("company.subtitle", { users: userCount, teams: teamCount })}
+      />
       <div className="grid grid-cols-2 gap-4 sm:max-w-lg">
         {stats.map((s) => (
           <Card

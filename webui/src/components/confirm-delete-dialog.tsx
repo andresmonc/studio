@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CodeChip } from "@/components/ui/code-chip";
 
 type Props = {
   open: boolean;
@@ -65,9 +66,7 @@ function ConfirmBody({
       <div className="grid gap-2 py-1">
         <p className="text-sm font-medium">
           {labelBefore}
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-            {name}
-          </code>
+          <CodeChip>{name}</CodeChip>
           {labelAfter}
         </p>
         <Input
