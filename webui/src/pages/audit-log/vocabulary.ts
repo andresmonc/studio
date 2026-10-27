@@ -28,20 +28,20 @@ export type IconType = LucideIcon;
 
 // Verb chip tints (text + soft background) per tone.
 export const TONE_CLASS: Record<Tone, string> = {
-  success: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
-  accent: "text-blue-600 dark:text-blue-400 bg-blue-500/10",
-  warn: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
-  danger: "text-red-600 dark:text-red-400 bg-red-500/10",
+  success: "text-success bg-success/10",
+  accent: "text-info bg-info/10",
+  warn: "text-warning bg-warning/10",
+  danger: "text-destructive bg-destructive/10",
   violet: "text-violet-600 dark:text-violet-400 bg-violet-500/10",
   muted: "text-muted-foreground bg-muted",
 };
 
 // Solid fills for the "By action" breakdown bars.
 export const BAR_BG: Record<Tone, string> = {
-  success: "bg-emerald-500",
-  accent: "bg-blue-500",
-  warn: "bg-amber-500",
-  danger: "bg-red-500",
+  success: "bg-success",
+  accent: "bg-info",
+  warn: "bg-warning",
+  danger: "bg-destructive",
   violet: "bg-violet-500",
   muted: "bg-muted-foreground/50",
 };

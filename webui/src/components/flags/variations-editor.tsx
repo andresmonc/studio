@@ -69,7 +69,7 @@ export function VariationsEditor({
                 disabled={isBoolean}
               />
               {nameErr && (
-                <span className="text-[11px] text-destructive">{t(nameErr)}</span>
+                <span className="text-2xs text-destructive">{t(nameErr)}</span>
               )}
             </div>
             {isBoolean ? (
@@ -90,7 +90,7 @@ export function VariationsEditor({
                   placeholder={t("flag.wizard.value")}
                 />
                 {valErr && (
-                  <span className="text-[11px] text-destructive">
+                  <span className="text-2xs text-destructive">
                     {t(valErr)}
                   </span>
                 )}

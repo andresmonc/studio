@@ -19,7 +19,7 @@ export function Field({
     <div className="flex flex-col gap-1.5">
       <label className="text-xs font-medium text-foreground">{label}</label>
       {children}
-      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-2xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }

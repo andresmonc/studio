@@ -472,7 +472,7 @@ export function FlagsPage() {
                           <TableCell className={cn("py-3", f.disabled && "opacity-50")}>
                             <Badge
                               variant="secondary"
-                              className="font-mono text-[10px] font-normal"
+                              className="font-mono text-2xs font-normal"
                             >
                               {f.type}
                             </Badge>

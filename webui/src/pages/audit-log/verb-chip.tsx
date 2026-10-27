@@ -11,7 +11,7 @@ export function VerbChip({ action, t }: { action: string; t: TranslateFn }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-medium",
         TONE_CLASS[tone],
       )}
     >

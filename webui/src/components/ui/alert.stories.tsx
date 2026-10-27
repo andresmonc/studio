@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { AlertCircleIcon, CheckCircle2Icon } from "lucide-react";
+import { AlertCircleIcon, CheckCircle2Icon, InfoIcon } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "./alert";
 
@@ -31,6 +31,18 @@ export const Destructive: Story = {
       <AlertTitle>Unable to save flag</AlertTitle>
       <AlertDescription>
         The targeting rule references an unknown segment. Fix it and try again.
+      </AlertDescription>
+    </Alert>
+  ),
+};
+
+export const Warning: Story = {
+  render: () => (
+    <Alert variant="warning" className="w-96">
+      <InfoIcon />
+      <AlertTitle>No API key yet</AlertTitle>
+      <AlertDescription>
+        Create an API key so the code sample can authenticate.
       </AlertDescription>
     </Alert>
   ),

@@ -48,7 +48,7 @@ function StepIcon({ status }: { status: StepStatus }) {
         <CircleCheck
           className={cn(
             cls,
-            "text-green-600",
+            "text-success",
             "motion-safe:animate-in",
             "motion-safe:zoom-in",
             "motion-safe:duration-300",

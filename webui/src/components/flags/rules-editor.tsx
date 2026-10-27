@@ -25,7 +25,7 @@ import type { Outcome, Rule, Tr } from "./flag-form-types";
 // one place and the branch labels can't visually drift apart.
 function KeywordChip({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex min-w-[3.25rem] justify-center rounded border bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-foreground">
+    <span className="inline-flex min-w-[3.25rem] justify-center rounded border bg-muted px-1.5 py-0.5 font-mono text-2xs font-semibold uppercase tracking-wide text-foreground">
       {children}
     </span>
   );
@@ -73,7 +73,7 @@ export function RulesEditor({
             <CardTitle className="text-sm">
               {t("flag.wizard.targeting")}
             </CardTitle>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-2xs text-muted-foreground">
               {t("flag.wizard.targetingHint")}
             </span>
             <Button variant="ghost" size="sm" className="ml-auto" onClick={addRule}>

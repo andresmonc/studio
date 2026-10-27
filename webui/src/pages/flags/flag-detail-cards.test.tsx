@@ -33,7 +33,7 @@ describe("CopyKeyButton", () => {
   });
 
   const button = () => screen.getByRole("button", { name: "flag.detail.copyKey" });
-  const checkIcon = () => button().querySelector(".text-emerald-600");
+  const checkIcon = () => button().querySelector(".text-success");
 
   it("shows a checkmark after copying, then reverts", async () => {
     vi.useFakeTimers();

@@ -40,7 +40,7 @@ export function EventDetail({
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">{t("auditLog.detail.title")}</h2>
-          <code className="ml-auto rounded bg-muted px-1.5 py-px font-mono text-[10.5px] text-muted-foreground">
+          <code className="ml-auto rounded bg-muted px-1.5 py-px font-mono text-2xs text-muted-foreground">
             #{e.id}
           </code>
         </div>
@@ -48,21 +48,21 @@ export function EventDetail({
         <div className="flex items-center gap-2.5">
           <ActorAvatar e={e} />
           <div>
-            <div className="text-[12.5px]">
+            <div className="text-xs">
               <b>{actorName(e)}</b> <VerbChip action={auditKey(e)} t={t} />
             </div>
-            <div className="mt-0.5 text-[11px] text-muted-foreground">
+            <div className="mt-0.5 text-2xs text-muted-foreground">
               {d.toLocaleString()}
             </div>
           </div>
         </div>
 
-        <code className="self-start rounded bg-muted px-1.5 py-px font-mono text-[11.5px] font-medium">
+        <code className="self-start rounded bg-muted px-1.5 py-px font-mono text-2xs font-medium">
           {target}
         </code>
 
         <div>
-          <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          <div className="mb-1.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
             {t("auditLog.detail.changes")}
           </div>
           {diff.length === 0 ? (
@@ -70,15 +70,15 @@ export function EventDetail({
               {t("auditLog.detail.noDiff")}
             </p>
           ) : (
-            <div className="overflow-hidden rounded-md border font-mono text-[11px] leading-[1.7]">
+            <div className="overflow-hidden rounded-md border font-mono text-2xs leading-[1.7]">
               {diff.map((l, i) => (
                 <div
                   key={i}
                   className={cn(
                     "whitespace-pre px-3",
-                    l.kind === "del" && "bg-red-500/10 text-red-600 dark:text-red-400",
+                    l.kind === "del" && "bg-destructive/10 text-destructive",
                     l.kind === "add" &&
-                      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                      "bg-success/10 text-success",
                     l.kind === "ctx" && "text-muted-foreground",
                   )}
                 >
@@ -108,7 +108,7 @@ export function EventDetail({
 function ProvItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+      <span className="text-2xs uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
       <span className="truncate text-xs font-medium" title={value}>

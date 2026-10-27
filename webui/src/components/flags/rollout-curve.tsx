@@ -138,14 +138,14 @@ function ServingNowCard({
   const t = useTranslate();
   const status = rolloutStatus(nowTs, startTs, endTs);
   const pillClass: Record<RolloutStatus, string> = {
-    live: "bg-amber-100 text-amber-700",
+    live: "bg-warning/15 text-warning",
     scheduled: "bg-muted text-muted-foreground",
-    completed: "bg-emerald-100 text-emerald-700",
+    completed: "bg-success/15 text-success",
   };
   const dotClass: Record<RolloutStatus, string> = {
-    live: "bg-amber-500",
+    live: "bg-warning",
     scheduled: "bg-muted-foreground",
-    completed: "bg-emerald-500",
+    completed: "bg-success",
   };
   const statusLabel: Record<RolloutStatus, string> = {
     live: t("flag.wizard.statusLive"),
@@ -161,7 +161,7 @@ function ServingNowCard({
         </span>
         {!disabled && (
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${pillClass[status]}`}
+            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-2xs font-medium ${pillClass[status]}`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${dotClass[status]}`} />
             {statusLabel[status]}
@@ -196,7 +196,7 @@ function ServingNowCard({
             style={{ width: `${nowPct}%`, background: color }}
           />
         </div>
-        <div className="grid grid-cols-3 gap-2 text-[11px]">
+        <div className="grid grid-cols-3 gap-2 text-2xs">
           <div className="flex flex-col gap-0.5">
             <span className="text-muted-foreground">
               {t("flag.wizard.started")}
@@ -327,7 +327,7 @@ export function RolloutCurve({
           <p className="text-xs font-semibold text-foreground">
             {t("flag.wizard.rolloutCurve")}
           </p>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-2xs text-muted-foreground">
             {t("flag.wizard.rolloutCurveSubtitle")}
           </p>
         </div>
@@ -422,7 +422,7 @@ export function RolloutCurve({
         </AreaChart>
       </ChartContainer>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-2xs text-muted-foreground">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5">
             <span

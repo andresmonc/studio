@@ -177,7 +177,7 @@ export function EvaluatePanel({
                 {t("flag.detail.evaluate.invalidJson")}
               </span>
             ) : (
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-2xs text-muted-foreground">
                 {t("flag.detail.evaluate.contextHint")}
               </span>
             )}
@@ -226,7 +226,7 @@ export function EvaluatePanel({
           ) : (
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
                   {t("flag.detail.evaluate.value")}
                 </span>
                 <pre className="overflow-x-auto rounded-md border bg-muted p-3 font-mono text-sm">

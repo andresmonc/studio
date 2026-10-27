@@ -100,7 +100,7 @@ function Stat({ value, label }: { value: string; label: string }) {
       <div className={cn("text-lg", "font-semibold", "tabular-nums", "tracking-tight")}>
         {value}
       </div>
-      <div className="text-[10px] text-muted-foreground">{label}</div>
+      <div className="text-2xs text-muted-foreground">{label}</div>
     </div>
   );
 }

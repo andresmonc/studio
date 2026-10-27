@@ -61,7 +61,7 @@ export function TagFilter({
             {selected.length > 0 && (
               <Badge
                 variant="secondary"
-                className="ml-0.5 h-5 rounded-sm px-1 text-[10px]"
+                className="ml-0.5 h-5 rounded-sm px-1 text-2xs"
               >
                 {selected.length}
               </Badge>

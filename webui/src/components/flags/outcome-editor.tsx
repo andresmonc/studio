@@ -133,7 +133,7 @@ export function OutcomeEditor({
               ))}
               <p
                 className={cn(
-                  "text-[11px]",
+                  "text-2xs",
                   Math.abs(sum - 100) < 0.001
                     ? "text-muted-foreground"
                     : "text-destructive",
@@ -156,7 +156,7 @@ export function OutcomeEditor({
           <div className="flex flex-col gap-3">
             <div className="flex items-stretch gap-2">
               <div className="flex flex-1 flex-col gap-3 rounded-md border border-border bg-muted/30 p-3">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {t("flag.wizard.initialStep")}
                 </span>
                 <Field label={t("flag.wizard.variation")}>
@@ -190,7 +190,7 @@ export function OutcomeEditor({
                 <ArrowRightIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               </div>
               <div className="flex flex-1 flex-col gap-3 rounded-md border border-border bg-muted/30 p-3">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {t("flag.wizard.endStep")}
                 </span>
                 <Field label={t("flag.wizard.variation")}>

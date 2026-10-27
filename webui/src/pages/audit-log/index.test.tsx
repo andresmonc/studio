@@ -198,7 +198,7 @@ describe("AuditLogPage detail", () => {
     expect(within(detail).getByText("rollout")).toBeInTheDocument();
     expect(within(detail).queryByText("nested")).not.toBeInTheDocument();
     expect(within(detail).getByText("alice@acme.io")).toBeInTheDocument();
-    expect(rows()[0].className).toContain("bg-blue-500/5");
+    expect(rows()[0].className).toContain("bg-primary/5");
   });
 
   it("shows the clicked event", async () => {

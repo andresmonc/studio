@@ -411,7 +411,7 @@ export function FlagDetailPage() {
                     {flag.name}
                   </h1>
                   <CopyKeyButton t={t} value={flag.name} />
-                  <Badge variant="outline" className="font-mono text-[10px]">
+                  <Badge variant="outline" className="font-mono text-2xs">
                     {type}
                   </Badge>
                   {flagsetName && (
@@ -526,11 +526,11 @@ export function FlagDetailPage() {
                             <div className="flex items-center gap-2">
                               <Badge
                                 variant="outline"
-                                className="font-mono text-[10px]"
+                                className="font-mono text-2xs"
                               >
                                 {form.type}
                               </Badge>
-                              <span className="text-[11px] text-muted-foreground">
+                              <span className="text-2xs text-muted-foreground">
                                 {t("flag.detail.typeImmutable")}
                               </span>
                             </div>

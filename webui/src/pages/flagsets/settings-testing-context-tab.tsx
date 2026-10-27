@@ -90,7 +90,7 @@ export function SettingsTab({
             {t("flagset.settings.defaultTestingContextInvalid")}
           </p>
         ) : (
-          <p className="mt-2 text-[11px] text-muted-foreground">
+          <p className="mt-2 text-2xs text-muted-foreground">
             {t("flagset.settings.defaultTestingContextHint")}
           </p>
         )}

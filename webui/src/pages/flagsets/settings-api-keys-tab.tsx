@@ -163,7 +163,7 @@ export function ApiKeysTab({
         </CardHeader>
         <CardContent>
           {!canManage && (
-            <Alert className="mb-4 border-amber-500/40 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
+            <Alert variant="warning" className="mb-4">
               <InfoIcon className="h-4 w-4" />
               <AlertDescription>
                 {t("flagset.settings.keysReadOnly")}

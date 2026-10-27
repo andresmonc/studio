@@ -69,7 +69,7 @@ export function CopyKeyButton({ t, value }: { t: Tr; value: string }) {
           aria-label={t("flag.detail.copyKey")}
         >
           {copied ? (
-            <CheckIcon className="h-4 w-4 text-emerald-600" />
+            <CheckIcon className="h-4 w-4 text-success" />
           ) : (
             <CopyIcon className="h-4 w-4" />
           )}
@@ -212,7 +212,7 @@ export function DefaultRuleCard({
       <CardContent>
         <div className="flex items-start gap-3">
           {outcome.kind !== "none" && (
-            <span className="mt-1 shrink-0 font-mono text-[11px] text-muted-foreground">
+            <span className="mt-1 shrink-0 font-mono text-2xs text-muted-foreground">
               {label}
             </span>
           )}

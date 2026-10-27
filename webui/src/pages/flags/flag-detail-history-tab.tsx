@@ -121,7 +121,7 @@ export function HistoryTab({
                   active && "bg-muted/60",
                 )}
               >
-                <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border bg-card font-mono text-[10px] font-semibold text-muted-foreground">
+                <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border bg-card font-mono text-2xs font-semibold text-muted-foreground">
                   {v.versionNumber}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -131,12 +131,12 @@ export function HistoryTab({
                         t("flag.detail.history.version", { n: v.versionNumber })}
                     </span>
                     {isCurrent && (
-                      <Badge className="text-[10px]">
+                      <Badge className="text-2xs">
                         {t("flag.detail.history.current")}
                       </Badge>
                     )}
                     {v.versionNumber === 1 && (
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-2xs">
                         {t("flag.detail.history.initial")}
                       </Badge>
                     )}
@@ -184,16 +184,16 @@ export function HistoryTab({
               {t("flag.detail.history.noPrev")}
             </p>
           )}
-          <pre className="max-h-[60vh] overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
+          <pre className="max-h-[60vh] overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-2xs leading-relaxed">
             {diff.map((line, i) => (
               <div
                 key={i}
                 className={cn(
                   "whitespace-pre-wrap px-1",
                   line.type === "add" &&
-                    "bg-green-500/10 text-green-700 dark:text-green-400",
+                    "bg-success/10 text-success",
                   line.type === "del" &&
-                    "bg-red-500/10 text-red-700 line-through dark:text-red-400",
+                    "bg-destructive/10 text-destructive line-through",
                 )}
               >
                 <span className="select-none pr-2 text-muted-foreground">

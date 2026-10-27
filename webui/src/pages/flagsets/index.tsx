@@ -245,7 +245,7 @@ export function FlagsetsPage() {
                               placeholder="checkout-team"
                             />
                           </FormControl>
-                          <p className="text-[11px] text-muted-foreground">
+                          <p className="text-2xs text-muted-foreground">
                             {t("flagset.nameHint")}
                           </p>
                           <FormMessage />
@@ -283,7 +283,7 @@ export function FlagsetsPage() {
                       onChange={onEnrichmentChange}
                     />
                     <DialogFooter className="items-center sm:justify-between">
-                      <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <span className="flex items-center gap-1.5 text-2xs text-muted-foreground">
                         <ZapIcon className="h-3.5 w-3.5" />
                         {t("flagset.footerNote")}
                       </span>
@@ -382,7 +382,7 @@ function StatCard({
 }) {
   return (
     <Card className="p-4">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div

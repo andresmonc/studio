@@ -49,10 +49,10 @@ export function EventStream({
         {groups.map((g) => (
           <div key={g.label + g.items[0]?.id}>
             <div className="sticky top-0 z-[2] flex items-center gap-2 border-b bg-background px-4 py-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground/80">
+              <span className="text-2xs font-semibold uppercase tracking-wide text-foreground/80">
                 {g.label}
               </span>
-              <span className="ml-auto text-[10.5px] text-muted-foreground">
+              <span className="ml-auto text-2xs text-muted-foreground">
                 {t("auditLog.eventCount", { count: g.items.length })}
               </span>
             </div>

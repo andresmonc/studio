@@ -48,7 +48,7 @@ export function RuleDisplay({
       <GripVerticalIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[11px] text-muted-foreground">
+          <span className="font-mono text-2xs text-muted-foreground">
             RULE {index + 1}
           </span>
           {name && <span className="text-xs font-medium">{name}</span>}

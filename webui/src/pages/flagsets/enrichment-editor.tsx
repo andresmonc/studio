@@ -200,7 +200,7 @@ export function EnrichmentEditor({
       )}
 
       <div className="overflow-hidden rounded-md border">
-        <div className="grid grid-cols-[1fr_120px_1fr_36px] gap-2 border-b bg-muted/50 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="grid grid-cols-[1fr_120px_1fr_36px] gap-2 border-b bg-muted/50 px-2.5 py-1.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
           <span>{t("flagset.attribute")}</span>
           <span>{t("flagset.type")}</span>
           <span>{t("flagset.value")}</span>
@@ -232,7 +232,7 @@ export function EnrichmentEditor({
                   onChange={(e) => patch(row.id, { key: e.target.value })}
                 />
                 {keyErr && (
-                  <span className="text-[11px] text-destructive">
+                  <span className="text-2xs text-destructive">
                     {t(keyErr)}
                   </span>
                 )}
@@ -292,7 +292,7 @@ export function EnrichmentEditor({
                   />
                 )}
                 {err && (
-                  <span className="text-[11px] text-destructive">{t(err)}</span>
+                  <span className="text-2xs text-destructive">{t(err)}</span>
                 )}
               </div>
               <Button
@@ -323,7 +323,7 @@ export function EnrichmentEditor({
       </div>
 
       {!hideChrome && (
-        <p className="mt-2 text-[11px] text-muted-foreground">
+        <p className="mt-2 text-2xs text-muted-foreground">
           {t("flagset.enrichmentHint")}
         </p>
       )}

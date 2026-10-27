@@ -17,10 +17,10 @@ export function TipCallout({
   return (
     <div className={cn("rounded-lg border bg-muted/30 p-4", className)}>
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-        <LightbulbIcon className="h-5 w-5 text-amber-500" />
+        <LightbulbIcon className="h-5 w-5 text-warning" />
         {title}
       </div>
-      <p className="text-[13px] leading-relaxed text-muted-foreground">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         {children}
       </p>
     </div>

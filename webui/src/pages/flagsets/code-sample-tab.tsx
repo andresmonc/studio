@@ -94,14 +94,14 @@ export function CodeSampleTab({ flagsetId, canReadKeys }: { flagsetId: string; c
         {/* Distinguish a failed key fetch from a genuinely keyless flagset — a
             collapsed "no keys" message on error would be misleading. */}
         {query.isError ? (
-          <Alert className="border-destructive/40 text-destructive [&>svg]:text-destructive">
+          <Alert variant="destructive">
             <InfoIcon className="h-4 w-4" />
             <AlertDescription>
               {t("flagset.settings.codeSampleKeysError")}
             </AlertDescription>
           </Alert>
         ) : canReadKeys && !query.isLoading && keys.length === 0 ? (
-          <Alert className="border-amber-500/40 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
+          <Alert variant="warning">
             <InfoIcon className="h-4 w-4" />
             <AlertDescription>
               {t("flagset.settings.codeSampleNoKey")}

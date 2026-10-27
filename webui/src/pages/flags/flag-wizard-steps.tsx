@@ -43,8 +43,8 @@ export function Stepper({ step, t }: { step: number; t: Tr }) {
           <div key={s.n} className="flex flex-1 items-center gap-2">
             <span
               className={cn(
-                "grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold",
-                state === "done" && "bg-green-600 text-white",
+                "grid h-6 w-6 shrink-0 place-items-center rounded-full text-2xs font-semibold",
+                state === "done" && "bg-success text-success-foreground",
                 state === "current" && "bg-primary text-primary-foreground",
                 state === "todo" && "border bg-muted text-muted-foreground",
               )}
@@ -53,7 +53,7 @@ export function Stepper({ step, t }: { step: number; t: Tr }) {
             </span>
             <div className={cn("leading-tight", state === "todo" && "opacity-60")}>
               <div className="text-xs font-medium">{s.name}</div>
-              <div className="text-[11px] text-muted-foreground">{s.desc}</div>
+              <div className="text-2xs text-muted-foreground">{s.desc}</div>
             </div>
             {i < steps.length - 1 && <span className="h-px flex-1 bg-border" />}
           </div>
@@ -178,9 +178,9 @@ export function WizSidekick({
         </div>
         <ul className="flex flex-col gap-2.5">
           {checks.map((c) => (
-            <li key={c.label} className="flex items-center gap-2.5 text-[13px]">
+            <li key={c.label} className="flex items-center gap-2.5 text-sm">
               {c.ok ? (
-                <CheckIcon className="h-4 w-4 shrink-0 text-green-600" />
+                <CheckIcon className="h-4 w-4 shrink-0 text-success" />
               ) : (
                 <CircleDashedIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               )}
