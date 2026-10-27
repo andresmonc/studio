@@ -78,11 +78,16 @@ function renderTab(props: { canEdit?: boolean; onReverted?: () => void } = {}) {
   return { onReverted };
 }
 
-// The timeline rows are the buttons whose leading badge is the version number.
-function rows() {
+// Each timeline row holds a select button (leading version-number badge) and,
+// for editors, a sibling revert button.
+function selectButtons() {
   return screen
     .getAllByRole("button")
     .filter((b) => b.querySelector("span.font-mono") !== null);
+}
+
+function rows() {
+  return selectButtons().map((b) => b.parentElement as HTMLElement);
 }
 
 function diffText() {
@@ -152,14 +157,16 @@ describe("HistoryTab", () => {
     const user = userEvent.setup();
     renderTab();
 
-    await user.click(rows()[1]);
+    await user.click(selectButtons()[1]);
     expect(screen.getByText("flag.detail.history.diffTitle 2")).toBeInTheDocument();
     expect(rows()[1]).toHaveClass("bg-muted/60");
+    expect(selectButtons()[1]).toHaveAttribute("aria-pressed", "true");
+    expect(selectButtons()[0]).toHaveAttribute("aria-pressed", "false");
     expect(diffMarker('"off": false')).toBe("+");
     expect(diffText()).not.toContain("beta");
 
     // The initial version has nothing to compare against: its lines are added.
-    await user.click(rows()[2]);
+    await user.click(selectButtons()[2]);
     expect(screen.getByText("flag.detail.history.diffTitle 1")).toBeInTheDocument();
     expect(screen.getByText("flag.detail.history.noPrev")).toBeInTheDocument();
     expect(diffMarker('"on": true')).toBe("+");
@@ -178,6 +185,8 @@ describe("HistoryTab", () => {
       expect(
         within(rows()[0]).queryByRole("button", { name: "flag.detail.history.revert" }),
       ).not.toBeInTheDocument();
+      // Regression: the revert button used to be nested inside the row button.
+      expect(document.querySelector("button button")).toBeNull();
     });
   }
 
@@ -193,7 +202,7 @@ describe("HistoryTab", () => {
     const [args, cbs] = h.mutate.mock.calls[0];
     expect(args.url).toMatch(/\/flags\/flag-1\/versions\/2\/rollback$/);
     expect(args.method).toBe("post");
-    // stopPropagation: clicking revert must not change the selected version.
+    // Clicking revert must not change the selected version.
     expect(screen.getByText("flag.detail.history.diffTitle 3")).toBeInTheDocument();
     expect(revertBtn).toBeDisabled();
 

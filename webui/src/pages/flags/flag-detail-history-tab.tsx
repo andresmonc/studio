@@ -111,58 +111,65 @@ export function HistoryTab({
           {versions.map((v) => {
             const isCurrent = v.versionNumber === currentVersion;
             const active = selectedVersion?.versionNumber === v.versionNumber;
+            // Select and revert are sibling buttons: a button nested in a
+            // button is invalid HTML and breaks keyboard/screen-reader access.
             return (
-              <button
+              <div
                 key={v.id}
-                type="button"
-                onClick={() => setSelected(v.versionNumber)}
                 className={cn(
-                  "flex w-full items-start gap-3 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted/50",
+                  "flex items-start border-b last:border-b-0 hover:bg-muted/50",
                   active && "bg-muted/60",
                 )}
               >
-                <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border bg-card font-mono text-2xs font-semibold text-muted-foreground">
-                  {v.versionNumber}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">
-                      {v.comment?.trim() ||
-                        t("flag.detail.history.version", { n: v.versionNumber })}
-                    </span>
-                    {isCurrent && (
-                      <Badge className="text-2xs">
-                        {t("flag.detail.history.current")}
-                      </Badge>
-                    )}
-                    {v.versionNumber === 1 && (
-                      <Badge variant="outline" className="text-2xs">
-                        {t("flag.detail.history.initial")}
-                      </Badge>
-                    )}
+                <button
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setSelected(v.versionNumber)}
+                  className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3 text-left"
+                >
+                  <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border bg-card font-mono text-2xs font-semibold text-muted-foreground">
+                    {v.versionNumber}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium">
+                        {v.comment?.trim() ||
+                          t("flag.detail.history.version", {
+                            n: v.versionNumber,
+                          })}
+                      </span>
+                      {isCurrent && (
+                        <Badge className="text-2xs">
+                          {t("flag.detail.history.current")}
+                        </Badge>
+                      )}
+                      {v.versionNumber === 1 && (
+                        <Badge variant="outline" className="text-2xs">
+                          {t("flag.detail.history.initial")}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {t("flag.detail.history.updatedBy", {
+                        who: v.createdByName || "—",
+                        when: new Date(v.createdAt).toLocaleString(),
+                      })}
+                    </div>
                   </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {t("flag.detail.history.updatedBy", {
-                      who: v.createdByName || "—",
-                      when: new Date(v.createdAt).toLocaleString(),
-                    })}
-                  </div>
-                </div>
+                </button>
                 {canEdit && !isCurrent && (
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="mr-4 mt-3"
                     disabled={reverting === v.versionNumber}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      revert(v.versionNumber);
-                    }}
+                    onClick={() => revert(v.versionNumber)}
                   >
                     <RotateCcwIcon className="h-3.5 w-3.5" />
                     {t("flag.detail.history.revert")}
                   </Button>
                 )}
-              </button>
+              </div>
             );
           })}
         </CardContent>
@@ -190,8 +197,7 @@ export function HistoryTab({
                 key={i}
                 className={cn(
                   "whitespace-pre-wrap px-1",
-                  line.type === "add" &&
-                    "bg-success/10 text-success",
+                  line.type === "add" && "bg-success/10 text-success",
                   line.type === "del" &&
                     "bg-destructive/10 text-destructive line-through",
                 )}
