@@ -92,9 +92,9 @@ describe("FlagsetSettingsPage", () => {
   });
 
   const roles = [
-    { name: "admin lands on keys and can manage", canEdit: true, role: "admin", wantTab: "keys", wantKeysTab: true, wantProps: { canManage: true } },
-    { name: "editor lands on keys, read-only", canEdit: false, role: "editor", wantTab: "keys", wantKeysTab: true, wantProps: { canManage: false } },
-    { name: "viewer has no keys tab and falls back to general", canEdit: false, role: "viewer", wantTab: "general", wantKeysTab: false, wantProps: { canWrite: false } },
+    { name: "admin lands on general and can write", canEdit: true, role: "admin", wantTab: "general", wantKeysTab: true, wantProps: { canWrite: true } },
+    { name: "editor lands on general, read-only", canEdit: false, role: "editor", wantTab: "general", wantKeysTab: true, wantProps: { canWrite: false } },
+    { name: "viewer lands on general and has no keys tab", canEdit: false, role: "viewer", wantTab: "general", wantKeysTab: false, wantProps: { canWrite: false } },
   ];
   for (const tt of roles) {
     it(tt.name, () => {
@@ -109,6 +109,7 @@ describe("FlagsetSettingsPage", () => {
 
   const tabs = [
     { label: "flagset.settings.general", testId: "general", want: { canWrite: true } },
+    { label: "flagset.settings.apiKeys", testId: "keys", want: { canManage: true } },
     { label: "flagset.settings.codeSample", testId: "codeSample", want: { canReadKeys: true } },
     { label: "flagset.settings.context", testId: "context", want: { canWrite: true } },
     { label: "flagset.settings.settings", testId: "settings", want: { canWrite: true } },
@@ -119,7 +120,7 @@ describe("FlagsetSettingsPage", () => {
       renderAt();
       await u.click(screen.getByRole("button", { name: tt.label }));
       expect(props(tt.testId)).toEqual(tt.want);
-      expect(screen.queryByTestId("keys")).toBeNull();
+      expect(screen.queryByTestId("general") === null).toBe(tt.testId !== "general");
       const saveBtn = screen.queryByRole("button", { name: `${tt.testId}-save` });
       if (saveBtn) {
         await u.click(saveBtn);

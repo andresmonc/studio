@@ -46,7 +46,7 @@ type TabKey =
 export function FlagsetSettingsPage() {
   const t = useTranslate();
   const { id } = useParams<{ id: string }>();
-  const [tab, setTab] = useState<TabKey>("keys");
+  const [tab, setTab] = useState<TabKey>("general");
 
   const { query } = useCustom<Flagset>({
     url: `${API_URL}/flagsets/${id}`,
