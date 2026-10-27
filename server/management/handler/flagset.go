@@ -187,3 +187,21 @@ func (h *FlagsetHandler) DeleteAPIKey(c *echo.Context) error {
 	}
 	return noContent(c)
 }
+
+// RelayProxyConfig godoc
+// @Summary  Relay proxy configuration (goff-proxy.yaml) serving every flagset of a company (company admin)
+// @Tags     companies
+// @Produce  json
+// @Param    companyId path string true "company id"
+// @Success  200 {object} model.APIResponse{data=string} "data holds the YAML document"
+// @Failure  401 {object} model.APIResponse "no valid session"
+// @Failure  403 {object} model.APIResponse
+// @Failure  404 {object} model.APIResponse
+// @Router   /companies/{companyId}/relay-proxy-config [get]
+func (h *FlagsetHandler) RelayProxyConfig(c *echo.Context) error {
+	cfg, err := h.svc.RelayProxyConfig(c.Request().Context(), c.Param("companyId"))
+	if err != nil {
+		return writeServiceError(c, err, "failed to build relay proxy config")
+	}
+	return ok(c, cfg)
+}

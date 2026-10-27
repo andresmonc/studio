@@ -1186,6 +1186,42 @@ paths:
       summary: Update a company member's role (company admin)
       tags:
       - companies
+  /companies/{companyId}/relay-proxy-config:
+    get:
+      parameters:
+      - description: company id
+        in: path
+        name: companyId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: data holds the YAML document
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.APIResponse'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "401":
+          description: no valid session
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIResponse'
+      summary: Relay proxy configuration (goff-proxy.yaml) serving every flagset of
+        a company (company admin)
+      tags:
+      - companies
   /companies/{companyId}/teams:
     get:
       parameters:

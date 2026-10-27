@@ -279,6 +279,51 @@ func TestFlagsetRepoQueryErrors(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 	_, err = repo.ListAPIKeys(ctx, id)
 	assert.ErrorIs(t, err, context.Canceled)
+	_, err = repo.ListForRelayProxy(ctx, id)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestFlagsetRepoListForRelayProxy(t *testing.T) {
+	db := testutil.StartPostgres(t)
+	repo := repository.NewFlagsetRepo(db)
+	ctx := t.Context()
+
+	company := testutil.SeedCompany(t, db, "Acme")
+	platform := testutil.SeedTeam(t, db, company.ID, "Platform")
+	web := testutil.SeedTeam(t, db, company.ID, "Web")
+	prod := testutil.SeedFlagset(t, db, platform.ID, "prod")
+	keyless := testutil.SeedFlagset(t, db, platform.ID, "empty")
+	dev := testutil.SeedFlagset(t, db, web.ID, "dev")
+	deleted := testutil.SeedFlagset(t, db, web.ID, "gone")
+	user := testutil.SeedUser(t, db, "u@acme.com", "U", false)
+	for _, k := range []struct{ flagsetID, key string }{
+		{prod.ID, "goff_first"}, {prod.ID, "goff_second"}, {dev.ID, "goff_dev"}, {deleted.ID, "goff_gone"},
+	} {
+		_, err := repo.InsertAPIKey(ctx, k.flagsetID, "ci", k.key, user.ID)
+		require.NoError(t, err)
+	}
+	require.NoError(t, repo.SoftDelete(ctx, deleted.ID))
+	otherTeam := testutil.SeedTeam(t, db, testutil.SeedCompany(t, db, "Other").ID, "Platform")
+	_ = testutil.SeedFlagset(t, db, otherTeam.ID, "other")
+
+	got, err := repo.ListForRelayProxy(ctx, company.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []model.RelayProxyFlagset{
+		{ID: keyless.ID, Name: "empty", TeamName: "Platform", APIKeys: []string{}},
+		{ID: prod.ID, Name: "prod", TeamName: "Platform", APIKeys: []string{"goff_first", "goff_second"}},
+		{ID: dev.ID, Name: "dev", TeamName: "Web", APIKeys: []string{"goff_dev"}},
+	}, got, "live flagsets of this company only, ordered by team then name, keys oldest first")
+
+	_, err = repo.ListForRelayProxy(ctx, "00000000-0000-0000-0000-000000000000")
+	assert.ErrorIs(t, err, repository.ErrNotFound)
+
+	host, port, database := repo.DBTarget()
+	cfg := db.Pool.Config().ConnConfig
+	assert.Equal(t, cfg.Host, host)
+	assert.Equal(t, cfg.Port, port)
+	assert.Equal(t, cfg.Database, database)
+	assert.NotEmpty(t, host)
+	assert.NotEmpty(t, database)
 }
 
 func TestFlagsetRepoCreateWithAPIKey(t *testing.T) {

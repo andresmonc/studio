@@ -246,6 +246,38 @@ func (r *FlagsetRepo) ListAPIKeys(ctx context.Context, flagsetID string) ([]mode
 	return pgx.CollectRows(rows, pgx.RowToStructByName[model.FlagsetAPIKey])
 }
 
+// DBTarget returns the host, port and database Studio itself connects to.
+func (r *FlagsetRepo) DBTarget() (host string, port uint16, database string) {
+	c := r.db.Pool.Config().ConnConfig
+	return c.Host, c.Port, c.Database
+}
+
+// ListForRelayProxy returns the live flagsets of a company with their API keys
+// (oldest first), or ErrNotFound when the company does not exist.
+func (r *FlagsetRepo) ListForRelayProxy(ctx context.Context, companyID string) ([]model.RelayProxyFlagset, error) {
+	var exists bool
+	err := r.db.Pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM companies WHERE id = $1)`, companyID).Scan(&exists)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+	rows, err := r.db.Pool.Query(ctx, `
+		SELECT fs.id, fs.name, t.name AS team_name,
+			COALESCE(array_agg(k.api_key ORDER BY k.created_at, k.id) FILTER (WHERE k.api_key IS NOT NULL), '{}') AS api_keys
+		FROM flagsets fs
+		JOIN teams t ON t.id = fs.team_id
+		LEFT JOIN flagset_api_keys k ON k.flagset_id = fs.id
+		WHERE t.company_id = $1 AND fs.deleted_at IS NULL
+		GROUP BY fs.id, t.name
+		ORDER BY t.name, fs.name`, companyID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByName[model.RelayProxyFlagset])
+}
+
 // DeleteAPIKey revokes a key of the given flagset and returns it. Scoping by flagset means a
 // key id from another tenant's flagset is not found rather than deleted.
 func (r *FlagsetRepo) DeleteAPIKey(ctx context.Context, flagsetID, keyID string) (*model.FlagsetAPIKey, error) {

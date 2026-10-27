@@ -264,6 +264,14 @@ function App() {
                         </RbacRoute>
                       }
                     />
+                    <Route
+                      path="relay-proxy"
+                      element={
+                        <RbacRoute resource="company" action="list">
+                          <CompanyPage section="relayProxy" />
+                        </RbacRoute>
+                      }
+                    />
                     <Route path="teams">
                       <Route
                         index

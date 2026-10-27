@@ -27,4 +27,7 @@ func registerCompanyRoutes(g *echo.Group, h Handlers, s Services) {
 
 	scoped.GET("/teams", h.Companies.ListTeams, member)
 	scoped.POST("/teams", h.Companies.CreateTeam, admin)
+
+	// Holds every API key of the company, so company admins only.
+	scoped.GET("/relay-proxy-config", h.Flagsets.RelayProxyConfig, admin)
 }

@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   companyId: "c1" as string | null,
   members: [] as unknown,
   teams: [] as unknown,
+  company: undefined as unknown,
 }));
 
 vi.mock("@refinedev/core", () => ({
@@ -15,6 +16,7 @@ vi.mock("@refinedev/core", () => ({
   useCustom: ({ url }: { url: string }) => ({
     query: { data: { data: url.endsWith("/members") ? h.members : h.teams } },
   }),
+  useOne: () => ({ result: h.company }),
 }));
 vi.mock("@/hooks/use-active-company", () => ({
   useActiveCompany: () => ({ activeCompanyId: h.companyId }),
@@ -22,6 +24,9 @@ vi.mock("@/hooks/use-active-company", () => ({
 // The cards have their own tests; stub them so only the page shell is under test.
 vi.mock("./details", () => ({ CompanyDetailsCard: ({ companyId }: { companyId: string }) => <p>details:{companyId}</p> }));
 vi.mock("./members", () => ({ CompanyMembersCard: ({ companyId }: { companyId: string }) => <p>members:{companyId}</p> }));
+vi.mock("./relay-proxy-card", () => ({
+  CompanyRelayProxyCard: ({ companyId }: { companyId: string }) => <p>relay:{companyId}</p>,
+}));
 vi.mock("./teams", () => ({ CompanyTeamsCard: ({ companyId }: { companyId: string }) => <p>teams:{companyId}</p> }));
 
 import { CompanyPage } from "./page";
@@ -30,7 +35,7 @@ function Location() {
   return <output>{useLocation().pathname}</output>;
 }
 
-const renderPage = (section?: "details" | "members" | "teams") =>
+const renderPage = (section?: "details" | "members" | "teams" | "relayProxy") =>
   render(
     <MemoryRouter initialEntries={["/company"]}>
       <Routes>
@@ -52,6 +57,7 @@ beforeEach(() => {
   h.companyId = "c1";
   h.members = [{ id: "u1" }, { id: "u2" }];
   h.teams = [{ id: "t1" }];
+  h.company = { id: "c1", displayName: "Acme" };
 });
 
 describe("CompanyPage", () => {
@@ -59,6 +65,17 @@ describe("CompanyPage", () => {
     h.companyId = null;
     renderPage();
     expect(screen.getByText("home")).toBeInTheDocument();
+  });
+
+  it("titles the page with the company name", () => {
+    renderPage();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Acme");
+  });
+
+  it("shows a placeholder title while the company loads", () => {
+    h.company = undefined;
+    renderPage();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("…");
   });
 
   const counts = [
@@ -70,12 +87,8 @@ describe("CompanyPage", () => {
       h.members = tt.members;
       h.teams = tt.teams;
       renderPage();
-      expect(
-        screen.getByText(`company.subtitle ${JSON.stringify({ users: tt.users, teams: tt.teamCount })}`),
-      ).toBeInTheDocument();
-      const [usersCard, teamsCard] = screen.getAllByRole("button");
-      expect(usersCard).toHaveTextContent(`company.stats.users${tt.users}`);
-      expect(teamsCard).toHaveTextContent(`company.stats.teams${tt.teamCount}`);
+      expect(screen.getByRole("button", { name: `nav.members ${tt.users}` })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: `nav.teams ${tt.teamCount}` })).toBeInTheDocument();
     });
   }
 
@@ -91,38 +104,35 @@ describe("CompanyPage", () => {
     });
   }
 
-  const statNav = [
-    { name: "clicking the users stat opens members", card: 0, how: "click", want: "/company/members" },
-    { name: "Enter on the teams stat opens teams", card: 1, how: "{Enter}", want: "/company/teams" },
-    { name: "Space on the users stat opens members", card: 0, how: " ", want: "/company/members" },
+  const nav = [
+    { name: "members nav opens members", button: /^nav\.members/, want: /^\/company\/members$/ },
+    { name: "teams nav opens teams", button: /^nav\.teams/, want: /^\/company\/teams$/ },
+    { name: "details nav opens details", button: /^nav\.details/, want: /^\/company$/ },
   ];
-  for (const tt of statNav) {
+  for (const tt of nav) {
     it(tt.name, async () => {
       const user = userEvent.setup();
-      renderPage();
-      const card = screen.getAllByRole("button")[tt.card];
-      if (tt.how === "click") {
-        await user.click(card);
-      } else {
-        card.focus();
-        await user.keyboard(tt.how);
-      }
+      renderPage("members");
+      await user.click(screen.getByRole("button", { name: tt.button }));
       expect(screen.getByRole("status")).toHaveTextContent(tt.want);
     });
   }
 
-  it("ignores other keys on a stat card", async () => {
-    const user = userEvent.setup();
-    renderPage();
-    screen.getAllByRole("button")[0].focus();
-    await user.keyboard("a");
-    expect(screen.getByRole("status")).toHaveTextContent(/^\/company$/);
+  it("marks the current section in the nav", () => {
+    renderPage("teams");
+    expect(screen.getByRole("button", { name: /^nav\.teams/ })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: /^nav\.details/ })).not.toHaveAttribute("aria-current");
   });
 
-  it("switching tabs navigates to the tab's path", async () => {
+  it("relay proxy section shows the relay proxy card", () => {
+    renderPage("relayProxy");
+    expect(screen.getByText("relay:c1")).toBeInTheDocument();
+  });
+
+  it("relay proxy nav opens the relay proxy section", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.click(screen.getByRole("tab", { name: "nav.teams" }));
-    expect(screen.getByRole("status")).toHaveTextContent("/company/teams");
+    await user.click(screen.getByRole("button", { name: "nav.relayProxy" }));
+    expect(screen.getByRole("status")).toHaveTextContent("/company/relay-proxy");
   });
 });

@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -204,4 +205,31 @@ func TestFlagsetServiceQueryErrors(t *testing.T) {
 	_, err = svc.CreateAPIKey(ctx, id, id, "x")
 	assert.ErrorIs(t, err, context.Canceled)
 	assert.ErrorIs(t, svc.DeleteAPIKey(ctx, id, id, id), context.Canceled)
+}
+
+func TestFlagsetServiceRelayProxyConfig(t *testing.T) {
+	db := testutil.StartPostgres(t)
+	svc := newFlagsetService(db)
+	ctx := t.Context()
+	team := seedTeamForFlagset(t, db)
+	actor := testutil.SeedUser(t, db, "actor@acme.com", "Actor", true)
+	fs, err := svc.Create(ctx, actor.ID, team.ID, &model.CreateFlagsetRequest{Name: "prod"})
+	require.NoError(t, err)
+	keys, err := svc.ListAPIKeys(ctx, fs.ID)
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+
+	t.Run("renders the company's flagsets on Studio's database", func(t *testing.T) {
+		out, err := svc.RelayProxyConfig(ctx, team.CompanyID)
+		require.NoError(t, err)
+		cfg := db.Pool.Config().ConnConfig
+		assert.Contains(t, out, `- name: "`+fs.ID+`"`)
+		assert.Contains(t, out, `- "`+keys[0].APIKey+`"`)
+		assert.Contains(t, out, fmt.Sprintf("@%s:%d/%s", cfg.Host, cfg.Port, cfg.Database))
+	})
+
+	t.Run("unknown company -> not found", func(t *testing.T) {
+		_, err := svc.RelayProxyConfig(ctx, "00000000-0000-0000-0000-000000000000")
+		assert.ErrorIs(t, err, service.ErrNotFound)
+	})
 }

@@ -32,6 +32,7 @@
     "details": "Details",
     "members": "Members",
     "teams": "Teams",
+    "relayProxy": "Relay proxy",
     "companies": "Companies",
     "admin": "Admin",
     "workspace": "Workspace",
@@ -549,14 +550,16 @@
     }
   },
   "company": {
-    "subtitle": "{{users}} users across {{teams}} teams",
+    "relayProxy": {
+      "title": "Relay proxy configuration",
+      "description": "A goff-proxy.yaml serving every flagset of this company.",
+      "error": "Failed to load the relay proxy configuration.",
+      "tipTitle": "Prefilled example",
+      "tip": "This configuration is a prefilled example. The host and database come from the database Studio uses; before using it, set the goff_relay password in each retriever uri and change the host if the relay proxy reaches Postgres at a different address."
+    },
     "roles": {
       "admin": "Admin",
       "member": "Member"
-    },
-    "stats": {
-      "users": "Users",
-      "teams": "Teams"
     },
     "members": {
       "title": "Company members",

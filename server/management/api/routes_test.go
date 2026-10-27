@@ -91,6 +91,10 @@ var routeCases = []struct {
 	{"GET", "/api/v1/companies/{company}/teams", outsider, "", 403},
 	{"POST", "/api/v1/companies/{company}/teams", companyAdmin, `{"name":"t2","adminEmail":"member@acme.test"}`, 201},
 	{"POST", "/api/v1/companies/{company}/teams", member, `{"name":"t2","adminEmail":"member@acme.test"}`, 403},
+	{"GET", "/api/v1/companies/{company}/relay-proxy-config", companyAdmin, "", 200},
+	{"GET", "/api/v1/companies/{company}/relay-proxy-config", member, "", 403},
+	{"GET", "/api/v1/companies/{company}/relay-proxy-config", outsider, "", 403},
+	{"GET", "/api/v1/companies/00000000-0000-0000-0000-000000000000/relay-proxy-config", superAdmin, "", 404},
 
 	// Teams.
 	{"GET", "/api/v1/teams", member, "", 200},

@@ -59,3 +59,12 @@ type FlagsetAPIKey struct {
 type CreateAPIKeyRequest struct {
 	Label string `json:"label" validate:"required" example:"relay-proxy-prod"`
 }
+
+// RelayProxyFlagset is a live flagset with its API keys, as needed to write a
+// relay proxy configuration.
+type RelayProxyFlagset struct {
+	ID       string   `db:"id" json:"id"`
+	Name     string   `db:"name" json:"name"`
+	TeamName string   `db:"team_name" json:"teamName"`
+	APIKeys  []string `db:"api_keys" json:"apiKeys"`
+}

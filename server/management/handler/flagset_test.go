@@ -204,3 +204,37 @@ func TestFlagsetHandlerAPIKeys(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
 }
+
+func TestFlagsetHandlerRelayProxyConfig(t *testing.T) {
+	s := newStack(t)
+	h := NewFlagsetHandler(s.flagsetSvc)
+	actor := testutil.SeedUser(t, s.db, "actor@acme.com", "Actor", true)
+	co := testutil.SeedCompany(t, s.db, "Acme")
+	fs := testutil.SeedFlagset(t, s.db, testutil.SeedTeam(t, s.db, co.ID, "Platform").ID, "prod")
+	_, err := s.flagsetSvc.CreateAPIKey(t.Context(), actor.ID, fs.ID, "ci")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name       string
+		companyID  string
+		wantStatus int
+		wantData   string
+	}{
+		{"renders the company's config", co.ID, http.StatusOK, `- name: "` + fs.ID + `"`},
+		{"unknown company", missingUUID, http.StatusNotFound, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, rec := reqCtx(http.MethodGet, "")
+			params(c, "companyId", tt.companyID)
+			withClaims(c, actor.ID, true)
+			require.NoError(t, h.RelayProxyConfig(c))
+			assert.Equal(t, tt.wantStatus, rec.Code)
+			if tt.wantData != "" {
+				data, ok := decodeResp(t, rec).Data.(string)
+				require.True(t, ok, "data is the YAML document")
+				assert.Contains(t, data, tt.wantData)
+			}
+		})
+	}
+}
