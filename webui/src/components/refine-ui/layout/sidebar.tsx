@@ -15,6 +15,7 @@ import {
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent as ShadcnSidebarContent,
+  SidebarHeader as ShadcnSidebarHeader,
   SidebarRail as ShadcnSidebarRail,
   useSidebar as useShadcnSidebar,
 } from "@/components/ui/sidebar";
@@ -25,20 +26,36 @@ import {
   useTranslate,
   type TreeMenuItem,
 } from "@refinedev/core";
-import { ChevronRight, ListIcon, ToggleLeftIcon } from "lucide-react";
+import {
+  ChevronRight,
+  ListIcon,
+  PlusIcon,
+  ToggleLeftIcon,
+} from "lucide-react";
 import { useLocation } from "react-router";
 import React from "react";
-import { canSync, type ResourceAccessMeta } from "@/providers/access-control";
+import {
+  canEditTeam,
+  canSync,
+  effectiveTeamRole,
+  type ResourceAccessMeta,
+} from "@/providers/access-control";
 import { useActiveCompany } from "@/hooks/use-active-company";
+import { useActiveTeam } from "@/hooks/use-active-team";
 import { CompanySwitcher } from "@/components/company-switcher";
 import { TeamSwitcher } from "@/components/team-switcher";
 import { SidebarUserMenu } from "@/components/sidebar-user-menu";
+import { GoffLogo } from "@/components/goff-logo";
 import { useRecentlyEditedFlags } from "@/hooks/use-recently-edited-flags";
 
 export function Sidebar() {
   const { open } = useShadcnSidebar();
   const { menuItems, selectedKey } = useMenu();
   const { activeCompanyId } = useActiveCompany();
+  const { activeTeamId } = useActiveTeam();
+  const canCreateFlag =
+    !!activeTeamId &&
+    (canEditTeam(activeTeamId) || effectiveTeamRole(activeTeamId) === "editor");
   const recentlyEdited = useRecentlyEditedFlags();
   const isVisible = (item: TreeMenuItem): boolean => {
     const meta = (item.meta ?? {}) as ResourceAccessMeta;
@@ -83,6 +100,20 @@ export function Sidebar() {
   return (
     <ShadcnSidebar collapsible="icon" className={cn("border-none")}>
       <ShadcnSidebarRail />
+      {/* pl-6 lines the badge up with the nav icons (content px-3 + button px-3). */}
+      <ShadcnSidebarHeader
+        className={cn(
+          "h-14 flex-row items-center border-r border-border p-0",
+          open ? "pl-6" : "justify-center",
+        )}
+      >
+        <GoffLogo
+          withText={open}
+          withCircle={false}
+          className="size-7"
+          textClassName="whitespace-nowrap md:text-base"
+        />
+      </ShadcnSidebarHeader>
       <ShadcnSidebarContent
         className={cn(
           "transition-discrete",
@@ -106,6 +137,9 @@ export function Sidebar() {
             <TeamSwitcher />
           </div>
         )}
+        {canCreateFlag && (
+          <SidebarButton item={createFlagItem} asLink={true} />
+        )}
         {topItems.map((item: TreeMenuItem) => (
           <SidebarItem
             key={item.key || item.name}
@@ -123,6 +157,23 @@ export function Sidebar() {
     </ShadcnSidebar>
   );
 }
+
+// The flags page opens its create wizard when it sees ?create=1.
+const createFlagItem = {
+  name: "create",
+  key: "create",
+  route: "/flags?create=1",
+  meta: {
+    label: "Create flag",
+    i18nKey: "nav.create",
+    icon: (
+      <span className="grid size-4 place-items-center rounded-full bg-primary text-primary-foreground">
+        <PlusIcon className="size-3" strokeWidth={3} />
+      </span>
+    ),
+  },
+  children: [],
+} as TreeMenuItem;
 
 type MenuItemProps = {
   item: TreeMenuItem;

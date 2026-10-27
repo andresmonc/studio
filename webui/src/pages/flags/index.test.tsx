@@ -38,10 +38,21 @@ vi.mock("@/components/refine-ui/views/list-view", () => ({
   ListView: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-// A stand-in that only exposes the onCreated callback the page hands the wizard.
+// A stand-in that only exposes the callbacks the page hands the wizard.
 vi.mock("./flag-wizard", () => ({
-  FlagWizard: ({ onCreated }: { onCreated: () => void }) => (
-    <button onClick={onCreated}>fake-wizard-created</button>
+  FlagWizard: ({
+    onCreated,
+    autoOpen,
+    onClosed,
+  }: {
+    onCreated: () => void;
+    autoOpen?: boolean;
+    onClosed?: () => void;
+  }) => (
+    <>
+      <button onClick={onCreated}>fake-wizard-created</button>
+      {autoOpen && <button onClick={onClosed}>fake-wizard-close</button>}
+    </>
   ),
 }));
 
@@ -661,6 +672,14 @@ describe("FlagsPage - misc states", () => {
     await user.click(screen.getByRole("button", { name: "fake-wizard-created" }));
     expect(refetch).toHaveBeenCalled();
     expect(ownersRefetch).toHaveBeenCalled();
+  });
+
+  it("auto-opens the wizard from ?create=1 and drops the param on close", async () => {
+    const user = userEvent.setup();
+    renderPage("/flags?create=1");
+    await user.click(screen.getByRole("button", { name: "fake-wizard-close" }));
+    expect(screen.getByTestId("location-search")).toHaveTextContent(/^$/);
+    expect(screen.queryByRole("button", { name: "fake-wizard-close" })).not.toBeInTheDocument();
   });
 
   it("removes a tag filter when its chip is clicked again", async () => {

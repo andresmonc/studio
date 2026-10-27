@@ -310,6 +310,8 @@ export function FlagsPage() {
                 ownersQuery.refetch();
               }}
               tagSuggestions={tagSuggestions}
+              autoOpen={searchParams.get("create") === "1"}
+              onClosed={() => setParam("create", "", { replace: true })}
             />
           )}
         </div>

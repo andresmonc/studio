@@ -35,7 +35,8 @@
     "flagsets": "Flagsets",
     "flags": "Flags",
     "auditLog": "Audit log",
-    "recentlyEdited": "Recently edited"
+    "recentlyEdited": "Recently edited",
+    "create": "Create flag"
   },
   "auditLog": {
     "title": "Audit log",
@@ -266,7 +267,7 @@
       }
     },
     "wizard": {
-      "cta": "Create feature flag",
+      "cta": "Create flag",
       "title": "New flag",
       "subtitle": "Choose a flagset",
       "basics": "Basics",

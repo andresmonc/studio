@@ -40,10 +40,15 @@ export function FlagWizard({
   teamId,
   onCreated,
   tagSuggestions = [],
+  autoOpen = false,
+  onClosed,
 }: {
   teamId: string;
   onCreated: () => void;
   tagSuggestions?: string[];
+  /** Opens the wizard when it flips to true (e.g. the sidebar "Create" link). */
+  autoOpen?: boolean;
+  onClosed?: () => void;
 }) {
   const t = useTranslate();
   const [open, setOpen] = useState(false);
@@ -95,7 +100,18 @@ export function FlagWizard({
   const onOpenChange = (o: boolean) => {
     setOpen(o);
     if (o) requestAnimationFrame(reset);
+    else onClosed?.();
   };
+
+  // Adjust state during render rather than in an effect: open on the rising edge only.
+  const [prevAutoOpen, setPrevAutoOpen] = useState(false);
+  if (autoOpen !== prevAutoOpen) {
+    setPrevAutoOpen(autoOpen);
+    if (autoOpen && !open) {
+      setOpen(true);
+      reset();
+    }
+  }
 
   const onTypeChange = (ty: FlagType) => {
     setType(ty);
@@ -107,9 +123,9 @@ export function FlagWizard({
   // Renaming/removing a variation must migrate (or drop) its weight in every
   // outcome so percentages stay keyed to live variation names — otherwise the
   // sum inflates (the "200%" bug).
-  const onVariationsChange: React.Dispatch<React.SetStateAction<Variation[]>> = (
-    action,
-  ) => {
+  const onVariationsChange: React.Dispatch<
+    React.SetStateAction<Variation[]>
+  > = (action) => {
     const next =
       typeof action === "function"
         ? (action as (p: Variation[]) => Variation[])(variations)
@@ -117,7 +133,9 @@ export function FlagWizard({
     const { renames, removed, nextNames } = diffVariations(variations, next);
     setVariations(next);
     if (renames.size > 0 || removed.size > 0) {
-      setDefaultOutcome(reconcileOutcome(defaultOutcome, renames, removed, nextNames));
+      setDefaultOutcome(
+        reconcileOutcome(defaultOutcome, renames, removed, nextNames),
+      );
       setRules((rs) =>
         rs.map((r) => ({
           ...r,
@@ -161,7 +179,12 @@ export function FlagWizard({
             { label: t("flag.wizard.checkRules"), ok: ruleOutcomesValid },
             { label: t("flag.wizard.checkDefault"), ok: defaultValid },
           ]
-        : [{ label: t("flag.wizard.checkReady"), ok: basicsValid && rulesValid }];
+        : [
+            {
+              label: t("flag.wizard.checkReady"),
+              ok: basicsValid && rulesValid,
+            },
+          ];
 
   const buildPayload = (): Record<string, unknown> =>
     buildFlagPayload({
@@ -185,7 +208,11 @@ export function FlagWizard({
       {
         url: `${API_URL}/flagsets/${flagsetId}/flags`,
         method: "post",
-        values: { name: name.trim(), comment: comment.trim(), payload: buildPayload() },
+        values: {
+          name: name.trim(),
+          comment: comment.trim(),
+          payload: buildPayload(),
+        },
         successNotification: false,
         errorNotification: false,
       },
@@ -195,7 +222,7 @@ export function FlagWizard({
           const finish = () => {
             toast.success(t("flag.wizard.created"));
             setSubmitting(false);
-            setOpen(false);
+            onOpenChange(false);
             onCreated();
             invalidateRecentlyEdited();
           };
@@ -216,7 +243,9 @@ export function FlagWizard({
         },
         onError: (err) => {
           setSubmitting(false);
-          toast.error(t("flag.wizard.createError"), { description: errMessage(err) });
+          toast.error(t("flag.wizard.createError"), {
+            description: errMessage(err),
+          });
         },
       },
     );
@@ -228,7 +257,9 @@ export function FlagWizard({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button className="ml-auto">
-          <PlusIcon className="h-4 w-4" />
+          <span className="grid size-4 place-items-center rounded-full bg-primary-foreground text-primary">
+            <PlusIcon className="size-3" strokeWidth={3} />
+          </span>
           {t("flag.wizard.cta")}
         </Button>
       </DialogTrigger>
@@ -239,7 +270,9 @@ export function FlagWizard({
             <PlusIcon className="h-4 w-4" />
           </span>
           <div>
-            <div className="text-sm font-semibold">{t("flag.wizard.title")}</div>
+            <div className="text-sm font-semibold">
+              {t("flag.wizard.title")}
+            </div>
             <div className="text-xs text-muted-foreground">
               {flagset ? flagset.name : t("flag.wizard.subtitle")}
             </div>
@@ -313,7 +346,10 @@ export function FlagWizard({
                 <ChevronRightIcon className="h-4 w-4" />
               </Button>
             ) : (
-              <Button disabled={submitting || !basicsValid || !rulesValid} onClick={onSubmit}>
+              <Button
+                disabled={submitting || !basicsValid || !rulesValid}
+                onClick={onSubmit}
+              >
                 <RocketIcon className="h-4 w-4" />
                 {t("flag.wizard.create")}
               </Button>

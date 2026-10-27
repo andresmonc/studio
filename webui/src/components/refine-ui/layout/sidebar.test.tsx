@@ -37,14 +37,16 @@ vi.mock("@refinedev/core", () => ({
 vi.mock("@/providers/auth", () => ({
   getCachedUser: vi.fn(),
   getCachedCompany: vi.fn(),
+  getCachedMembership: () => [],
 }));
 
 vi.mock("@/hooks/use-active-company", () => ({
   useActiveCompany: vi.fn(),
 }));
 
+const team = vi.hoisted(() => ({ id: null as string | null }));
 vi.mock("@/hooks/use-active-team", () => ({
-  useActiveTeam: () => ({ activeTeamId: null }),
+  useActiveTeam: () => ({ activeTeamId: team.id }),
 }));
 
 vi.mock("@/components/team-switcher", () => ({
@@ -123,4 +125,53 @@ describe("Sidebar - Admin visibility", () => {
     renderSidebar();
     expect(screen.queryByText("Admin")).not.toBeInTheDocument();
   });
+});
+
+describe("Sidebar - branding", () => {
+  beforeEach(() => {
+    mockUseMenu.mockReturnValue({ menuItems: [], selectedKey: undefined });
+    mockActive.mockReturnValue({
+      activeCompanyId: null,
+      setActiveCompanyId: vi.fn(),
+      isSuperAdmin: false,
+      source: "none",
+    });
+    mockUser.mockReturnValue(null);
+    mockCompany.mockReturnValue(null);
+  });
+
+  it("shows the GO Feature Flag logo with its name on top", () => {
+    renderSidebar();
+    expect(screen.getByText("GO Feature Flag")).toBeInTheDocument();
+  });
+});
+
+describe("Sidebar - Create", () => {
+  beforeEach(() => {
+    mockUseMenu.mockReturnValue({ menuItems: [], selectedKey: undefined });
+    mockActive.mockReturnValue({
+      activeCompanyId: null,
+      setActiveCompanyId: vi.fn(),
+      isSuperAdmin: false,
+      source: "none",
+    });
+    mockUser.mockReturnValue({ isSuperAdmin: false });
+    team.id = "team-1";
+  });
+
+  const tests = [
+    { name: "links to the flag wizard for a team admin", role: "admin", teamId: "team-1", want: true },
+    { name: "hides it for a plain member", role: "member", teamId: "team-1", want: false },
+    { name: "hides it without an active team", role: "admin", teamId: null, want: false },
+  ];
+  for (const tt of tests) {
+    it(tt.name, () => {
+      mockCompany.mockReturnValue({ role: tt.role });
+      team.id = tt.teamId;
+      renderSidebar();
+      const link = screen.queryByRole("link", { name: "Create flag" });
+      if (tt.want) expect(link).toHaveAttribute("href", "/flags?create=1");
+      else expect(link).not.toBeInTheDocument();
+    });
+  }
 });

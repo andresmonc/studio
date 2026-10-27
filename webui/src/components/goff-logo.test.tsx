@@ -14,9 +14,26 @@ describe("GoffLogo", () => {
     expect(screen.queryByText("GO Feature Flag")).not.toBeInTheDocument();
   });
 
+  it("drops the striped circle when withCircle is false", () => {
+    render(<GoffLogo withCircle={false} data-testid="logo" />);
+    const badge = screen.getByTestId("logo");
+    expect(badge).not.toHaveClass("rounded-full");
+    expect(badge.style.background).toBe("");
+    expect(screen.getByRole("img")).toHaveClass("w-full");
+  });
+
   it("shows the name next to the badge and hides the image from screen readers", () => {
     render(<GoffLogo withText />);
     expect(screen.getByText("GO Feature Flag")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("merges textClassName into the name", () => {
+    render(<GoffLogo withText textClassName="md:text-lg" />);
+    expect(screen.getByText("GO Feature Flag")).toHaveClass(
+      "font-semibold",
+      "md:text-lg",
+    );
+    expect(screen.getByText("GO Feature Flag")).not.toHaveClass("md:text-2xl");
   });
 });

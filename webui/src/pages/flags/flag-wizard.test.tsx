@@ -54,7 +54,7 @@ function renderWizard() {
 }
 
 async function openWizard(user: User) {
-  await user.click(screen.getByRole("button", { name: "Create feature flag" }));
+  await user.click(screen.getByRole("button", { name: "Create flag" }));
   const dialog = await screen.findByRole("dialog");
   // The form resets (and preselects the first flagset) on the next frame.
   await waitFor(() => expect(within(dialog).getAllByText("default").length).toBeGreaterThan(0));
@@ -230,11 +230,30 @@ describe("FlagWizard navigation and validation", () => {
     expect(keyInput()).toHaveValue("");
   });
 
+  it("opens on each autoOpen rising edge and reports closing", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const onClosed = vi.fn();
+    const props = { teamId: "team-1", onCreated: vi.fn(), onClosed };
+    const { rerender } = render(<FlagWizard {...props} autoOpen />);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await user.type(keyInput(), "my-flag");
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(onClosed).toHaveBeenCalledOnce();
+
+    rerender(<FlagWizard {...props} autoOpen={false} />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    rerender(<FlagWizard {...props} autoOpen />);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(keyInput()).toHaveValue("");
+  });
+
   it("shows the subtitle when no flagset is available", async () => {
     h.flagsets = undefined;
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     renderWizard();
-    await user.click(btn("Create feature flag"));
+    await user.click(btn("Create flag"));
     await screen.findByRole("dialog");
 
     expect(screen.getByText("Choose a flagset")).toBeInTheDocument();

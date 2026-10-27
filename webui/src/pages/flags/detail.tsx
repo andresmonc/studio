@@ -14,6 +14,8 @@ import {
   TagsIcon,
   Trash2Icon,
   Undo2Icon,
+  FlagOffIcon,
+  FlagIcon,
 } from "lucide-react";
 import { ListView } from "@/components/refine-ui/views/list-view";
 import {
@@ -125,7 +127,10 @@ export function FlagDetailPage() {
   const { query: teamTagsQuery } = useCustom<string[]>({
     url: `${API_URL}/teams/${activeTeamId}/tags`,
     method: "get",
-    queryOptions: { queryKey: ["team-tags", activeTeamId], enabled: !!activeTeamId },
+    queryOptions: {
+      queryKey: ["team-tags", activeTeamId],
+      enabled: !!activeTeamId,
+    },
   });
   const tagSuggestions = Array.isArray(teamTagsQuery.data?.data)
     ? teamTagsQuery.data!.data
@@ -147,12 +152,17 @@ export function FlagDetailPage() {
   const { query: versionsQuery } = useCustom<PaginatedResponse<FlagVersion>>({
     url: `${API_URL}/flags/${flag?.id}/versions`,
     method: "get",
-    queryOptions: { queryKey: ["flag-versions", flag?.id], enabled: !!flag?.id },
+    queryOptions: {
+      queryKey: ["flag-versions", flag?.id],
+      enabled: !!flag?.id,
+    },
   });
   const createdByName = useMemo(() => {
     const list = versionsQuery.data?.data?.data ?? [];
     if (!list.length) return "";
-    const first = [...list].sort((a, b) => a.versionNumber - b.versionNumber)[0];
+    const first = [...list].sort(
+      (a, b) => a.versionNumber - b.versionNumber,
+    )[0];
     return first?.createdByName ?? "";
   }, [versionsQuery.data]);
 
@@ -466,268 +476,283 @@ export function FlagDetailPage() {
 
               <div className="min-w-0">
                 {section === "targeting" && (
-                <div className="flex flex-col gap-4">
-                {canEdit ? (
-                  <>
-                    <TipCallout title={t("flag.detail.targetingTipsTitle")}>
-                      {t("flag.detail.targetingTips")}
-                    </TipCallout>
-                    <RulesEditor
-                      t={t}
-                      variationNames={form.variationNames}
-                      rules={form.rules}
-                      setRules={form.setRules}
-                      defaultOutcome={form.defaultOutcome}
-                      setDefaultOutcome={form.setDefaultOutcome}
-                      disabled={flag.disabled}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <TargetingCard
-                      t={t}
-                      rules={payload?.targeting ?? []}
-                      names={names}
-                    />
-                    <DefaultRuleCard
-                      t={t}
-                      rule={payload?.defaultRule}
-                      names={names}
-                    />
-                  </>
-                )}
-                </div>
+                  <div className="flex flex-col gap-4">
+                    {canEdit ? (
+                      <>
+                        <TipCallout title={t("flag.detail.targetingTipsTitle")}>
+                          {t("flag.detail.targetingTips")}
+                        </TipCallout>
+                        <RulesEditor
+                          t={t}
+                          variationNames={form.variationNames}
+                          rules={form.rules}
+                          setRules={form.setRules}
+                          defaultOutcome={form.defaultOutcome}
+                          setDefaultOutcome={form.setDefaultOutcome}
+                          disabled={flag.disabled}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <TargetingCard
+                          t={t}
+                          rules={payload?.targeting ?? []}
+                          names={names}
+                        />
+                        <DefaultRuleCard
+                          t={t}
+                          rule={payload?.defaultRule}
+                          names={names}
+                        />
+                      </>
+                    )}
+                  </div>
                 )}
 
                 {section === "variations" && (
-                <div>
-                {canEdit ? (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">
-                        {t("flag.detail.variationsTitle")}
-                      </CardTitle>
-                      <CardDescription>
-                        {t("flag.detail.variationsSubtitle")}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-4">
-                      <Field label={t("flag.wizard.type")}>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className="font-mono text-[10px]"
+                  <div>
+                    {canEdit ? (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm">
+                            {t("flag.detail.variationsTitle")}
+                          </CardTitle>
+                          <CardDescription>
+                            {t("flag.detail.variationsSubtitle")}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-4">
+                          <Field label={t("flag.wizard.type")}>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className="font-mono text-[10px]"
+                              >
+                                {form.type}
+                              </Badge>
+                              <span className="text-[11px] text-muted-foreground">
+                                {t("flag.detail.typeImmutable")}
+                              </span>
+                            </div>
+                          </Field>
+                          <Field
+                            label={t("flag.wizard.variations")}
+                            hint={t("flag.wizard.variationsHint")}
                           >
-                            {form.type}
-                          </Badge>
-                          <span className="text-[11px] text-muted-foreground">
-                            {t("flag.detail.typeImmutable")}
-                          </span>
-                        </div>
-                      </Field>
-                      <Field
-                        label={t("flag.wizard.variations")}
-                        hint={t("flag.wizard.variationsHint")}
-                      >
-                        <VariationsEditor
-                          t={t}
-                          type={form.type}
-                          variations={form.variations}
-                          setVariations={form.setVariations}
-                        />
-                      </Field>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <VariationsCard t={t} payload={payload} names={names} />
-                )}
-                </div>
+                            <VariationsEditor
+                              t={t}
+                              type={form.type}
+                              variations={form.variations}
+                              setVariations={form.setVariations}
+                            />
+                          </Field>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <VariationsCard t={t} payload={payload} names={names} />
+                    )}
+                  </div>
                 )}
 
                 {/* The metadata pane stays mounted (only hidden) so the
                     uncontrolled enrichment editor keeps in-progress rows when
                     switching to another section. */}
                 <div className={cn(section !== "metadata" && "hidden")}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">
-                      {t("flag.detail.metadataTitle")}
-                    </CardTitle>
-                    <CardDescription>
-                      {t("flag.detail.metadataSubtitle")}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-5">
-                    <EnrichmentEditor
-                      key={metaEditorKey}
-                      initial={customMetadataInitial}
-                      types={METADATA_TYPES}
-                      reservedKeys={RESERVED_META_KEYS}
-                      hideChrome
-                      readOnly={!canEdit}
-                      onChange={form.setCustomMetadata}
-                    />
-                  </CardContent>
-                </Card>
-                </div>
-
-                {section === "settings" && (
-                <div className="flex flex-col gap-4">
-                {canEdit ? (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-sm">
-                        {t("flag.detail.settingsTitle")}
+                        {t("flag.detail.metadataTitle")}
                       </CardTitle>
                       <CardDescription>
-                        {t("flag.detail.settingsSubtitle")}
+                        {t("flag.detail.metadataSubtitle")}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="flex max-w-md flex-col gap-4">
-                      <Field label={t("flag.detail.flagsetLabel")}>
-                        <FlagsetLink
-                          flagsetId={flag.flagsetId}
-                          flagsetName={flagsetName}
-                        />
-                      </Field>
-                      <Field label={t("flag.detail.edit.description")}>
-                        <Input
-                          value={form.description}
-                          onChange={(e) => form.setDescription(e.target.value)}
-                        />
-                      </Field>
-                      <Field label={t("flag.tags")} hint={t("flag.detail.tagsHint")}>
-                        <TagInput
-                          value={form.tags}
-                          onChange={form.setTags}
-                          suggestions={tagSuggestions}
-                          readOnly={!canEdit}
-                          placeholder={t("flag.tagsPlaceholder")}
-                        />
-                      </Field>
-                      <Field
-                        label={t("flag.detail.edit.trackEvents")}
-                        hint={t("flag.detail.edit.trackEventsHint")}
-                      >
-                        <Switch
-                          checked={form.trackEvents}
-                          onCheckedChange={form.setTrackEvents}
-                        />
-                      </Field>
-                      <Field label={t("flag.detail.createdBy")}>
-                        <span className="text-sm">
-                          {createdByName || "—"}
-                        </span>
-                      </Field>
+                    <CardContent className="flex flex-col gap-5">
+                      <EnrichmentEditor
+                        key={metaEditorKey}
+                        initial={customMetadataInitial}
+                        types={METADATA_TYPES}
+                        reservedKeys={RESERVED_META_KEYS}
+                        hideChrome
+                        readOnly={!canEdit}
+                        onChange={form.setCustomMetadata}
+                      />
                     </CardContent>
                   </Card>
-                ) : (
-                  <SettingsCard
-                    t={t}
-                    metadata={payload?.metadata}
-                    trackEvents={payload?.trackEvents ?? true}
-                    flagsetId={flag.flagsetId}
-                    flagsetName={flagsetName}
-                    createdByName={createdByName}
-                  />
-                )}
-
-                {(canEdit || canDelete) && (
-                  <Card className="border-destructive/40">
-                    <CardHeader>
-                      <CardTitle className="text-sm text-destructive">
-                        {t("flag.detail.danger.title")}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-4">
-                      {canEdit && (
-                        <div className="flex items-center justify-between gap-4">
-                          <div>
-                            <div className="text-sm font-medium">
-                              {flag.disabled
-                                ? t("flag.detail.danger.enableTitle")
-                                : t("flag.detail.danger.disableTitle")}
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              {flag.disabled
-                                ? t("flag.detail.danger.enableDesc")
-                                : t("flag.detail.danger.disableDesc")}
-                            </p>
-                          </div>
-                          <Button
-                            variant={flag.disabled ? "default" : "destructive"}
-                            className="shrink-0"
-                            onClick={() => setPendingToggle(true)}
-                          >
-                            {flag.disabled
-                              ? t("flag.detail.danger.enableCta")
-                              : t("flag.detail.danger.disableCta")}
-                          </Button>
-                        </div>
-                      )}
-                      {canEdit && canDelete && <Separator />}
-                      {canDelete && (
-                        <div className="flex items-center justify-between gap-4">
-                          <div>
-                            <div className="text-sm font-medium">
-                              {t("flag.detail.danger.deleteTitle")}
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              {t("flag.detail.danger.deleteDesc")}
-                            </p>
-                          </div>
-                          <Button
-                            variant="destructive"
-                            className="shrink-0"
-                            onClick={() => setPendingDelete(true)}
-                          >
-                            <Trash2Icon className="h-4 w-4" />
-                            {t("flag.detail.danger.deleteCta")}
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
                 </div>
+
+                {section === "settings" && (
+                  <div className="flex flex-col gap-4">
+                    {canEdit ? (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm">
+                            {t("flag.detail.settingsTitle")}
+                          </CardTitle>
+                          <CardDescription>
+                            {t("flag.detail.settingsSubtitle")}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex max-w-md flex-col gap-4">
+                          <Field label={t("flag.detail.flagsetLabel")}>
+                            <FlagsetLink
+                              flagsetId={flag.flagsetId}
+                              flagsetName={flagsetName}
+                            />
+                          </Field>
+                          <Field label={t("flag.detail.edit.description")}>
+                            <Input
+                              value={form.description}
+                              onChange={(e) =>
+                                form.setDescription(e.target.value)
+                              }
+                            />
+                          </Field>
+                          <Field
+                            label={t("flag.tags")}
+                            hint={t("flag.detail.tagsHint")}
+                          >
+                            <TagInput
+                              value={form.tags}
+                              onChange={form.setTags}
+                              suggestions={tagSuggestions}
+                              readOnly={!canEdit}
+                              placeholder={t("flag.tagsPlaceholder")}
+                            />
+                          </Field>
+                          <Field
+                            label={t("flag.detail.edit.trackEvents")}
+                            hint={t("flag.detail.edit.trackEventsHint")}
+                          >
+                            <Switch
+                              checked={form.trackEvents}
+                              onCheckedChange={form.setTrackEvents}
+                            />
+                          </Field>
+                          <Field label={t("flag.detail.createdBy")}>
+                            <span className="text-sm">
+                              {createdByName || "—"}
+                            </span>
+                          </Field>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <SettingsCard
+                        t={t}
+                        metadata={payload?.metadata}
+                        trackEvents={payload?.trackEvents ?? true}
+                        flagsetId={flag.flagsetId}
+                        flagsetName={flagsetName}
+                        createdByName={createdByName}
+                      />
+                    )}
+
+                    {(canEdit || canDelete) && (
+                      <Card className="border-destructive/40">
+                        <CardHeader>
+                          <CardTitle className="text-sm text-destructive">
+                            {t("flag.detail.danger.title")}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-4">
+                          {canEdit && (
+                            <div className="flex items-center justify-between gap-4">
+                              <div>
+                                <div className="text-sm font-medium">
+                                  {flag.disabled
+                                    ? t("flag.detail.danger.enableTitle")
+                                    : t("flag.detail.danger.disableTitle")}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {flag.disabled
+                                    ? t("flag.detail.danger.enableDesc")
+                                    : t("flag.detail.danger.disableDesc")}
+                                </p>
+                              </div>
+                              <Button
+                                variant={
+                                  flag.disabled ? "default" : "destructive"
+                                }
+                                className="shrink-0 min-w-32"
+                                onClick={() => setPendingToggle(true)}
+                              >
+                                {flag.disabled ? (
+                                  <>
+                                    <FlagIcon className="h-4 w-4" />
+                                    {t("flag.detail.danger.enableCta")}
+                                  </>
+                                ) : (
+                                  <>
+                                    <FlagOffIcon className="h-4 w-4" />
+                                    {t("flag.detail.danger.disableCta")}
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                          {canEdit && canDelete && <Separator />}
+                          {canDelete && (
+                            <div className="flex items-center justify-between gap-4">
+                              <div>
+                                <div className="text-sm font-medium">
+                                  {t("flag.detail.danger.deleteTitle")}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {t("flag.detail.danger.deleteDesc")}
+                                </p>
+                              </div>
+                              <Button
+                                variant="destructive"
+                                className="shrink-0 min-w-32"
+                                onClick={() => setPendingDelete(true)}
+                              >
+                                <Trash2Icon className="h-4 w-4" />
+                                {t("flag.detail.danger.deleteCta")}
+                              </Button>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
                 )}
 
                 {section === "history" && (
-                <div>
-                <HistoryTab
-                  t={t}
-                  flagId={flag.id}
-                  currentVersion={flag.currentVersion ?? undefined}
-                  canEdit={canEdit}
-                  onReverted={() => query.refetch()}
-                />
-                </div>
+                  <div>
+                    <HistoryTab
+                      t={t}
+                      flagId={flag.id}
+                      currentVersion={flag.currentVersion ?? undefined}
+                      canEdit={canEdit}
+                      onReverted={() => query.refetch()}
+                    />
+                  </div>
                 )}
 
                 {section === "evaluate" && (
-                <div>
-                <EvaluatePanel
-                  flagId={flag.id}
-                  isDirty={canEdit && form.isDirty}
-                  saving={saving}
-                  saveAndThen={saveFlag}
-                  defaultContext={
-                    flagset?.defaultTestingEvaluationContext
-                      ? JSON.stringify(
-                          flagset.defaultTestingEvaluationContext,
-                          null,
-                          2,
-                        )
-                      : DEFAULT_TESTING_CONTEXT
-                  }
-                />
-                </div>
+                  <div>
+                    <EvaluatePanel
+                      flagId={flag.id}
+                      isDirty={canEdit && form.isDirty}
+                      saving={saving}
+                      saveAndThen={saveFlag}
+                      defaultContext={
+                        flagset?.defaultTestingEvaluationContext
+                          ? JSON.stringify(
+                              flagset.defaultTestingEvaluationContext,
+                              null,
+                              2,
+                            )
+                          : DEFAULT_TESTING_CONTEXT
+                      }
+                    />
+                  </div>
                 )}
 
                 {section === "codeSample" && (
-                <div>
-                <FlagCodeSampleTab flag={flag} canReadKeys={canEdit} />
-                </div>
+                  <div>
+                    <FlagCodeSampleTab flag={flag} canReadKeys={canEdit} />
+                  </div>
                 )}
               </div>
             </div>
