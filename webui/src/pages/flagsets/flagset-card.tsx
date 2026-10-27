@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router";
 import { useTranslate } from "@refinedev/core";
 import { KeyRoundIcon, MoreVerticalIcon, Trash2Icon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -67,13 +68,15 @@ export function FlagsetCard({ fs, editable, onDelete }: Props) {
         {editable && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
-                className="ml-auto rounded p-1 hover:bg-muted"
+              <Button
+                variant="ghost"
+                size="icon"
+                className="ml-auto size-7"
                 aria-label={t("common.actions")}
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreVerticalIcon className="h-4 w-4" />
-              </button>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem

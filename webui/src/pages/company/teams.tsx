@@ -27,7 +27,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -179,12 +185,14 @@ export function CompanyTeamsCard({ companyId }: { companyId: string }) {
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle>{t("company.teams.cardTitle")}</CardTitle>
-          <Button size="sm" onClick={openCreate}>
-            <PlusIcon className="h-4 w-4" />
-            {t("company.teams.newTeam")}
-          </Button>
+          <CardAction>
+            <Button size="sm" onClick={openCreate}>
+              <PlusIcon className="h-4 w-4" />
+              {t("company.teams.newTeam")}
+            </Button>
+          </CardAction>
         </CardHeader>
         <CardContent>
           <Table>

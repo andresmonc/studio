@@ -134,7 +134,8 @@ describe("EvaluatePanel", () => {
     fireEvent.click(runButton());
 
     // JSON.stringify(value, null, 2) keeps the key on its own indented line.
-    expect(screen.getByText(/"a": 1/)).toBeTruthy();
+    // The value renders in a highlighted CodeBlock, which splits it into tokens.
+    expect(document.querySelector("pre code")?.textContent).toContain('"a": 1');
   });
 
   it("renders a falsy boolean value verbatim (the common boolean-flag result)", () => {

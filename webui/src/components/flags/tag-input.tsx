@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Command as CommandPrimitive } from "cmdk";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   CommandGroup,
   CommandItem,
@@ -137,17 +138,19 @@ export function TagInput({
           <Badge key={tag} variant="secondary" className="gap-1 font-normal">
             {tag}
             {!readOnly && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 aria-label={`Remove ${tag}`}
-                className="ml-0.5 rounded-sm text-muted-foreground hover:text-destructive"
+                className="ml-0.5 size-4 rounded-sm text-muted-foreground hover:bg-transparent hover:text-destructive"
                 onClick={(e) => {
                   e.stopPropagation();
                   removeTag(tag);
                 }}
               >
-                <X className="h-3 w-3" />
-              </button>
+                <X className="size-3" />
+              </Button>
             )}
           </Badge>
         ))}

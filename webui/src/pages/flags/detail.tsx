@@ -455,14 +455,14 @@ export function FlagDetailPage() {
             <div className="mt-2 grid grid-cols-1 gap-6 md:grid-cols-[184px_1fr]">
               <nav className="flex flex-col gap-1 md:sticky md:top-4 md:self-start">
                 {menu.map((m) => (
-                  <button
+                  <Button
                     key={m.key}
+                    variant="ghost"
+                    aria-current={section === m.key ? "true" : undefined}
                     onClick={() => setSection(m.key)}
                     className={cn(
-                      "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
-                      section === m.key
-                        ? "bg-muted font-medium text-foreground"
-                        : "text-muted-foreground hover:bg-muted/60",
+                      "justify-start font-normal text-muted-foreground",
+                      section === m.key && "bg-muted font-medium text-foreground",
                     )}
                   >
                     {m.icon}
@@ -470,7 +470,7 @@ export function FlagDetailPage() {
                     {m.badge != null && (
                       <Badge variant="secondary">{m.badge}</Badge>
                     )}
-                  </button>
+                  </Button>
                 ))}
               </nav>
 

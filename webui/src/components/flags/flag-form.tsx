@@ -9,7 +9,7 @@
 //   - flag-form-helpers.ts    — pure constants, outcome math, coercion/validation
 //   - flag-form-hydration.ts  — payload ⇄ form-state conversion
 //   - use-flag-form.ts        — the useFlagForm editing hook
-//   - flag-form-fields.tsx    — shared UI atoms (Field, Segmented, TYPE_OPTIONS)
+//   - flag-form-fields.tsx    — shared UI atoms (Field, TYPE_OPTIONS)
 //   - variations-editor.tsx   — VariationsEditor
 //   - outcome-editor.tsx      — OutcomeEditor
 //   - rules-editor.tsx        — RulesEditor

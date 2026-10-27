@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CodeSampleTab } from "./code-sample-tab";
 import { GeneralTab } from "./settings-general-tab";
@@ -122,27 +123,30 @@ export function FlagsetSettingsPage() {
           <nav className="flex flex-col gap-1 md:sticky md:top-4 md:self-start">
             {tabs.map((tb) => (
               <Fragment key={tb.key}>
-                <button
+                <Button
+                  variant="ghost"
+                  aria-current={shownTab === tb.key ? "true" : undefined}
                   onClick={() => setTab(tb.key)}
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
-                    shownTab === tb.key
-                      ? "bg-muted font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-muted/60",
+                    "justify-start font-normal text-muted-foreground",
+                    shownTab === tb.key && "bg-muted font-medium text-foreground",
                   )}
                 >
                   {tb.icon}
                   {tb.label}
-                </button>
+                </Button>
                 {tb.key === "general" && (
-                  <Link
-                    to={`/flags?flagset=${id}`}
-                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted/60"
+                  <Button
+                    asChild
+                    variant="ghost"
+                    className="justify-start font-normal text-muted-foreground"
                   >
-                    <ListIcon className="h-4 w-4" />
-                    {t("flagset.settings.viewFlags")}
-                    <ArrowUpRightIcon className="ml-auto h-3.5 w-3.5" />
-                  </Link>
+                    <Link to={`/flags?flagset=${id}`}>
+                      <ListIcon className="h-4 w-4" />
+                      {t("flagset.settings.viewFlags")}
+                      <ArrowUpRightIcon className="ml-auto h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
                 )}
               </Fragment>
             ))}

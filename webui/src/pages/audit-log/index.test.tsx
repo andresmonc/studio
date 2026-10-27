@@ -243,12 +243,12 @@ describe("AuditLogPage filters", () => {
   it("scope buttons filter by target type and sync ?scope", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.click(screen.getByRole("button", { name: "auditLog.scope.keys" }));
+    await user.click(screen.getByRole("radio", { name: "auditLog.scope.keys" }));
     expect(loc().get("scope")).toBe("keys");
-    expect(screen.getByRole("button", { name: "auditLog.scope.keys" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("radio", { name: "auditLog.scope.keys" })).toBeChecked();
     expect(rows()).toHaveLength(1);
 
-    await user.click(screen.getByRole("button", { name: "auditLog.scope.all" }));
+    await user.click(screen.getByRole("radio", { name: "auditLog.scope.all" }));
     expect(loc().has("scope")).toBe(false);
     expect(rows()).toHaveLength(6);
   });

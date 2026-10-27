@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useCustomMutation, useTranslate } from "@refinedev/core";
 import { toast } from "sonner";
 import { AlertTriangleIcon, PlayIcon } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CodeBlock } from "@/components/ui/code-block";
 import {
   Card,
   CardContent,
@@ -11,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
@@ -74,6 +77,7 @@ export function EvaluatePanel({
   defaultContext,
 }: Props) {
   const t = useTranslate();
+  const contextId = useId();
   const [context, setContext] = useState(defaultContext);
   const [jsonError, setJsonError] = useState(false);
   const [result, setResult] = useState<EvaluationResult | null>(null);
@@ -158,10 +162,9 @@ export function EvaluatePanel({
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">
-              {t("flag.detail.evaluate.context")}
-            </label>
+            <Label htmlFor={contextId}>{t("flag.detail.evaluate.context")}</Label>
             <Textarea
+              id={contextId}
               value={context}
               onChange={(e) => {
                 setContext(e.target.value);
@@ -206,32 +209,30 @@ export function EvaluatePanel({
               {t("flag.detail.evaluate.empty")}
             </p>
           ) : result.failed || result.errorCode ? (
-            <div className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-destructive">
-                <AlertTriangleIcon className="h-4 w-4" />
+            <Alert variant="destructive">
+              <AlertTriangleIcon />
+              <AlertTitle className="flex items-center gap-2">
                 {t("flag.detail.evaluate.failed")}
                 {result.errorCode && (
                   <Badge variant="destructive" className="font-mono">
                     {result.errorCode}
                   </Badge>
                 )}
-              </div>
-              {result.errorDetails && (
-                <p className="text-sm text-muted-foreground">
-                  {result.errorDetails}
-                </p>
-              )}
-              <ResultMeta t={t} result={result} />
-            </div>
+              </AlertTitle>
+              <AlertDescription className="gap-2">
+                {result.errorDetails && (
+                  <p className="text-muted-foreground">{result.errorDetails}</p>
+                )}
+                <ResultMeta t={t} result={result} />
+              </AlertDescription>
+            </Alert>
           ) : (
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <span className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
                   {t("flag.detail.evaluate.value")}
                 </span>
-                <pre className="overflow-x-auto rounded-md border bg-muted p-3 font-mono text-sm">
-                  {formatValue(result.value)}
-                </pre>
+                <CodeBlock code={formatValue(result.value)} language="json" />
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="font-mono">

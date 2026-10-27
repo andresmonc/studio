@@ -3,7 +3,13 @@ import { useCustom, useTranslate } from "@refinedev/core";
 import { CopyIcon, InfoIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
@@ -15,9 +21,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { inferFlagType } from "@/components/flags/payload";
 import { API_URL } from "@/providers/constants";
-import { cn } from "@/lib/utils";
 import { copyToClipboard } from "@/lib/clipboard";
 import { CodeBlock } from "@/components/ui/code-block";
+import { Segmented } from "@/components/ui/segmented";
 import type { Flag, FlagsetAPIKey, FlagType } from "@/types/api";
 import {
   API_KEY_PLACEHOLDER,
@@ -88,29 +94,16 @@ export function FlagCodeSampleTab({ flag, canReadKeys }: { flag: Flag; canReadKe
               {sampleType}
             </Badge>
           </CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <CardDescription className="mt-1.5">
             {t("flag.detail.codeSample.desc")}
-          </p>
+          </CardDescription>
         </div>
 
-        <div className="flex flex-wrap gap-1 rounded-md border p-0.5">
-          {FLAG_SAMPLE_LANGUAGES.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              aria-pressed={langId === s.id}
-              onClick={() => setLangId(s.id)}
-              className={cn(
-                "rounded px-2.5 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-                langId === s.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          value={langId}
+          onChange={setLangId}
+          options={FLAG_SAMPLE_LANGUAGES.map((s) => ({ value: s.id, label: s.label }))}
+        />
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {/* Distinguish a failed key fetch from a genuinely keyless flagset — a

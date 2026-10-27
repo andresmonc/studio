@@ -193,7 +193,7 @@ describe("FlagCodeSampleTab", () => {
     render(<FlagCodeSampleTab flag={makeFlag()} canReadKeys />);
     expect(snippet()).toContain("gofeatureflag.NewProviderWithContext");
 
-    fireEvent.click(screen.getByRole("button", { name: "Python" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Python" }));
     expect(snippet()).toContain("gofeatureflag_python_provider");
     expect(snippet()).toContain("get_boolean_value");
     expect(snippet()).toContain("checkout-redesign");

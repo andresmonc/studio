@@ -1,14 +1,22 @@
 // ApiKeysTab: list, generate, and revoke a flagset's API keys, including the
 // generate dialog and revoke confirmation. Extracted from settings.tsx.
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useCustom, useCustomMutation, useTranslate } from "@refinedev/core";
 import { toast } from "sonner";
 import { CopyIcon, InfoIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -58,6 +66,7 @@ export function ApiKeysTab({
   const keys = Array.isArray(query.data?.data) ? query.data!.data : [];
 
   const [genOpen, setGenOpen] = useState(false);
+  const labelId = useId();
   const [label, setLabel] = useState("");
   const [pendingRevoke, setPendingRevoke] = useState<FlagsetAPIKey | null>(null);
 
@@ -119,46 +128,43 @@ export function ApiKeysTab({
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>{t("flagset.settings.apiKeys")}</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t("flagset.settings.keysSubtitle")}
-            </p>
-          </div>
+        <CardHeader>
+          <CardTitle>{t("flagset.settings.apiKeys")}</CardTitle>
+          <CardDescription>{t("flagset.settings.keysSubtitle")}</CardDescription>
           {canManage && (
-            <Dialog open={genOpen} onOpenChange={setGenOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <PlusIcon className="h-4 w-4" />
-                  {t("flagset.settings.generate")}
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("flagset.settings.generateTitle")}</DialogTitle>
-                </DialogHeader>
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">
-                    {t("flagset.settings.labelField")}
-                  </label>
-                  <Input
-                    value={label}
-                    onChange={(e) => setLabel(e.target.value)}
-                    placeholder={t("flagset.settings.labelPlaceholder")}
-                    onKeyDown={(e) => e.key === "Enter" && onGenerate()}
-                  />
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setGenOpen(false)}>
-                    {t("common.cancel")}
-                  </Button>
-                  <Button onClick={onGenerate} disabled={!label.trim()}>
+            <CardAction>
+              <Dialog open={genOpen} onOpenChange={setGenOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <PlusIcon className="h-4 w-4" />
                     {t("flagset.settings.generate")}
                   </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{t("flagset.settings.generateTitle")}</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor={labelId}>{t("flagset.settings.labelField")}</Label>
+                    <Input
+                      id={labelId}
+                      value={label}
+                      onChange={(e) => setLabel(e.target.value)}
+                      placeholder={t("flagset.settings.labelPlaceholder")}
+                      onKeyDown={(e) => e.key === "Enter" && onGenerate()}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setGenOpen(false)}>
+                      {t("common.cancel")}
+                    </Button>
+                    <Button onClick={onGenerate} disabled={!label.trim()}>
+                      {t("flagset.settings.generate")}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardAction>
           )}
         </CardHeader>
         <CardContent>

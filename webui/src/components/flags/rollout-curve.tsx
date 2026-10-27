@@ -14,11 +14,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Badge } from "@/components/ui/badge";
 import {
   ChartContainer,
   ChartTooltip,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { cn } from "@/lib/utils";
 import { variationColor } from "./variation-colors";
 
 type Gran = "day" | "minute" | "second";
@@ -160,12 +162,12 @@ function ServingNowCard({
           {t("flag.wizard.servingNow")}
         </span>
         {!disabled && (
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-2xs font-medium ${pillClass[status]}`}
+          <Badge
+            className={cn("gap-1.5 rounded-full border-transparent text-2xs", pillClass[status])}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${dotClass[status]}`} />
+            <span className={cn("h-1.5 w-1.5 rounded-full", dotClass[status])} />
             {statusLabel[status]}
-          </span>
+          </Badge>
         )}
       </div>
       <div className="flex flex-1 flex-col gap-3 p-3">

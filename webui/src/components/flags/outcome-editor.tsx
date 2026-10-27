@@ -3,6 +3,7 @@
 // curve preview). Extracted from flag-form.tsx.
 
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { Slider } from "@/components/ui/slider";
 import { TipCallout } from "@/components/ui/tip-callout";
 import {
@@ -17,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { DistributionBar } from "./distribution-bar";
 import { RolloutCurve } from "./rollout-curve";
 import { variationColor } from "./variation-colors";
-import { Field, Segmented } from "./flag-form-fields";
+import { Field } from "./flag-form-fields";
 import { clampPercentage, outcomeSum } from "./flag-form-helpers";
 import type { Outcome, ProgState, Tr } from "./flag-form-types";
 
@@ -52,6 +53,7 @@ export function OutcomeEditor({
   return (
     <div>
       <Segmented
+        className="w-full capitalize"
         value={outcome.mode}
         onChange={(mode) => set({ mode })}
         options={[

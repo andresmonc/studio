@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { Segmented } from "@/components/ui/segmented";
 import type { Flagset } from "@/types/api";
 import { FilterSelect } from "./filter-select";
 import { ALL, type TranslateFn } from "./vocabulary";
@@ -44,28 +44,15 @@ export function AuditFilters({
         placeholder={t("auditLog.search")}
         className="h-9 w-full max-w-xs"
       />
-      <div className="inline-flex h-9 items-center rounded-md border bg-background p-0.5">
-        {SCOPES.map((s) => {
-          const val = s === "all" ? ALL : s;
-          const on = scope === val;
-          return (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={on}
-              onClick={() => setParam("scope", val)}
-              className={cn(
-                "h-8 rounded px-3 text-xs font-medium transition-colors",
-                on
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {t(`auditLog.scope.${s}`)}
-            </button>
-          );
-        })}
-      </div>
+      <Segmented
+        className="h-9 flex-nowrap bg-background"
+        value={scope}
+        onChange={(v) => setParam("scope", v)}
+        options={SCOPES.map((s) => ({
+          value: s === "all" ? ALL : s,
+          label: t(`auditLog.scope.${s}`),
+        }))}
+      />
       <FilterSelect
         value={actor}
         onChange={(v) => setParam("actor", v)}

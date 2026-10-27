@@ -543,12 +543,16 @@ describe("FlagDetailPage left-menu navigation", () => {
     // Targeting is active on mount: active gets the muted background + medium
     // weight; inactive buttons render muted-foreground text instead.
     expect(targeting).toHaveClass("bg-muted", "font-medium");
+    expect(targeting).toHaveAttribute("aria-current", "true");
     expect(settings).toHaveClass("text-muted-foreground");
+    expect(settings).not.toHaveAttribute("aria-current");
 
     await user.click(settings);
 
     expect(settings).toHaveClass("bg-muted", "font-medium");
+    expect(settings).toHaveAttribute("aria-current", "true");
     expect(targeting).toHaveClass("text-muted-foreground");
+    expect(targeting).not.toHaveAttribute("aria-current");
   });
 });
 
@@ -655,7 +659,7 @@ describe("FlagDetailPage history and code sample tabs", () => {
     renderPage();
     await user.click(screen.getByRole("button", { name: "Code sample" }));
 
-    expect(screen.getByRole("button", { name: "Python" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Python" })).toBeInTheDocument();
   });
 });
 

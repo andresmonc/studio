@@ -31,6 +31,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -245,9 +246,9 @@ export function FlagsetsPage() {
                               placeholder="checkout-team"
                             />
                           </FormControl>
-                          <p className="text-2xs text-muted-foreground">
+                          <FormDescription className="text-2xs">
                             {t("flagset.nameHint")}
-                          </p>
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}

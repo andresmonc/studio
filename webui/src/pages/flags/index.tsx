@@ -642,16 +642,17 @@ function SortableHead({
       className={cn(HEAD, className)}
       aria-sort={active === "asc" ? "ascending" : active === "desc" ? "descending" : undefined}
     >
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={onClick}
-        className="-ml-1 inline-flex items-center gap-1 rounded px-1 uppercase hover:text-foreground"
+        className="-ml-2 h-7 gap-1 px-2 text-xs uppercase tracking-wider text-muted-foreground has-[>svg]:px-2 hover:text-foreground"
       >
         {children}
         <Icon
-          className={cn("h-3 w-3", active ? "text-primary" : "text-muted-foreground/60")}
+          className={cn("size-3", active ? "text-primary" : "text-muted-foreground/60")}
         />
-      </button>
+      </Button>
     </TableHead>
   );
 }

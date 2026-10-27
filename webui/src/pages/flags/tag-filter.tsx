@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useTranslate } from "@refinedev/core";
-import { Check, ChevronsUpDown, TagsIcon } from "lucide-react";
+import { ChevronsUpDown, TagsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Command,
   CommandEmpty,
@@ -16,7 +17,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
 
 // TagFilter is the GitHub-label-picker-style multi-select in the flags list
 // filter bar: a Popover holding a searchable, checkable list of tags. Selecting a
@@ -84,16 +84,13 @@ export function TagFilter({
                     value={tag}
                     onSelect={() => onToggle(tag)}
                   >
-                    <span
-                      className={cn(
-                        "flex h-4 w-4 items-center justify-center rounded-sm border",
-                        checked
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-input",
-                      )}
-                    >
-                      {checked && <Check className="h-3 w-3" />}
-                    </span>
+                    {/* Visual only: the CommandItem owns selection and focus. */}
+                    <Checkbox
+                      checked={checked}
+                      tabIndex={-1}
+                      aria-hidden="true"
+                      className="pointer-events-none"
+                    />
                     <span className="truncate">{tag}</span>
                   </CommandItem>
                 );

@@ -153,7 +153,7 @@ describe("CodeSampleTab", () => {
     // Default is Go.
     expect(snippet()).toContain("gofeatureflag.NewProviderWithContext");
 
-    fireEvent.click(screen.getByRole("button", { name: "Python" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Python" }));
     expect(snippet()).toContain("gofeatureflag_python_provider");
   });
 

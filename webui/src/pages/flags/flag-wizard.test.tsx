@@ -62,6 +62,8 @@ async function openWizard(user: User) {
 }
 
 const btn = (name: string) => screen.getByRole("button", { name });
+// Segmented options are radios (single-choice ToggleGroup).
+const option = (name: string) => screen.getByRole("radio", { name });
 const keyInput = () => screen.getByPlaceholderText("checkout-progress-banner");
 // The sidekick check label is muted until its condition passes.
 const checkOk = (label: string) => !screen.getByText(label).className.includes("text-muted-foreground");
@@ -115,7 +117,7 @@ describe("FlagWizard navigation and validation", () => {
     await openWizard(user);
     await user.type(keyInput(), "my-flag");
 
-    await user.click(btn("int"));
+    await user.click(option("int"));
     // Switching type resets to two empty variations, which aren't valid ints.
     const values = screen.getAllByPlaceholderText("value");
     expect(values).toHaveLength(2);
@@ -174,7 +176,7 @@ describe("FlagWizard navigation and validation", () => {
     renderWizard();
     await openWizard(user);
     await user.type(keyInput(), "my-flag");
-    await user.click(btn("string"));
+    await user.click(option("string"));
     const values = screen.getAllByPlaceholderText("value");
     await user.type(values[0], "a");
     await user.type(values[1], "b");
@@ -203,7 +205,7 @@ describe("FlagWizard navigation and validation", () => {
     expect(preview()).toMatch(/^my-flag:\n/);
     expect(preview()).toContain("variation: enabled");
 
-    await user.click(btn("JSON"));
+    await user.click(option("JSON"));
     expect(JSON.parse(preview())).toEqual({
       "my-flag": {
         variations: { enabled: true, disabled: false },

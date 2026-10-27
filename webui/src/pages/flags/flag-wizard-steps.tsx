@@ -17,9 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Segmented } from "@/components/ui/segmented";
 import {
   Field,
-  Segmented,
   TagInput,
   TYPE_OPTIONS,
   VariationsEditor,
@@ -136,7 +136,12 @@ export function BasicsStep({
         />
       </Field>
       <Field label={t("flag.wizard.type")}>
-        <Segmented value={type} options={TYPE_OPTIONS} onChange={onTypeChange} />
+        <Segmented
+          className="w-full capitalize"
+          value={type}
+          options={TYPE_OPTIONS}
+          onChange={onTypeChange}
+        />
       </Field>
       <Field label={t("flag.wizard.variations")} hint={t("flag.wizard.variationsHint")}>
         <VariationsEditor
@@ -224,6 +229,7 @@ export function ReviewStep({
       <Field label={t("flag.wizard.flagPreview")}>
         <div className="flex flex-col gap-2">
           <Segmented
+            className="w-full capitalize"
             value={format}
             onChange={setFormat}
             options={[

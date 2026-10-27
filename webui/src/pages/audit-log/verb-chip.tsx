@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { FALLBACK_VERB, TONE_CLASS, VERB, type TranslateFn } from "./vocabulary";
 
@@ -9,14 +10,9 @@ export function VerbChip({ action, t }: { action: string; t: TranslateFn }) {
   const Icon = v?.icon ?? FALLBACK_VERB.icon;
   const label = v ? t(`auditLog.verb.${v.key}`) : action.split(".").pop();
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-medium",
-        TONE_CLASS[tone],
-      )}
-    >
-      <Icon className="h-3 w-3" />
+    <Badge className={cn("rounded-full border-transparent text-2xs", TONE_CLASS[tone])}>
+      <Icon />
       {label}
-    </span>
+    </Badge>
   );
 }

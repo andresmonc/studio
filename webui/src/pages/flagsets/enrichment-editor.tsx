@@ -4,6 +4,8 @@ import { PlusIcon, Trash2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Segmented } from "@/components/ui/segmented";
 import {
   Select,
   SelectContent,
@@ -183,12 +185,12 @@ export function EnrichmentEditor({
     <div>
       {!hideChrome && (
         <div className="mb-2 flex items-center gap-2">
-          <label className="text-sm font-medium">
-            {t("flagset.enrichmentLabel")}{" "}
+          <Label className="gap-1">
+            {t("flagset.enrichmentLabel")}
             <span className="font-normal text-muted-foreground">
               · {t("common.optional")}
             </span>
-          </label>
+          </Label>
           <Badge
             variant="secondary"
             className="ml-auto font-normal"
@@ -260,25 +262,15 @@ export function EnrichmentEditor({
               </Select>
               <div className="flex flex-col gap-1">
                 {row.type === "boolean" ? (
-                  <div className="inline-flex w-fit rounded-md border p-0.5">
-                    {(["true", "false"] as const).map((b) => (
-                      <button
-                        key={b}
-                        type="button"
-                        disabled={readOnly}
-                        onClick={() => patch(row.id, { value: b })}
-                        className={cn(
-                          "rounded px-2.5 py-1 text-xs font-medium",
-                          row.value === b
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:text-foreground",
-                          readOnly && "cursor-not-allowed opacity-60",
-                        )}
-                      >
-                        {b}
-                      </button>
-                    ))}
-                  </div>
+                  <Segmented
+                    value={row.value}
+                    disabled={readOnly}
+                    onChange={(value) => patch(row.id, { value })}
+                    options={[
+                      { value: "true", label: "true" },
+                      { value: "false", label: "false" },
+                    ]}
+                  />
                 ) : (
                   <Input
                     className={cn(
@@ -311,14 +303,15 @@ export function EnrichmentEditor({
         })}
 
         {!readOnly && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={addRow}
-            className="flex w-full items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-primary hover:bg-muted"
+            className="h-auto w-full justify-start gap-1.5 rounded-none px-2.5 py-2 text-xs text-primary has-[>svg]:px-2.5"
           >
             <PlusIcon className="h-4 w-4" />
             {t("flagset.addAttribute")}
-          </button>
+          </Button>
         )}
       </div>
 

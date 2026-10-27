@@ -134,7 +134,7 @@ describe("EnrichmentEditor rows", () => {
     expect(lastCall(onChange)).toEqual([{ k: false }, true]);
     expect(screen.queryByPlaceholderText("flagset.value")).toBeNull();
 
-    await u.click(screen.getByRole("button", { name: "true" }));
+    await u.click(screen.getByRole("radio", { name: "true" }));
     expect(lastCall(onChange)).toEqual([{ k: true }, true]);
   });
 
@@ -162,7 +162,7 @@ describe("EnrichmentEditor display modes", () => {
     expect(screen.queryByText("flagset.addAttribute")).toBeNull();
     keyInputs().forEach((i) => expect(i).toBeDisabled());
     expect(screen.getAllByRole("button", { name: "common.remove" })[0]).toBeDisabled();
-    expect(screen.getByRole("button", { name: "true" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "true" })).toBeDisabled();
   });
 
   const tests = [
