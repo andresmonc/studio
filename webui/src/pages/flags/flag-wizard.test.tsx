@@ -263,6 +263,14 @@ describe("FlagWizard navigation and validation", () => {
     expect(checkOk("Flagset selected")).toBe(false);
     expect(btn("Continue")).toBeDisabled();
   });
+
+  it("names the dialog and describes it with the selected flagset", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderWizard();
+    await openWizard(user);
+
+    expect(screen.getByRole("dialog", { name: "New flag" })).toHaveAccessibleDescription("default");
+  });
 });
 
 describe("FlagWizard create", () => {

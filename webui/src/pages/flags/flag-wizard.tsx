@@ -7,7 +7,13 @@ import {
   PlusIcon,
   RocketIcon,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
   RulesEditor,
@@ -270,12 +276,12 @@ export function FlagWizard({
             <PlusIcon className="h-4 w-4" />
           </span>
           <div>
-            <div className="text-sm font-semibold">
+            <DialogTitle className="text-sm font-semibold">
               {t("flag.wizard.title")}
-            </div>
-            <div className="text-xs text-muted-foreground">
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
               {flagset ? flagset.name : t("flag.wizard.subtitle")}
-            </div>
+            </DialogDescription>
           </div>
         </div>
 
