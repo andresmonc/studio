@@ -66,7 +66,7 @@ The server validates the whole configuration at startup and reports every proble
 | `auth.cookieDomain` | (none) | See [Sessions and cookies](#sessions-and-cookies). |
 | `auth.adminEmails` | (none) | Super admins, matched case-insensitively on the verified login email. |
 | `auth.postLoginRedirect` | `/` | Where the browser lands after login: a path, or the web UI's absolute URL. |
-| `auth.allowUnverifiedEmail` | `false` | Accept ID tokens without `email_verified: true`. Unverified logins never get super admin. |
+| `auth.allowUnverifiedEmail` | `false` | Accept logins without `email_verified: true`. When the ID token omits the claim (Okta's org authorization server does), Studio reads it from `/userinfo` first. Unverified logins never get super admin. |
 | `log.level` | `info` | `debug`, `info`, `warn` or `error`. |
 | `log.format` | `json` | `json` or `text`. |
 

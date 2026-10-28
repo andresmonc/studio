@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ type AuthService struct {
 	users       *repository.UserRepo
 	companies   *repository.CompanyRepo
 	oauth       *oauth2.Config
+	provider    *oidc.Provider
 	verifier    *oidc.IDTokenVerifier
 	adminEmails map[string]struct{}
 }
@@ -44,7 +46,9 @@ func NewAuthService(
 	for _, e := range cfg.Auth.AdminEmails {
 		adm[strings.ToLower(e)] = struct{}{}
 	}
-	return &AuthService{cfg: cfg, users: users, companies: companies, oauth: o, verifier: v, adminEmails: adm}, nil
+	return &AuthService{
+		cfg: cfg, users: users, companies: companies, oauth: o, provider: provider, verifier: v, adminEmails: adm,
+	}, nil
 }
 
 // AuthURL builds the provider redirect. verifier (PKCE, RFC 7636) and nonce
@@ -160,9 +164,9 @@ func (s *AuthService) Exchange(ctx context.Context, code, verifier, nonce string
 	if claims.Email == "" {
 		return nil, "", rejected("email claim missing")
 	}
-	// Require an explicit `true` (missing counts as unverified) unless the
+	// Require an explicit `true`, from the ID token or /userinfo, unless the
 	// operator opted out. `any` because some IdPs (AWS Cognito) send a string.
-	verified := claims.EmailVerified == true || claims.EmailVerified == "true"
+	verified := s.emailVerified(ctx, tok, claims.EmailVerified, claims.Sub, claims.Email)
 	if !verified && !s.cfg.Auth.AllowUnverifiedEmail {
 		return nil, "", rejected("email not verified")
 	}
@@ -193,6 +197,20 @@ func (s *AuthService) Exchange(ctx context.Context, code, verifier, nonce string
 		return nil, "", err
 	}
 	return u, signed, nil
+}
+
+// emailVerified reads email_verified from the ID token, falling back to /userinfo when the token omits it.
+func (s *AuthService) emailVerified(ctx context.Context, tok *oauth2.Token, claim any, sub, email string) bool {
+	if claim != nil || s.provider == nil || s.provider.UserInfoEndpoint() == "" {
+		return claim == true || claim == "true"
+	}
+	info, err := s.provider.UserInfo(ctx, oauth2.StaticTokenSource(tok))
+	if err != nil {
+		slog.WarnContext(ctx, "userinfo lookup failed", "error", err)
+		return false
+	}
+	// OIDC Core 5.3.2: a userinfo sub that differs from the ID token's must not be used.
+	return info.Subject == sub && strings.EqualFold(info.Email, email) && info.EmailVerified
 }
 
 // joinDefaultCompany attaches a user without a company to the one they join on

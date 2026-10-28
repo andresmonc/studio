@@ -171,6 +171,113 @@ func TestExchangeEmailVerified(t *testing.T) {
 	}
 }
 
+// withUserInfo points s at a stub /userinfo endpoint and counts its calls. It
+// answers only the access token the stub token endpoint issues.
+func withUserInfo(t *testing.T, s *AuthService, status int, body string) *int {
+	t.Helper()
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.Header.Get("Authorization") != "Bearer at" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	s.provider = (&oidc.ProviderConfig{UserInfoURL: srv.URL}).NewProvider(t.Context())
+	return &calls
+}
+
+func TestExchangeEmailVerifiedFromUserInfo(t *testing.T) {
+	users := repository.NewUserRepo(testutil.StartPostgres(t))
+	tests := []struct {
+		name      string
+		idClaims  string
+		status    int
+		userInfo  string
+		wantErr   string
+		wantCalls int
+	}{
+		{
+			name:     "missing in id_token, verified in userinfo",
+			idClaims: `{"sub":"u1","email":"ui1@acme.com"}`,
+			status:   http.StatusOK, userInfo: `{"sub":"u1","email":"ui1@acme.com","email_verified":true}`,
+			wantCalls: 1,
+		},
+		{
+			name:     "userinfo sends a string",
+			idClaims: `{"sub":"u2","email":"ui2@acme.com"}`,
+			status:   http.StatusOK, userInfo: `{"sub":"u2","email":"UI2@acme.com","email_verified":"true"}`,
+			wantCalls: 1,
+		},
+		{
+			name:     "userinfo says unverified",
+			idClaims: `{"sub":"u3","email":"ui3@acme.com"}`,
+			status:   http.StatusOK, userInfo: `{"sub":"u3","email":"ui3@acme.com","email_verified":false}`,
+			wantErr: "email not verified", wantCalls: 1,
+		},
+		{
+			name:     "userinfo omits the claim",
+			idClaims: `{"sub":"u4","email":"ui4@acme.com"}`,
+			status:   http.StatusOK, userInfo: `{"sub":"u4","email":"ui4@acme.com"}`,
+			wantErr: "email not verified", wantCalls: 1,
+		},
+		{
+			name:     "userinfo for another subject",
+			idClaims: `{"sub":"u5","email":"ui5@acme.com"}`,
+			status:   http.StatusOK, userInfo: `{"sub":"other","email":"ui5@acme.com","email_verified":true}`,
+			wantErr: "email not verified", wantCalls: 1,
+		},
+		{
+			name:     "userinfo verifies a different email",
+			idClaims: `{"sub":"u6","email":"ui6@acme.com"}`,
+			status:   http.StatusOK, userInfo: `{"sub":"u6","email":"other@acme.com","email_verified":true}`,
+			wantErr: "email not verified", wantCalls: 1,
+		},
+		{
+			name:     "userinfo fails",
+			idClaims: `{"sub":"u7","email":"ui7@acme.com"}`,
+			status:   http.StatusInternalServerError, userInfo: `{}`,
+			wantErr: "email not verified", wantCalls: 1,
+		},
+		{
+			name:     "explicit false in id_token is final",
+			idClaims: `{"sub":"u8","email":"ui8@acme.com","email_verified":false}`,
+			status:   http.StatusOK, userInfo: `{"sub":"u8","email":"ui8@acme.com","email_verified":true}`,
+			wantErr: "email not verified", wantCalls: 0,
+		},
+		{
+			name:     "explicit true in id_token skips userinfo",
+			idClaims: `{"sub":"u9","email":"ui9@acme.com","email_verified":true}`,
+			status:   http.StatusInternalServerError, userInfo: `{}`,
+			wantCalls: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := authExchangeService(t, users, tt.idClaims)
+			calls := withUserInfo(t, s, tt.status, tt.userInfo)
+			var claims struct {
+				Email string `json:"email"`
+			}
+			require.NoError(t, json.Unmarshal([]byte(tt.idClaims), &claims))
+			s.adminEmails = map[string]struct{}{claims.Email: {}}
+
+			u, _, err := s.Exchange(t.Context(), "code", "verifier", testNonce)
+			assert.Equal(t, tt.wantCalls, *calls)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.True(t, u.IsSuperAdmin, "a verified admin email grants super admin")
+		})
+	}
+}
+
 func TestExchangePKCEAndNonce(t *testing.T) {
 	users := repository.NewUserRepo(testutil.StartPostgres(t))
 	s := authExchangeService(t, users, `{"sub":"s4","email":"n@acme.com","email_verified":true,"nonce":"n1"}`)
