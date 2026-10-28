@@ -54,6 +54,8 @@ import {
 } from "@/components/ui/table";
 import { MemberCombobox } from "@/components/member-combobox";
 import { API_URL } from "@/providers/constants";
+import { refreshIdentity } from "@/providers/auth";
+import { useActiveTeam } from "@/hooks/use-active-team";
 import { errMessage } from "@/lib/errors";
 import type { CompanyMember, Team } from "@/types/api";
 
@@ -87,6 +89,7 @@ export function CompanyTeamsCard({ companyId }: { companyId: string }) {
     : [];
 
   const { mutate: customMutate } = useCustomMutation();
+  const { activeTeamId, setActiveTeamId } = useActiveTeam();
 
   const teamSchema = useMemo(
     () =>
@@ -138,11 +141,15 @@ export function CompanyTeamsCard({ companyId }: { companyId: string }) {
         errorNotification: false,
       },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
           toast.success(t("company.teams.deleted"));
+          const deletedId = pendingDelete.id;
           setPendingDelete(null);
           setDeleting(false);
           refetch();
+          // Refresh memberships first so the fallback can't pick the deleted team.
+          await refreshIdentity();
+          if (deletedId === activeTeamId) setActiveTeamId(null);
         },
         onError: (err) => {
           toast.error(t("company.teams.deleteError"), {

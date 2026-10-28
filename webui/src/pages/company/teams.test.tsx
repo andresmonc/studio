@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { useForm as useRHForm } from "react-hook-form";
@@ -14,6 +14,9 @@ const h = vi.hoisted(() => ({
   navigate: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
+  activeTeamId: "t1" as string | null,
+  setActiveTeamId: vi.fn(),
+  refreshIdentity: vi.fn(),
 }));
 
 // Routes useCustom by URL: the teams list vs. the company members (admin picker).
@@ -31,6 +34,10 @@ vi.mock("react-router", async (orig) => ({
   ...(await orig<typeof import("react-router")>()),
   useNavigate: () => h.navigate,
 }));
+vi.mock("@/hooks/use-active-team", () => ({
+  useActiveTeam: () => ({ activeTeamId: h.activeTeamId, setActiveTeamId: h.setActiveTeamId }),
+}));
+vi.mock("@/providers/auth", () => ({ refreshIdentity: () => h.refreshIdentity() }));
 vi.mock("sonner", () => ({
   toast: {
     success: (...a: unknown[]) => h.toastSuccess(...a),
@@ -63,6 +70,10 @@ beforeEach(() => {
   h.navigate.mockReset();
   h.toastSuccess.mockReset();
   h.toastError.mockReset();
+  h.activeTeamId = "t1";
+  h.setActiveTeamId.mockReset();
+  h.refreshIdentity.mockReset();
+  h.refreshIdentity.mockResolvedValue(undefined);
 });
 
 const renderCard = () =>
@@ -132,6 +143,43 @@ describe("CompanyTeamsCard delete", () => {
       }
     });
   }
+
+  const activeTests = [
+    { name: "deleting the active team refreshes memberships, then clears it", activeTeamId: "t1", wantCleared: true },
+    { name: "deleting another team keeps the active one", activeTeamId: "t2", wantCleared: false },
+  ];
+  for (const tt of activeTests) {
+    it(tt.name, async () => {
+      h.activeTeamId = tt.activeTeamId;
+      const order: string[] = [];
+      h.refreshIdentity.mockImplementation(async () => {
+        order.push("refresh");
+      });
+      h.setActiveTeamId.mockImplementation(() => order.push("clear"));
+      const user = userEvent.setup();
+      renderCard();
+      await user.click(screen.getByRole("button", { name: "company.teams.deleteAria" }));
+      await user.click(screen.getByRole("button", { name: "common.delete" }));
+
+      await waitFor(() => expect(h.refreshIdentity).toHaveBeenCalledTimes(1));
+      if (tt.wantCleared) {
+        await waitFor(() => expect(h.setActiveTeamId).toHaveBeenCalledWith(null));
+        expect(order).toEqual(["refresh", "clear"]);
+      } else {
+        expect(h.setActiveTeamId).not.toHaveBeenCalled();
+      }
+    });
+  }
+
+  it("a failed delete keeps the active team and memberships", async () => {
+    h.outcome = "error";
+    const user = userEvent.setup();
+    renderCard();
+    await user.click(screen.getByRole("button", { name: "company.teams.deleteAria" }));
+    await user.click(screen.getByRole("button", { name: "common.delete" }));
+    expect(h.refreshIdentity).not.toHaveBeenCalled();
+    expect(h.setActiveTeamId).not.toHaveBeenCalled();
+  });
 
   it("cancel closes the dialog without calling the API", async () => {
     const user = userEvent.setup();
