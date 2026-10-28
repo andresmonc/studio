@@ -62,7 +62,7 @@ vi.mock("@/lib/clipboard", () => ({
 }));
 
 // Keep the heavy editor internals out of these page-level tests.
-vi.mock("@/components/flags/flag-form", () => ({
+vi.mock("@/components/flags/form/flag-form", () => ({
   useFlagForm: () => ({
     isDirty: false,
     valid: true,
@@ -104,7 +104,7 @@ vi.mock("@/components/flags/flag-form", () => ({
   RESERVED_META_KEYS: new Set(["owner", "description", "flagType", "tags"]),
 }));
 
-vi.mock("@/components/refine-ui/views/list-view", () => ({
+vi.mock("@/components/views/list-view", () => ({
   ListView: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 

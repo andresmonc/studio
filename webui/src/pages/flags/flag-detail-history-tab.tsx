@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { diffLines } from "@/components/flags/diff";
-import { type Tr } from "@/components/flags/flag-form";
+import { type Tr } from "@/components/flags/form/flag-form";
 import { API_URL } from "@/providers/constants";
 import { errMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";

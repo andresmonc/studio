@@ -1,5 +1,5 @@
 import { useLogin, useTranslate } from "@refinedev/core";
-import { GoffLogo } from "@/components/goff-logo";
+import { GoffLogo } from "@/components/layout/goff-logo";
 import { Button } from "@/components/ui/button";
 import {
   Card,

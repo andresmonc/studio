@@ -10,7 +10,7 @@ import { z } from "zod";
 import {
   CreateView,
   CreateViewHeader,
-} from "@/components/refine-ui/views/create-view";
+} from "@/components/views/create-view";
 import { Button } from "@/components/ui/button";
 import {
   Form,

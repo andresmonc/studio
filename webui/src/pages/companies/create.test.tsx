@@ -26,7 +26,7 @@ vi.mock("@refinedev/react-hook-form", () => ({
   },
 }));
 
-vi.mock("@/components/refine-ui/views/create-view", () => ({
+vi.mock("@/components/views/create-view", () => ({
   CreateView: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   CreateViewHeader: () => null,
 }));

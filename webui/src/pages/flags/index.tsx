@@ -4,7 +4,7 @@ import { keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
-import { ListView } from "@/components/refine-ui/views/list-view";
+import { ListView } from "@/components/views/list-view";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,9 +35,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DataTablePagination } from "@/components/refine-ui/data-table/data-table-pagination";
-import { DistributionBar } from "@/components/flags/distribution-bar";
-import { ProgressiveIndicator } from "@/components/flags/progressive-indicator";
+import { DataTablePagination } from "@/components/views/data-table-pagination";
+import { DistributionBar } from "@/components/flags/display/distribution-bar";
+import { ProgressiveIndicator } from "@/components/flags/display/progressive-indicator";
 import { useActiveTeam } from "@/hooks/use-active-team";
 import { useInvalidateRecentlyEditedFlags } from "@/hooks/use-recently-edited-flags";
 import { canEditTeam, effectiveTeamRole } from "@/providers/access-control";

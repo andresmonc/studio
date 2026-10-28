@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 
 import { FLAG, FLAGSETS } from "../../../.storybook/fixtures";
-import { variationsForType } from "@/components/flags/flag-form";
+import { variationsForType } from "@/components/flags/form/flag-form";
 import { i18nProvider } from "@/providers/i18n";
 import type { FlagType } from "@/types/api";
 import { BasicsStep, ReviewStep, Stepper, WizSidekick } from "./flag-wizard-steps";

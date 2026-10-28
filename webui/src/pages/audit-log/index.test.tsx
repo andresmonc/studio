@@ -19,7 +19,7 @@ vi.mock("@refinedev/core", () => ({
   useCustom: (args: { url: string }) => h.useCustom(args),
 }));
 vi.mock("@/hooks/use-active-team", () => ({ useActiveTeam: () => h.team }));
-vi.mock("@/components/refine-ui/views/list-view", () => ({
+vi.mock("@/components/views/list-view", () => ({
   ListView: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 

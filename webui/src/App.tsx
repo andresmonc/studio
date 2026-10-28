@@ -17,12 +17,12 @@ import {
 } from "lucide-react";
 import "./App.css";
 import "./i18n";
-import { Layout } from "./components/refine-ui/layout/layout";
-import { Toaster } from "./components/refine-ui/notification/toaster";
-import { useNotificationProvider } from "./components/refine-ui/notification/use-notification-provider";
-import { ThemeProvider } from "./components/refine-ui/theme/theme-provider";
-import { OnboardingGuard } from "./components/onboarding-guard";
-import { RbacRoute } from "./components/rbac-route";
+import { Layout } from "./components/layout/layout";
+import { Toaster } from "./components/notification/toaster";
+import { useNotificationProvider } from "./components/notification/use-notification-provider";
+import { ThemeProvider } from "./components/theme/theme-provider";
+import { OnboardingGuard } from "./components/guards/onboarding-guard";
+import { RbacRoute } from "./components/guards/rbac-route";
 import { ActiveCompanyProvider } from "./hooks/use-active-company";
 import { ActiveTeamProvider } from "./hooks/use-active-team";
 import { accessControlProvider } from "./providers/access-control";

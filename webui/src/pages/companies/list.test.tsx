@@ -23,7 +23,7 @@ vi.mock("@refinedev/core", () => ({
   useDelete: () => ({ mutate: h.mutate, mutation: { isPending: h.isPending } }),
 }));
 vi.mock("@/providers/ui-config", () => ({ isMonoCompany: () => h.mono }));
-vi.mock("@/components/refine-ui/views/list-view", () => ({
+vi.mock("@/components/views/list-view", () => ({
   ListView: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ListViewHeader: ({ title, canCreate }: { title: string; canCreate: boolean }) => (
     <div>

@@ -52,7 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MemberCombobox } from "@/components/member-combobox";
+import { MemberCombobox } from "@/components/company/member-combobox";
 import { API_URL } from "@/providers/constants";
 import { errMessage } from "@/lib/errors";
 import type { CompanyMember, Team } from "@/types/api";

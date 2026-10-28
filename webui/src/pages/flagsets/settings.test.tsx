@@ -23,7 +23,7 @@ vi.mock("@/providers/access-control", () => ({
   canEditTeam: () => h.canEdit,
   effectiveTeamRole: () => h.role,
 }));
-vi.mock("@/components/refine-ui/views/list-view", () => ({
+vi.mock("@/components/views/list-view", () => ({
   ListView: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 

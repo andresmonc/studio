@@ -16,7 +16,7 @@ import {
   FlagOffIcon,
   FlagIcon,
 } from "lucide-react";
-import { ListView } from "@/components/refine-ui/views/list-view";
+import { ListView } from "@/components/views/list-view";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -30,7 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { TipCallout } from "@/components/ui/tip-callout";
-import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
+import { ConfirmDeleteDialog } from "@/components/common/confirm-delete-dialog";
 import {
   Tooltip,
   TooltipContent,
@@ -58,11 +58,11 @@ import {
   TagInput,
   VariationsEditor,
   useFlagForm,
-} from "@/components/flags/flag-form";
+} from "@/components/flags/form/flag-form";
 import {
   EnrichmentEditor,
   type EnrichType,
-} from "@/pages/flagsets/enrichment-editor";
+} from "@/components/flagsets/enrichment-editor";
 import { FlagCodeSampleTab } from "@/pages/flags/flag-code-sample-tab";
 import {
   DefaultRuleCard,

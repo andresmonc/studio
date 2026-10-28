@@ -25,7 +25,12 @@ export default defineConfig({
         "src/test/**",
         // Vendored from the shadcn and refine registries, plus app bootstrap wiring.
         "src/components/ui/**",
-        "src/components/refine-ui/**",
+        // Ex-refine-ui files: layout shell, view scaffolds, theme, notifications.
+        "src/components/layout/{layout,header,breadcrumb}.tsx",
+        "src/components/layout/sidebar/sidebar.tsx",
+        "src/components/views/**",
+        "src/components/theme/**",
+        "src/components/notification/**",
         "src/App.tsx",
         "src/index.tsx",
       ],

@@ -26,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ListView, ListViewHeader } from "@/components/refine-ui/views/list-view";
+import { ListView, ListViewHeader } from "@/components/views/list-view";
 import type { Company } from "@/types/api";
 import { HttpError } from "@/providers/http";
 import { isMonoCompany } from "@/providers/ui-config";

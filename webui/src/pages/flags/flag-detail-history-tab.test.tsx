@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { FlagVersion } from "@/types/api";
-import type { Tr } from "@/components/flags/flag-form";
+import type { Tr } from "@/components/flags/form/flag-form";
 
 const h = vi.hoisted(() => ({
   query: {} as Record<string, unknown>,

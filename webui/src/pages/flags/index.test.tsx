@@ -34,7 +34,7 @@ vi.mock("@/providers/access-control", () => ({
 }));
 
 // ListView and FlagWizard pull in refine/router context we don't need here.
-vi.mock("@/components/refine-ui/views/list-view", () => ({
+vi.mock("@/components/views/list-view", () => ({
   ListView: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 

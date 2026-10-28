@@ -12,7 +12,7 @@ import {
   SettingsIcon,
   ZapIcon,
 } from "lucide-react";
-import { ListView } from "@/components/refine-ui/views/list-view";
+import { ListView } from "@/components/views/list-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CodeSampleTab } from "./code-sample-tab";

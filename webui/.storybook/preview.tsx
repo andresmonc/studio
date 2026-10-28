@@ -8,11 +8,11 @@ import type { Decorator, Preview } from "@storybook/react-vite";
 import { useEffect } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
 
-import { Toaster } from "../src/components/refine-ui/notification/toaster";
+import { Toaster } from "../src/components/notification/toaster";
 import {
   ThemeProvider,
   useTheme,
-} from "../src/components/refine-ui/theme/theme-provider";
+} from "../src/components/theme/theme-provider";
 import { ActiveCompanyProvider } from "../src/hooks/use-active-company";
 import { ActiveTeamProvider } from "../src/hooks/use-active-team";
 import {

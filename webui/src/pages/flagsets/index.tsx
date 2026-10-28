@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { CheckIcon, FlagIcon, PlusIcon, ZapIcon } from "lucide-react";
-import { ListView } from "@/components/refine-ui/views/list-view";
+import { ListView } from "@/components/views/list-view";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -29,9 +29,9 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
+import { ConfirmDeleteDialog } from "@/components/common/confirm-delete-dialog";
 import { FlagsetCard } from "./flagset-card";
-import { EnrichmentEditor } from "./enrichment-editor";
+import { EnrichmentEditor } from "@/components/flagsets/enrichment-editor";
 import { useActiveTeam } from "@/hooks/use-active-team";
 import { canEditTeam, effectiveTeamRole } from "@/providers/access-control";
 import { API_URL } from "@/providers/constants";

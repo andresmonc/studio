@@ -6,7 +6,7 @@ import { useCustomMutation, useTranslate } from "@refinedev/core";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EnrichmentEditor } from "./enrichment-editor";
+import { EnrichmentEditor } from "@/components/flagsets/enrichment-editor";
 import { API_URL } from "@/providers/constants";
 import { errMessage } from "@/lib/errors";
 import type { Flagset } from "@/types/api";

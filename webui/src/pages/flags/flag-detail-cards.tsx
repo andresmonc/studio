@@ -15,17 +15,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { DistributionBar } from "@/components/flags/distribution-bar";
-import { variationColor } from "@/components/flags/variation-colors";
-import { VariationPill } from "@/components/flags/variation-pill";
-import { RuleDisplay } from "@/components/flags/rule-display";
-import { TagInput } from "@/components/flags/tag-input";
+import { DistributionBar } from "@/components/flags/display/distribution-bar";
+import { variationColor } from "@/components/flags/display/variation-colors";
+import { VariationPill } from "@/components/flags/display/variation-pill";
+import { RuleDisplay } from "@/components/flags/display/rule-display";
+import { TagInput } from "@/components/flags/form/tag-input";
 import {
   formatVariationValue,
   ruleOutcome,
   type RuleOutcome,
 } from "@/components/flags/payload";
-import { RESERVED_META_KEYS, type Tr } from "@/components/flags/flag-form";
+import { RESERVED_META_KEYS, type Tr } from "@/components/flags/form/flag-form";
 import type { Flag, FlagRule } from "@/types/api";
 import { CodeChip } from "@/components/ui/code-chip";
 import { EmptyState } from "@/components/ui/empty-state";

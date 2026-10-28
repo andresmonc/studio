@@ -3,7 +3,7 @@ import { render } from "@testing-library/react";
 
 // Drive the theme the hook reads.
 const themeState = vi.hoisted(() => ({ theme: "light" as string }));
-vi.mock("@/components/refine-ui/theme/theme-provider", () => ({
+vi.mock("@/components/theme/theme-provider", () => ({
   useTheme: () => ({ theme: themeState.theme }),
 }));
 

@@ -25,7 +25,7 @@ import {
   VariationsEditor,
   type Tr,
   type Variation,
-} from "@/components/flags/flag-form";
+} from "@/components/flags/form/flag-form";
 import { cn } from "@/lib/utils";
 import type { Flagset, FlagType } from "@/types/api";
 

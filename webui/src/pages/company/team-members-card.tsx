@@ -9,7 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Trash2Icon } from "lucide-react";
-import { MemberCombobox } from "@/components/member-combobox";
+import { MemberCombobox } from "@/components/company/member-combobox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import type { FlagRule } from "@/types/api";
-import type { Tr } from "@/components/flags/flag-form";
+import type { Tr } from "@/components/flags/form/flag-form";
 
 import {
   DefaultRuleCard,

@@ -27,7 +27,7 @@ import {
   type Outcome,
   type Rule,
   type Variation,
-} from "@/components/flags/flag-form";
+} from "@/components/flags/form/flag-form";
 import {
   BasicsStep,
   ReviewStep,
@@ -41,7 +41,7 @@ import type { Flag, Flagset, FlagType } from "@/types/api";
 
 // FlagWizard is the 3-step create flow (Basics → Rules → Review) shown in a
 // dialog. Editing happens inline on the flag detail page (see detail.tsx), not
-// here — the shared editing logic/UI lives in components/flags/flag-form.tsx.
+// here — the shared editing logic/UI lives in components/flags/form/flag-form.tsx.
 export function FlagWizard({
   teamId,
   onCreated,

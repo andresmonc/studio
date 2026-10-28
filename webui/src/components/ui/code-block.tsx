@@ -16,7 +16,7 @@ import {
   oneDark,
   oneLight,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { useTheme } from "@/components/refine-ui/theme/theme-provider";
+import { useTheme } from "@/components/theme/theme-provider";
 
 // Register only the languages we actually render to keep the bundle lean (the
 // full PrismLight language set is large): the code-sample tab languages plus

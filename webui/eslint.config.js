@@ -15,7 +15,7 @@ export default tseslint.config(
       "dist",
       "storybook-static",
       "coverage",
-      "src/components/react-querybuilder-shadcn-ui/**",
+      "src/components/vendor/**",
     ],
   },
   {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useCustom, useTranslate } from "@refinedev/core";
 import { useSearchParams } from "react-router";
 import { DownloadIcon } from "lucide-react";
-import { ListView } from "@/components/refine-ui/views/list-view";
+import { ListView } from "@/components/views/list-view";
 import { Button } from "@/components/ui/button";
 import { useActiveTeam } from "@/hooks/use-active-team";
 import { API_URL } from "@/providers/constants";

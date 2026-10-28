@@ -1,7 +1,7 @@
 import { useCustom, useTranslate } from "@refinedev/core";
 import { ArrowLeftIcon } from "lucide-react";
 import { Navigate, useNavigate, useParams } from "react-router";
-import { ListView } from "@/components/refine-ui/views/list-view";
+import { ListView } from "@/components/views/list-view";
 import { Button } from "@/components/ui/button";
 import { TeamDetailsCard } from "./team-details-card";
 import { TeamMembersCard } from "./team-members-card";

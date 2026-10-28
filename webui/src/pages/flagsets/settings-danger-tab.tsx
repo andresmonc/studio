@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
+import { ConfirmDeleteDialog } from "@/components/common/confirm-delete-dialog";
 import { API_URL } from "@/providers/constants";
 import { errMessage } from "@/lib/errors";
 import type { Flagset } from "@/types/api";
