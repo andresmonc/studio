@@ -20,6 +20,26 @@ import type {
 } from "./flag-form-types";
 import type { FlagPayload } from "@/types/api";
 
+// Fields buildFlagPayload writes; `disable` is here because the server rejects it in the payload.
+const MANAGED_KEYS = new Set([
+  "variations",
+  "targeting",
+  "defaultRule",
+  "metadata",
+  "trackEvents",
+  "disable",
+]);
+
+function withUnmanaged(
+  payload: FlagPayload | undefined,
+  built: Record<string, unknown>,
+): Record<string, unknown> {
+  const kept = Object.entries(payload ?? {}).filter(
+    ([k]) => !MANAGED_KEYS.has(k),
+  );
+  return { ...built, ...Object.fromEntries(kept) };
+}
+
 export function useFlagForm(payload?: FlagPayload): UseFlagForm {
   // Re-hydrate only when the payload *content* changes (e.g. after a save
   // refetch), not on every query-result identity change — otherwise an
@@ -33,7 +53,10 @@ export function useFlagForm(payload?: FlagPayload): UseFlagForm {
   }, [payloadKey]);
 
   const baseline = useMemo(
-    () => JSON.stringify(buildFlagPayload(hydrateForm(payload))),
+    () =>
+      JSON.stringify(
+        withUnmanaged(payload, buildFlagPayload(hydrateForm(payload))),
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [payloadKey],
   );
@@ -112,7 +135,7 @@ export function useFlagForm(payload?: FlagPayload): UseFlagForm {
   const valid =
     variationsOk && rulesOk && defaultOk && state.customMetaValid;
 
-  const buildPayload = () => buildFlagPayload(state);
+  const buildPayload = () => withUnmanaged(payload, buildFlagPayload(state));
   const isDirty = JSON.stringify(buildPayload()) !== baseline;
 
   return {

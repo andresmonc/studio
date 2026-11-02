@@ -181,3 +181,37 @@ describe("useFlagForm metadata accessors", () => {
     ).toEqual(["x", "y"]);
   });
 });
+
+describe("useFlagForm keeps fields it does not edit", () => {
+  const unmanaged = {
+    experimentation: {
+      start: "2026-11-01T00:00:00Z",
+      end: "2026-12-01T00:00:00Z",
+    },
+    scheduledRollout: [
+      { date: "2026-11-15T00:00:00Z", defaultRule: { variation: "on" } },
+    ],
+    bucketingKey: "accountId",
+    version: "1.2.0",
+  };
+  const stored = { ...payload, ...unmanaged } as FlagPayload;
+
+  it("saves them unchanged after an unrelated edit", () => {
+    const { result } = renderForm(stored);
+    act(() => result.current.setDescription("new description"));
+    expect(result.current.buildPayload()).toMatchObject({
+      ...unmanaged,
+      metadata: { description: "new description" },
+    });
+  });
+
+  it("is not dirty before any edit", () => {
+    const { result } = renderForm(stored);
+    expect(result.current.isDirty).toBe(false);
+  });
+
+  it("never sends disable, which the server rejects in the payload", () => {
+    const { result } = renderForm({ ...payload, disable: true });
+    expect(result.current.buildPayload()).not.toHaveProperty("disable");
+  });
+});
