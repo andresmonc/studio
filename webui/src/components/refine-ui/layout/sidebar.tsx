@@ -56,6 +56,7 @@ export function Sidebar() {
   const { pathname } = useLocation();
   const canCreateFlag = canWriteTeam(activeTeamId);
   const recentlyEdited = useRecentlyEditedFlags();
+  const Link = useLink();
   const isVisible = (item: TreeMenuItem): boolean => {
     const meta = (item.meta ?? {}) as ResourceAccessMeta;
     if (!canSync("list", meta).can) return false;
@@ -106,12 +107,17 @@ export function Sidebar() {
           open ? "pl-6" : "justify-center",
         )}
       >
-        <GoffLogo
-          withText={open}
-          withCircle={false}
-          className="size-7"
-          textClassName="whitespace-nowrap md:text-base"
-        />
+        <Link
+          to="/"
+          className="ring-sidebar-ring rounded-md outline-hidden focus-visible:ring-2"
+        >
+          <GoffLogo
+            withText={open}
+            withCircle={false}
+            className="size-7"
+            textClassName="whitespace-nowrap md:text-base"
+          />
+        </Link>
       </ShadcnSidebarHeader>
       <ShadcnSidebarContent
         className={cn(

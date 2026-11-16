@@ -28,8 +28,8 @@ vi.mock("@refinedev/core", () => ({
   useLogout: () => ({ mutate: vi.fn(), isPending: false }),
   useTranslate: () => (key: string, defaultMessage?: string) =>
     defaultMessage ?? key,
-  useLink: () => (props: { to: string; children: React.ReactNode }) => (
-    <a href={props.to}>{props.children}</a>
+  useLink: () => ({ to, ...rest }: { to: string } & React.ComponentProps<"a">) => (
+    <a href={to} {...rest} />
   ),
   useRefineOptions: () => ({ title: { icon: null, text: "GO Feature Flag" } }),
 }));
@@ -143,6 +143,11 @@ describe("Sidebar - branding", () => {
   it("shows the GO Feature Flag logo with its name on top", () => {
     renderSidebar();
     expect(screen.getByText("GO Feature Flag")).toBeInTheDocument();
+  });
+
+  it("links the logo to the home page", () => {
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "GO Feature Flag" })).toHaveAttribute("href", "/");
   });
 });
 
