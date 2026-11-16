@@ -83,8 +83,10 @@ describe("RulesEditor rule switch", () => {
     expect(sw("beta")).not.toBeChecked();
   });
 
-  it("is read-only when the editor is disabled", () => {
+  it("can still be toggled when the flag is turned off", () => {
     render(<Harness initial={[makeRule("beta")]} disabled />);
-    expect(sw("beta")).toBeDisabled();
+    expect(sw("beta")).toBeEnabled();
+    fireEvent.click(sw("beta"));
+    expect(sw("beta")).not.toBeChecked();
   });
 });

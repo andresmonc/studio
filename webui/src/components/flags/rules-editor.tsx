@@ -107,7 +107,6 @@ export function RulesEditor({
                     aria-label={t("flag.wizard.ruleEnabled", { name: r.name })}
                     checked={!r.disable}
                     onCheckedChange={(on) => patchRule(r.id, { disable: on ? undefined : true })}
-                    disabled={disabled}
                   />
                   {t(r.disable ? "flag.wizard.ruleOff" : "flag.wizard.ruleOn")}
                 </label>
