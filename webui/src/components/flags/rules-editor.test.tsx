@@ -85,8 +85,11 @@ describe("RulesEditor rule switch", () => {
     expect(sw("beta")).not.toBeChecked();
     expect(sw("eu")).toBeChecked();
     expect(within(sw("beta").closest("label")!).getByText("flag.wizard.ruleOff")).toBeInTheDocument();
+    const dimmed = () => screen.getAllByText("flag.wizard.then").map((el) => el.closest(".opacity-50") !== null);
+    expect(dimmed()).toEqual([true, false]);
     fireEvent.click(sw("beta"));
     expect(sw("beta")).toBeChecked();
+    expect(dimmed()).toEqual([false, false]);
   });
 
   it("shows a rule loaded as off", () => {

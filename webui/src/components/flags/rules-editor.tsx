@@ -22,6 +22,7 @@ import {
 } from "./flag-form-helpers";
 import type { Outcome, Rule, Tr } from "./flag-form-types";
 import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 
 // Shared keyword marker (IF / ELSE IF / OTHERWISE) so the chip styling stays in
 // one place and the branch labels can't visually drift apart.
@@ -92,7 +93,7 @@ export function RulesEditor({
             </EmptyState>
           )}
           {rules.map((r, i) => (
-            <div key={r.id} className="rounded-md border p-3">
+            <div key={r.id} className={cn("rounded-md border p-3", r.disable && "bg-muted/50")}>
               <div className="mb-2 flex items-center gap-2">
                 <KeywordChip>
                   {i === 0 ? t("flag.wizard.if") : t("flag.wizard.elseIf")}
@@ -108,7 +109,11 @@ export function RulesEditor({
                     checked={!r.disable}
                     onCheckedChange={(on) => patchRule(r.id, { disable: on ? undefined : true })}
                   />
-                  {t(r.disable ? "flag.wizard.ruleOff" : "flag.wizard.ruleOn")}
+                  {r.disable ? (
+                    <Badge variant="secondary">{t("flag.wizard.ruleOff")}</Badge>
+                  ) : (
+                    t("flag.wizard.ruleOn")
+                  )}
                 </label>
                 <Button
                   variant="ghost"
@@ -120,28 +125,30 @@ export function RulesEditor({
                   <Trash2Icon className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="queryBuilder-branches">
-                <QueryBuilderShadcnUi>
-                  <QueryBuilder
-                    fields={QB_FIELDS}
-                    operators={QB_OPERATORS}
-                    query={r.query}
-                    onQueryChange={(q) => patchRule(r.id, { query: q })}
-                  />
-                </QueryBuilderShadcnUi>
-              </div>
-              <div className="mt-3 border-t pt-3">
-                <div className="mb-2">
-                  <KeywordChip>{t("flag.wizard.then")}</KeywordChip>
+              <div className={cn(r.disable && "opacity-50")}>
+                <div className="queryBuilder-branches">
+                  <QueryBuilderShadcnUi>
+                    <QueryBuilder
+                      fields={QB_FIELDS}
+                      operators={QB_OPERATORS}
+                      query={r.query}
+                      onQueryChange={(q) => patchRule(r.id, { query: q })}
+                    />
+                  </QueryBuilderShadcnUi>
                 </div>
-                <OutcomeEditor
-                  t={t}
-                  variationNames={variationNames}
-                  outcome={r.outcome}
-                  onChange={(o) => patchRule(r.id, { outcome: o })}
-                  disabled={disabled}
-                  isCreate={isCreate}
-                />
+                <div className="mt-3 border-t pt-3">
+                  <div className="mb-2">
+                    <KeywordChip>{t("flag.wizard.then")}</KeywordChip>
+                  </div>
+                  <OutcomeEditor
+                    t={t}
+                    variationNames={variationNames}
+                    outcome={r.outcome}
+                    onChange={(o) => patchRule(r.id, { outcome: o })}
+                    disabled={disabled}
+                    isCreate={isCreate}
+                  />
+                </div>
               </div>
             </div>
           ))}

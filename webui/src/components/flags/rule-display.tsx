@@ -45,7 +45,8 @@ export function RuleDisplay({
   return (
     <div
       className={cn(
-        "flex items-start gap-3 rounded-lg border bg-card p-3",
+        "flex items-start gap-3 rounded-lg border p-3",
+        off ? "bg-muted/50" : "bg-card",
         className,
       )}
     >
@@ -58,18 +59,20 @@ export function RuleDisplay({
           {name && <span className="text-xs font-medium">{name}</span>}
           {off && <Badge variant="secondary">{off}</Badge>}
         </div>
-        <div className="mt-1.5 text-xs">
-          <span className="mr-1.5 text-muted-foreground">IF</span>
-          <CodeChip className="break-all text-foreground">
-            {humanizeQuery(query)}
-          </CodeChip>
-        </div>
-        {children && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>THEN serve</span>
-            {children}
+        <div className={cn(off && "opacity-50")}>
+          <div className="mt-1.5 text-xs">
+            <span className="mr-1.5 text-muted-foreground">IF</span>
+            <CodeChip className="break-all text-foreground">
+              {humanizeQuery(query)}
+            </CodeChip>
           </div>
-        )}
+          {children && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>THEN serve</span>
+              {children}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

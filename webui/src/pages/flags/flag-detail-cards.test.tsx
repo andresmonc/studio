@@ -78,6 +78,7 @@ describe("TargetingCard", () => {
       expect(screen.getByText("RULE 1")).toBeInTheDocument();
       for (const w of tt.want) expect(screen.getByText(w)).toBeInTheDocument();
       for (const a of tt.absent ?? []) expect(screen.queryByText(a)).not.toBeInTheDocument();
+      expect(screen.getByText("IF").closest(".opacity-50") !== null).toBe(!!tt.rule.disable);
     });
   }
 });
