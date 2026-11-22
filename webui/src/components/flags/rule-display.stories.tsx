@@ -31,6 +31,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const JsonLogicQuery: Story = {};
+export const TurnedOff: Story = { args: { off: "Off" } };
 // Queries that aren't JSON-logic (hand-written nikunjy/rules) are shown verbatim.
 export const RawQuery: Story = {
   args: { query: 'email ew "@example.com"' },

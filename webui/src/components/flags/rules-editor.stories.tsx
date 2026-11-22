@@ -89,3 +89,6 @@ export const EmptyRule: Story = {
   },
 };
 export const Disabled: Story = { args: { initial: TWO_RULES, disabled: true } };
+export const RuleTurnedOff: Story = {
+  args: { initial: [TWO_RULES[0], { ...TWO_RULES[1], disable: true }] },
+};

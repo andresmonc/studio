@@ -51,6 +51,21 @@ describe("hydrate/build round-trip", () => {
     ).toBe(false);
   });
 
+  const ruleDisableTests: { name: string; disable?: boolean; want: Record<string, unknown> }[] = [
+    { name: "keeps a rule turned off", disable: true, want: { disable: true } },
+    { name: "drops disable: false, the default", disable: false, want: {} },
+    { name: "adds nothing to a rule without disable", want: {} },
+  ];
+  for (const tt of ruleDisableTests) {
+    it(tt.name, () => {
+      const rule = { ...payload.targeting![0], ...(tt.disable !== undefined && { disable: tt.disable }) };
+      const built = buildFlagPayload(hydrateForm({ ...payload, targeting: [rule] })) as {
+        targeting: Record<string, unknown>[];
+      };
+      expect(built.targeting[0]).toEqual({ name: "beta", query: expect.any(String), variation: "on", ...tt.want });
+    });
+  }
+
   it("preserves metadata keys beyond description/owner", () => {
     const built = buildFlagPayload(hydrateForm(payload)) as {
       metadata?: Record<string, unknown>;

@@ -30,6 +30,7 @@ export type Rule = {
   name: string;
   query: RuleGroupType;
   outcome: Outcome;
+  disable?: boolean;
 };
 
 export type FlagFormState = {

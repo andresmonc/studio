@@ -3,6 +3,7 @@ import { GripVerticalIcon } from "lucide-react";
 import { formatQuery, type RuleGroupType } from "react-querybuilder";
 import { parseJsonLogic } from "react-querybuilder/parseJsonLogic";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { CodeChip } from "@/components/ui/code-chip";
 
 // humanizeQuery renders a stored targeting query as readable text. The flag
@@ -30,19 +31,22 @@ export function RuleDisplay({
   index,
   name,
   query,
+  off,
   children,
   className,
 }: {
   index: number;
   name?: string;
   query?: string;
+  off?: ReactNode;
   children?: ReactNode;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex items-start gap-3 rounded-lg border bg-card p-3",
+        "flex items-start gap-3 rounded-lg border p-3",
+        off ? "bg-muted/50" : "bg-card",
         className,
       )}
     >
@@ -53,19 +57,22 @@ export function RuleDisplay({
             RULE {index + 1}
           </span>
           {name && <span className="text-xs font-medium">{name}</span>}
+          {off && <Badge variant="secondary">{off}</Badge>}
         </div>
-        <div className="mt-1.5 text-xs">
-          <span className="mr-1.5 text-muted-foreground">IF</span>
-          <CodeChip className="break-all text-foreground">
-            {humanizeQuery(query)}
-          </CodeChip>
-        </div>
-        {children && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>THEN serve</span>
-            {children}
+        <div className={cn(off && "opacity-50")}>
+          <div className="mt-1.5 text-xs">
+            <span className="mr-1.5 text-muted-foreground">IF</span>
+            <CodeChip className="break-all text-foreground">
+              {humanizeQuery(query)}
+            </CodeChip>
           </div>
-        )}
+          {children && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>THEN serve</span>
+              {children}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

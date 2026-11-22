@@ -44,12 +44,15 @@ vi.mock("./flag-wizard", () => ({
     onCreated,
     autoOpen,
     onClosed,
+    defaultFlagsetId,
   }: {
     onCreated: () => void;
     autoOpen?: boolean;
     onClosed?: () => void;
+    defaultFlagsetId?: string;
   }) => (
     <>
+      <span data-testid="wizard-default-flagset">{defaultFlagsetId}</span>
       <button onClick={onCreated}>fake-wizard-created</button>
       {autoOpen && <button onClick={onClosed}>fake-wizard-close</button>}
     </>
@@ -681,6 +684,17 @@ describe("FlagsPage - misc states", () => {
     expect(screen.getByTestId("location-search")).toHaveTextContent(/^$/);
     expect(screen.queryByRole("button", { name: "fake-wizard-close" })).not.toBeInTheDocument();
   });
+
+  const wizardFlagsetTests = [
+    { name: "the flagset filter", url: "/flags?flagset=fs-2", want: "fs-2" },
+    { name: "nothing without a flagset filter", url: "/flags?type=string", want: "" },
+  ];
+  for (const tt of wizardFlagsetTests) {
+    it(`preselects ${tt.name} in the wizard`, () => {
+      renderPage(tt.url);
+      expect(screen.getByTestId("wizard-default-flagset").textContent).toBe(tt.want);
+    });
+  }
 
   it("removes a tag filter when its chip is clicked again", async () => {
     mockApi([{ ...flags[0], tags: ["beta", "prod"] }]);

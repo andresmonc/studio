@@ -48,6 +48,7 @@ export function FlagWizard({
   tagSuggestions = [],
   autoOpen = false,
   onClosed,
+  defaultFlagsetId,
 }: {
   teamId: string;
   onCreated: () => void;
@@ -55,6 +56,7 @@ export function FlagWizard({
   /** Opens the wizard when it flips to true (e.g. the sidebar "Create" link). */
   autoOpen?: boolean;
   onClosed?: () => void;
+  defaultFlagsetId?: string;
 }) {
   const t = useTranslate();
   const [open, setOpen] = useState(false);
@@ -74,7 +76,15 @@ export function FlagWizard({
 
   // ── wizard state ──
   const [step, setStep] = useState(1);
-  const [flagsetId, setFlagsetId] = useState("");
+  const [pickedFlagsetId, setPickedFlagsetId] = useState("");
+  // Explicit pick wins, then the page's flagset filter, then the first flagset;
+  // ids not in the loaded list are ignored so a stale id is never submitted.
+  const flagsetId =
+    [pickedFlagsetId, defaultFlagsetId].find((id) =>
+      flagsets.some((f) => f.id === id),
+    ) ??
+    flagsets[0]?.id ??
+    "";
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -100,7 +110,7 @@ export function FlagWizard({
     setRules([]);
     setDefaultOutcome(newOutcome());
     setComment("");
-    setFlagsetId(flagsets[0]?.id ?? "");
+    setPickedFlagsetId("");
   };
 
   const onOpenChange = (o: boolean) => {
@@ -294,7 +304,7 @@ export function FlagWizard({
                 t={t}
                 flagsets={flagsets}
                 flagsetId={flagsetId}
-                setFlagsetId={setFlagsetId}
+                setFlagsetId={setPickedFlagsetId}
                 name={name}
                 setName={setName}
                 description={description}

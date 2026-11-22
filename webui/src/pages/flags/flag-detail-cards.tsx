@@ -121,7 +121,13 @@ export function TargetingCard({
           <EmptyState variant="inline">{t("flag.detail.noRules")}</EmptyState>
         ) : (
           rules.map((rule, i) => (
-            <RuleDisplay key={i} index={i} name={rule.name} query={rule.query}>
+            <RuleDisplay
+              key={i}
+              index={i}
+              name={rule.name}
+              query={rule.query}
+              off={rule.disable && t("flag.wizard.ruleOff")}
+            >
               <OutcomeView t={t} outcome={ruleOutcome(rule)} names={names} />
             </RuleDisplay>
           ))

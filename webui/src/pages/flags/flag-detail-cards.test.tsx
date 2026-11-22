@@ -60,6 +60,17 @@ describe("TargetingCard", () => {
       rule: { query: "q" },
       want: ["—"],
     },
+    {
+      name: "rule turned off",
+      rule: { name: "beta", query: "q", variation: "on", disable: true },
+      want: ["beta", "flag.wizard.ruleOff"],
+    },
+    {
+      name: "rule turned on explicitly",
+      rule: { name: "beta", query: "q", variation: "on", disable: false },
+      want: ["beta"],
+      absent: ["flag.wizard.ruleOff"],
+    },
   ];
   for (const tt of tests) {
     it(`renders a rule with ${tt.name}`, () => {
@@ -67,6 +78,7 @@ describe("TargetingCard", () => {
       expect(screen.getByText("RULE 1")).toBeInTheDocument();
       for (const w of tt.want) expect(screen.getByText(w)).toBeInTheDocument();
       for (const a of tt.absent ?? []) expect(screen.queryByText(a)).not.toBeInTheDocument();
+      expect(screen.getByText("IF").closest(".opacity-50") !== null).toBe(!!tt.rule.disable);
     });
   }
 });

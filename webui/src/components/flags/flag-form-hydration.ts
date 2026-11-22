@@ -86,6 +86,7 @@ export function hydrateRules(payload: FlagPayload): Rule[] {
     name: r.name ?? "",
     query: parseQuery(r.query),
     outcome: outcomeFromRule(r),
+    disable: r.disable || undefined,
   }));
 }
 
@@ -130,6 +131,7 @@ export function buildFlagPayload(form: FlagFormState): Record<string, unknown> {
       name: r.name,
       query: JSON.stringify(formatQuery(r.query, "jsonlogic")),
       ...buildOutcome(r.outcome, names),
+      ...(r.disable && { disable: true }),
     }));
   }
   payload.defaultRule = buildOutcome(form.defaultOutcome, names);

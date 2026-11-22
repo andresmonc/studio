@@ -280,6 +280,7 @@ export function FlagsPage() {
                 ownersQuery.refetch();
               }}
               tagSuggestions={tagSuggestions}
+              defaultFlagsetId={flagset === ALL ? undefined : flagset}
               autoOpen={searchParams.get("create") === "1"}
               onClosed={() => setParam("create", "", { replace: true })}
             />
