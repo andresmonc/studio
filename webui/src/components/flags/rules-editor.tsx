@@ -104,7 +104,7 @@ export function RulesEditor({
                 />
                 <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
                   <Switch
-                    aria-label={t("flag.wizard.ruleEnabled", { name: r.name })}
+                    aria-label={t("flag.wizard.ruleSwitch", { name: r.name || String(i + 1) })}
                     checked={!r.disable}
                     onCheckedChange={(on) => patchRule(r.id, { disable: on ? undefined : true })}
                   />

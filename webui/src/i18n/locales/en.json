@@ -353,7 +353,7 @@
       "targeting": "Targeting rules",
       "targetingHint": "(evaluated top → bottom)",
       "addRule": "Add rule",
-      "ruleEnabled": "{{name}} enabled",
+      "ruleSwitch": "Rule {{name}}",
       "ruleOn": "On",
       "ruleOff": "Off",
       "noRules": "No targeting rules — the default rule applies to everyone.",

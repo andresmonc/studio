@@ -65,7 +65,7 @@ describe("RulesEditor keyword chips", () => {
 });
 
 describe("RulesEditor rule switch", () => {
-  const sw = (name: string) => screen.getByRole("switch", { name: `flag.wizard.ruleEnabled:${name}` });
+  const sw = (name: string) => screen.getByRole("switch", { name: `flag.wizard.ruleSwitch:${name}` });
 
   it("turns a rule off and back on", () => {
     render(<Harness initial={[makeRule("beta"), makeRule("eu")]} />);
@@ -88,5 +88,10 @@ describe("RulesEditor rule switch", () => {
     expect(sw("beta")).toBeEnabled();
     fireEvent.click(sw("beta"));
     expect(sw("beta")).not.toBeChecked();
+  });
+
+  it("labels a rule without a name by its position", () => {
+    render(<Harness initial={[makeRule("beta"), makeRule("")]} />);
+    expect(sw("2")).toBeChecked();
   });
 });
