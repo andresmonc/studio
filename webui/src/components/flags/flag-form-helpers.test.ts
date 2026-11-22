@@ -10,6 +10,8 @@ describe("coerce", () => {
       { name: "int truncates", type: "int", value: "42.9", want: 42 },
       { name: "float", type: "float", value: "1.5", want: 1.5 },
       { name: "json object", type: "json", value: '{"a":1}', want: { a: 1 } },
+      { name: "json blank is null, not a throw", type: "json", value: "", want: null },
+      { name: "json invalid is null, not a throw", type: "json", value: "{", want: null },
       { name: "string passthrough", type: "string", value: "hi", want: "hi" },
     ];
 

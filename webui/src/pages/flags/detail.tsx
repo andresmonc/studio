@@ -267,6 +267,10 @@ export function FlagDetailPage() {
   // succeeds (used by the Evaluate section to test the just-saved payload).
   const saveFlag = (onSaved?: () => void) => {
     if (!flag) return;
+    if (!form.valid) {
+      toast.error(t("flag.detail.edit.invalid"));
+      return;
+    }
     setSaving(true);
     mutate(
       {

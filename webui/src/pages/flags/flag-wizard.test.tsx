@@ -264,6 +264,41 @@ describe("FlagWizard navigation and validation", () => {
     expect(btn("Continue")).toBeDisabled();
   });
 
+  const defaultFlagsetTests = [
+    { name: "preselects the default flagset", defaultFlagsetId: "fs-2", want: "payments" },
+    { name: "falls back to the first flagset for an unknown default", defaultFlagsetId: "fs-gone", want: "default" },
+    { name: "falls back to the first flagset without a default", defaultFlagsetId: undefined, want: "default" },
+  ];
+  for (const tt of defaultFlagsetTests) {
+    it(tt.name, async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      render(<FlagWizard teamId="team-1" onCreated={vi.fn()} defaultFlagsetId={tt.defaultFlagsetId} />);
+      await user.click(btn("Create flag"));
+
+      const dialog = await screen.findByRole("dialog", { name: "New flag" });
+      await waitFor(() => expect(dialog).toHaveAccessibleDescription(tt.want));
+      expect(checkOk("Flagset selected")).toBe(true);
+    });
+  }
+
+  it("keeps an explicit pick over the default, and drops it on reopen", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<FlagWizard teamId="team-1" onCreated={vi.fn()} defaultFlagsetId="fs-2" />);
+    await user.click(btn("Create flag"));
+    const dialog = await screen.findByRole("dialog", { name: "New flag" });
+    await waitFor(() => expect(dialog).toHaveAccessibleDescription("payments"));
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "default" }));
+    expect(dialog).toHaveAccessibleDescription("default");
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await user.click(btn("Create flag"));
+    const reopened = await screen.findByRole("dialog", { name: "New flag" });
+    await waitFor(() => expect(reopened).toHaveAccessibleDescription("payments"));
+  });
+
   it("names the dialog and describes it with the selected flagset", async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     renderWizard();

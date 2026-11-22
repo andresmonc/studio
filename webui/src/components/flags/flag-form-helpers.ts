@@ -152,7 +152,11 @@ export function coerce(type: FlagType, value: string): unknown {
     case "float":
       return Number(value);
     case "json":
-      return JSON.parse(value);
+      try {
+        return JSON.parse(value);
+      } catch {
+        return null;
+      }
     default:
       return value;
   }

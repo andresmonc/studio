@@ -713,6 +713,19 @@ describe("FlagDetailPage save bar", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
   });
 
+  it("blocks Save & evaluate on an invalid form", async () => {
+    h.perms = { canEdit: true, role: "editor", admin: true };
+    h.form = { isDirty: true, valid: false };
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
+    await user.click(screen.getByRole("button", { name: "Run evaluation" }));
+    await user.click(screen.getByRole("button", { name: "Save & evaluate" }));
+
+    expect(h.mutate).not.toHaveBeenCalled();
+    expect(h.toastError).toHaveBeenCalledWith("Fix validation errors before saving.");
+  });
+
   it("blocks saving an invalid form", () => {
     h.form = { isDirty: true, valid: false };
     renderPage();
