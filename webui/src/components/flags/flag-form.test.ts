@@ -53,7 +53,7 @@ describe("hydrate/build round-trip", () => {
 
   const ruleDisableTests: { name: string; disable?: boolean; want: Record<string, unknown> }[] = [
     { name: "keeps a rule turned off", disable: true, want: { disable: true } },
-    { name: "keeps a rule turned on explicitly", disable: false, want: { disable: false } },
+    { name: "drops disable: false, the default", disable: false, want: {} },
     { name: "adds nothing to a rule without disable", want: {} },
   ];
   for (const tt of ruleDisableTests) {

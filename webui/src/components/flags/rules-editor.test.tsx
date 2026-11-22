@@ -4,6 +4,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import {
   RulesEditor,
   EMPTY_QUERY,
+  buildFlagPayload,
+  hydrateForm,
   newOutcome,
   nextId,
   type Rule,
@@ -23,8 +25,17 @@ const makeRule = (name: string, p: Partial<Rule> = {}): Rule => ({
   ...p,
 });
 
-function Harness({ initial, disabled }: { initial: Rule[]; disabled?: boolean }) {
+function Harness({
+  initial,
+  disabled,
+  onRules,
+}: {
+  initial: Rule[];
+  disabled?: boolean;
+  onRules?: (rules: Rule[]) => void;
+}) {
   const [rules, setRules] = useState(initial);
+  onRules?.(rules);
   return (
     <RulesEditor
       t={t}
@@ -94,4 +105,24 @@ describe("RulesEditor rule switch", () => {
     render(<Harness initial={[makeRule("beta"), makeRule("")]} />);
     expect(sw("2")).toBeChecked();
   });
+
+  for (const disable of [undefined, false]) {
+    it(`gives back the saved payload after turning a rule off and on (disable: ${disable})`, () => {
+      const form = hydrateForm({
+        variations: { on: true, off: false },
+        defaultRule: { variation: "off" },
+        targeting: [{ name: "beta", query: "{}", variation: "on", disable }],
+      });
+      const saved = buildFlagPayload(form);
+      let rules = form.rules;
+      render(<Harness initial={form.rules} onRules={(r) => (rules = r)} />);
+
+      fireEvent.click(sw("beta"));
+      expect(buildFlagPayload({ ...form, rules }).targeting).toEqual([
+        expect.objectContaining({ disable: true }),
+      ]);
+      fireEvent.click(sw("beta"));
+      expect(buildFlagPayload({ ...form, rules })).toEqual(saved);
+    });
+  }
 });
