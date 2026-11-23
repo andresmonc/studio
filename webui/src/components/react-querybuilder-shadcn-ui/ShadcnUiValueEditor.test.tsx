@@ -171,7 +171,7 @@ describe("ShadcnUiValueEditor", () => {
         separator: <span>and</span>,
         testID: "between",
       });
-      const inputs = screen.getAllByPlaceholderText("Type…");
+      const inputs = [screen.getByPlaceholderText("flag.wizard.rangeLower"), screen.getByPlaceholderText("flag.wizard.rangeUpper")];
       expect(inputs.map((i) => (i as HTMLInputElement).value)).toEqual(["1", "2"]);
       expect(screen.getByTestId("between")).toHaveTextContent("and");
       fireEvent.change(inputs[tt.idx], { target: { value: tt.want.split(",")[tt.idx] } });
@@ -181,7 +181,7 @@ describe("ShadcnUiValueEditor", () => {
 
   it("between text inputs start empty and honour disabled", () => {
     setup({ operator: "between", value: "", disabled: true });
-    const inputs = screen.getAllByPlaceholderText("Type…");
+    const inputs = [screen.getByPlaceholderText("flag.wizard.rangeLower"), screen.getByPlaceholderText("flag.wizard.rangeUpper")];
     expect(inputs).toHaveLength(2);
     for (const i of inputs) {
       expect(i).toHaveValue("");

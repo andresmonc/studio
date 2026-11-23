@@ -95,6 +95,13 @@ describe("EvaluatePanel", () => {
     expect(ta.value).toContain("thomas@gofeatureflag.org");
   });
 
+  it("reports context edits through onContextChange", () => {
+    const onContextChange = vi.fn();
+    renderPanel({ onContextChange });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: '{"a":1}' } });
+    expect(onContextChange).toHaveBeenCalledWith('{"a":1}');
+  });
+
   it("splits the JSON into targetingKey + attributes and posts to the evaluate endpoint", () => {
     h.mutate.mockImplementation((opts) => {
       void opts;

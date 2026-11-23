@@ -7,6 +7,7 @@ import type { Dispatch, SetStateAction } from "react";
 import {
   diffVariations,
   outcomeValid,
+  ruleValid,
   reconcileOutcome,
   valueValid,
 } from "./flag-form-helpers";
@@ -125,12 +126,7 @@ export function useFlagForm(payload?: FlagPayload): UseFlagForm {
     state.variations.every(
       (v) => v.name.trim() !== "" && valueValid(state.type, v.value),
     );
-  const rulesOk = state.rules.every(
-    (r) =>
-      r.name.trim() !== "" &&
-      r.query.rules.length > 0 &&
-      outcomeValid(r.outcome, variationNames),
-  );
+  const rulesOk = state.rules.every((r) => ruleValid(r, variationNames));
   const defaultOk = outcomeValid(state.defaultOutcome, variationNames);
   const valid =
     variationsOk && rulesOk && defaultOk && state.customMetaValid;

@@ -98,7 +98,9 @@ vi.mock("@/components/flags/flag-form", () => ({
       {children}
     </div>
   ),
-  RulesEditor: () => <div data-testid="rules-editor" />,
+  RulesEditor: ({ showTips }: { showTips?: boolean }) => (
+    <div data-testid="rules-editor" data-show-tips={showTips} />
+  ),
   VariationsEditor: () => <div data-testid="variations-editor" />,
   TagInput: () => <div data-testid="tag-input" />,
   RESERVED_META_KEYS: new Set(["owner", "description", "flagType", "tags"]),
@@ -366,22 +368,16 @@ describe("FlagDetailPage danger zone", () => {
 describe("FlagDetailPage targeting tab", () => {
   // The targeting tab is the default tab, so its content renders on mount.
 
-  it("shows the editor Tips callout for users who can edit", () => {
+  it("shows the editor with its tips for users who can edit", () => {
     h.perms = { canEdit: true, role: "editor", admin: true };
     renderPage();
-    expect(screen.getByText("Tips")).toBeInTheDocument();
-    expect(
-      screen.getByText(/the first one that matches wins/i),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("rules-editor")).toHaveAttribute("data-show-tips", "true");
   });
 
-  it("hides the editor Tips callout for read-only viewers", () => {
+  it("hides the editor for read-only viewers", () => {
     // Default beforeEach perms are read-only.
     renderPage();
-    expect(screen.queryByText("Tips")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/the first one that matches wins/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("rules-editor")).not.toBeInTheDocument();
   });
 
   it("shows a rules-count badge on the Targeting tab when rules exist", () => {
@@ -523,14 +519,14 @@ describe("FlagDetailPage left-menu navigation", () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     renderPage();
 
-    // Targeting is the default section; its editor Tips callout is visible.
-    expect(screen.getByText("Tips")).toBeInTheDocument();
+    // Targeting is the default section; its editor is visible.
+    expect(screen.getByTestId("rules-editor")).toBeInTheDocument();
 
     await openSettingsTab(user);
 
     // Settings content is now shown and the Targeting pane is unmounted.
     expect(screen.getByText("Danger zone")).toBeInTheDocument();
-    expect(screen.queryByText("Tips")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("rules-editor")).not.toBeInTheDocument();
   });
 
   it("marks the active menu button and updates it on navigation", async () => {
@@ -563,6 +559,43 @@ describe("FlagDetailPage evaluate tab", () => {
     await user.click(screen.getByRole("button", { name: "Evaluate" }));
 
     expect(screen.getByText("Test this flag")).toBeInTheDocument();
+    const ta = screen.getByRole("textbox") as HTMLTextAreaElement;
+    expect(ta.value).toBe(DEFAULT_TESTING_CONTEXT);
+  });
+
+  it("keeps an edited context when switching tabs and coming back", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: '{"targetingKey":"edited"}' },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
+
+    const ta = screen.getByRole("textbox") as HTMLTextAreaElement;
+    expect(ta.value).toBe('{"targetingKey":"edited"}');
+  });
+
+  it("drops the edited context when another flag loads on the same page", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const { rerender } = renderPage();
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: '{"targetingKey":"edited"}' },
+    });
+
+    // The route component is reused across ids, so only the flag data changes.
+    wireData({ ...makeFlag(false), id: "flag-2" });
+    rerender(
+      <MemoryRouter initialEntries={["/flags/flag-1"]}>
+        <Routes>
+          <Route path="/flags/:id" element={<FlagDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
     const ta = screen.getByRole("textbox") as HTMLTextAreaElement;
     expect(ta.value).toBe(DEFAULT_TESTING_CONTEXT);
   });

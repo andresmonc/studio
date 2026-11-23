@@ -54,6 +54,9 @@ type Props = {
   // JSON string the context textarea is seeded with (the flagset's configured
   // default testing context, or DEFAULT_TESTING_CONTEXT when none is set).
   defaultContext: string;
+  // Reports every edit so the parent can keep it across tab switches, which
+  // unmount this panel.
+  onContextChange?: (context: string) => void;
 };
 
 // Render an evaluation value: pretty-print objects, show primitives verbatim.
@@ -75,6 +78,7 @@ export function EvaluatePanel({
   saving,
   saveAndThen,
   defaultContext,
+  onContextChange,
 }: Props) {
   const t = useTranslate();
   const contextId = useId();
@@ -168,6 +172,7 @@ export function EvaluatePanel({
               value={context}
               onChange={(e) => {
                 setContext(e.target.value);
+                onContextChange?.(e.target.value);
                 if (jsonError) setJsonError(false);
               }}
               spellCheck={false}

@@ -36,6 +36,44 @@ const payload: FlagPayload = {
 };
 
 describe("hydrate/build round-trip", () => {
+  for (const operator of ["between", "notBetween"]) {
+    it(`blocks partial ${operator} ranges and exports completed bounds`, () => {
+      const { result } = renderHook(() => useFlagForm(payload));
+      const setRange = (value: string) => act(() => result.current.setRules((rules) => rules.map((r) => ({
+        ...r,
+        query: { combinator: "and", rules: [{ field: "age", operator, value }] },
+      }))));
+      setRange("10,");
+      expect(result.current.valid).toBe(false);
+      setRange("10,20");
+      expect(result.current.valid).toBe(true);
+      const built = result.current.buildPayload() as FlagPayload;
+      const comparison = { "<=": [10, { var: "age" }, 20] };
+      expect(JSON.parse(built.targeting![0].query!)).toEqual({
+        and: [operator === "between" ? comparison : { "!": comparison }],
+      });
+      setRange(",20");
+      expect(result.current.valid).toBe(false);
+    });
+  }
+
+  for (const operator of ["==", "!="]) {
+    for (const value of ["", " "]) {
+      it(`allows metadata edits with ${operator} ${JSON.stringify(value)} targeting`, () => {
+        const query = { [operator]: [{ var: "email" }, value] };
+        const { result } = renderHook(() => useFlagForm({
+          ...payload,
+          targeting: [{ name: "beta", query: JSON.stringify(query), variation: "on" }],
+        }));
+        act(() => result.current.setDescription("updated"));
+        expect(result.current.valid).toBe(true);
+        const built = result.current.buildPayload() as FlagPayload;
+        expect(built.metadata?.description).toBe("updated");
+        expect(JSON.parse(built.targeting![0].query!)).toEqual({ and: [query] });
+      });
+    }
+  }
+
   it("rebuilds an equivalent payload", () => {
     const built = buildFlagPayload(hydrateForm(payload));
     expect(built.variations).toEqual({ on: true, off: false });

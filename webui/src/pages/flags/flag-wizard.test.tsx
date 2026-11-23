@@ -151,7 +151,7 @@ describe("FlagWizard navigation and validation", () => {
     expect(checkOk("Default rule is valid")).toBe(true);
     expect(btn("Continue")).toBeEnabled();
 
-    // A new rule has no conditions yet, so it blocks progress.
+    // A new rule's condition has no value yet, so it blocks progress.
     await user.click(btn("Add rule"));
     expect(checkOk("Targeting rules are complete")).toBe(false);
     expect(btn("Continue")).toBeDisabled();
@@ -170,6 +170,30 @@ describe("FlagWizard navigation and validation", () => {
     expect(screen.getByText("step 1 of 3")).toBeInTheDocument();
     expect(keyInput()).toHaveValue("my-flag");
   });
+
+  for (const operator of ["between", "not between"]) {
+    it(`requires both ${operator} bounds before continuing`, async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      renderWizard();
+      await openWizard(user);
+      await user.type(keyInput(), "range-flag");
+      await user.click(btn("Continue"));
+      await pickDefaultVariation(user, "enabled");
+      await user.click(btn("Add rule"));
+      const condition = document.querySelector(".rule")!;
+      await user.click(within(condition as HTMLElement).getAllByRole("combobox")[1]);
+      await user.click(screen.getByRole("option", { name: operator }));
+      const [lower, upper] = screen.getAllByRole("textbox").slice(-2);
+      await user.type(lower, "10");
+      expect(btn("Continue")).toBeDisabled();
+      expect(checkOk("Targeting rules are complete")).toBe(false);
+      await user.type(upper, "20");
+      expect(btn("Continue")).toBeEnabled();
+      expect(checkOk("Targeting rules are complete")).toBe(true);
+      await user.clear(lower);
+      expect(btn("Continue")).toBeDisabled();
+    });
+  }
 
   it("migrates the default rule when its variation is renamed", async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });

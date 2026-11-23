@@ -22,6 +22,7 @@ import {
   newOutcome,
   outcomeValid,
   reconcileOutcome,
+  ruleValid,
   valueValid,
   variationsForType,
   type Outcome,
@@ -169,12 +170,7 @@ export function FlagWizard({
     new Set(variationNames).size === variations.length &&
     variations.every((v) => v.name.trim() !== "" && valueValid(type, v.value));
   const defaultValid = outcomeValid(defaultOutcome, variationNames);
-  const ruleOutcomesValid = rules.every(
-    (r) =>
-      r.name.trim() !== "" &&
-      r.query.rules.length > 0 &&
-      outcomeValid(r.outcome, variationNames),
-  );
+  const ruleOutcomesValid = rules.every((r) => ruleValid(r, variationNames));
   const rulesValid = ruleOutcomesValid && defaultValid;
 
   const canNext = step === 1 ? basicsValid : step === 2 ? rulesValid : true;
