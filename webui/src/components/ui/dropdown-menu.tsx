@@ -4,10 +4,49 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+// Radix menus swallow Tab, so keyboard users get stuck inside an open menu.
+// The ARIA menu pattern wants Tab to close the menu and move on from the
+// trigger; the root tracks open state so the content can close it.
+const CloseMenuContext = React.createContext<(() => void) | null>(null);
+
+const TABBABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+// ponytail: DOM order only; positive tabindex values are ignored.
+function focusNextTabbable(from: Element | null, backwards: boolean) {
+  const all = [...document.querySelectorAll<HTMLElement>(TABBABLE)].filter(
+    (el) => el === from || (el.checkVisibility?.() ?? true),
+  );
+  const i = all.indexOf(from as HTMLElement);
+  if (i !== -1) all[i + (backwards ? -1 : 1)]?.focus();
+}
+
 function DropdownMenu({
+  open: openProp,
+  defaultOpen = false,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-  return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = React.useCallback(
+    (next: boolean) => {
+      if (openProp === undefined) setUncontrolledOpen(next);
+      onOpenChange?.(next);
+    },
+    [openProp, onOpenChange],
+  );
+  const close = React.useCallback(() => setOpen(false), [setOpen]);
+  return (
+    <CloseMenuContext.Provider value={close}>
+      <DropdownMenuPrimitive.Root
+        data-slot="dropdown-menu"
+        open={open}
+        onOpenChange={setOpen}
+        {...props}
+      />
+    </CloseMenuContext.Provider>
+  );
 }
 
 function DropdownMenuPortal({
@@ -32,13 +71,35 @@ function DropdownMenuTrigger({
 function DropdownMenuContent({
   className,
   sideOffset = 4,
+  onKeyDown,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+  const close = React.useContext(CloseMenuContext);
+  // Set when Tab closed the menu: which way to move once focus is back on the trigger.
+  const tabbedOut = React.useRef<"forward" | "backward" | null>(null);
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
+        onKeyDown={(e) => {
+          onKeyDown?.(e);
+          if (e.key !== "Tab" || !close || e.defaultPrevented) return;
+          e.preventDefault();
+          tabbedOut.current = e.shiftKey ? "backward" : "forward";
+          close();
+        }}
+        onCloseAutoFocus={(e) => {
+          onCloseAutoFocus?.(e);
+          const direction = tabbedOut.current;
+          if (!direction) return;
+          tabbedOut.current = null;
+          // Radix focuses the trigger after this handler; step past it then.
+          setTimeout(() =>
+            focusNextTabbable(document.activeElement, direction === "backward"),
+          );
+        }}
         className={cn(
           "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md",
           className

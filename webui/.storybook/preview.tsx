@@ -217,9 +217,26 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
-    a11y: { test: "todo" },
+    a11y: {
+      test: "error",
+      config: {
+        rules: [
+          {
+            // While a Radix modal (menu, dialog) is open it aria-hides the rest
+            // of the page, tagging those nodes data-aria-hidden, and traps focus
+            // inside. axe still counts the trigger behind it as focusable; skip
+            // only those nodes so the rule keeps checking everything else.
+            id: "aria-hidden-focus",
+            selector: '[aria-hidden="true"]:not([data-aria-hidden])',
+          },
+        ],
+      },
+    },
   },
-  initialGlobals: { theme: "light" },
+  // The storybook-dark Vitest project sets this to run every story in dark mode.
+  initialGlobals: {
+    theme: (import.meta.env.VITE_STORYBOOK_THEME as ThemeName) ?? "light",
+  },
   globalTypes: {
     theme: {
       description: "Light / dark theme",

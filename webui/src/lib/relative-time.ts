@@ -9,7 +9,6 @@ const DIVISIONS: { amount: number; unit: Intl.RelativeTimeFormatUnit }[] = [
   { amount: 7, unit: "day" },
   { amount: 4.34524, unit: "week" },
   { amount: 12, unit: "month" },
-  { amount: Number.POSITIVE_INFINITY, unit: "year" },
 ];
 
 // formatRelativeTime renders an ISO timestamp as a short relative phrase
@@ -27,7 +26,7 @@ export function formatRelativeTime(iso: string, lang: string = i18n.language): s
     }
     duration /= div.amount;
   }
-  return new Date(iso).toLocaleDateString(lang);
+  return rtf.format(Math.round(duration), "year");
 }
 
 // formatExactDateTime renders the full locale date+time, used as the hover title

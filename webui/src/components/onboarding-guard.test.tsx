@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import type { CompanyMembership, TeamMembership } from "@/types/api";
 
 const state = vi.hoisted(() => ({
+  loading: false,
   isSuperAdmin: false,
   mono: true,
   company: null as CompanyMembership | null,
@@ -12,8 +13,8 @@ const state = vi.hoisted(() => ({
 
 vi.mock("@refinedev/core", () => ({
   useGetIdentity: () => ({
-    data: { id: "u1", isSuperAdmin: state.isSuperAdmin },
-    isLoading: false,
+    data: state.loading ? undefined : { id: "u1", isSuperAdmin: state.isSuperAdmin },
+    isLoading: state.loading,
   }),
 }));
 vi.mock("@/providers/auth", () => ({
@@ -66,5 +67,12 @@ describe("OnboardingGuard", () => {
     Object.assign(state, s);
     renderGuard();
     expect(screen.getByText(want)).toBeInTheDocument();
+  });
+
+  it("renders nothing while the identity loads", () => {
+    Object.assign(state, { loading: true, mono: false, isSuperAdmin: true, company: company("admin") });
+    renderGuard();
+    expect(screen.queryByText(/page$/)).toBeNull();
+    state.loading = false;
   });
 });

@@ -101,6 +101,11 @@ describe("ShadcnUiValueEditor", () => {
     expect(handleOnChange).toHaveBeenCalledWith("multi\nline");
   });
 
+  it.each(["text", "textarea"])("%s editor shows an unset value as empty", (type) => {
+    setup({ type: type as "text", value: undefined });
+    expect(screen.getByRole("textbox")).toHaveValue("");
+  });
+
   const toggleTests = [
     { name: "switch off → on", type: "switch", role: "switch", value: false, want: true },
     { name: "switch on → off", type: "switch", role: "switch", value: true, want: false },

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router";
 import type { FlagInstance } from "@/types/api";
@@ -140,7 +140,14 @@ function mockApi(rows: FlagInstance[] | undefined, pageInfo = { total: rows?.len
     if (args.url.endsWith("/owners"))
       return {
         query: {
-          data: { data: [{ id: "u-alice", name: "alice" }, { id: "u-bob", name: "bob" }] },
+          data: {
+            data: [
+              { id: "u-alice", name: "alice" },
+              { id: "u-bob", name: "bob" },
+              // users.name defaults to '': the filter falls back to the id.
+              { id: "u-noname", name: "" },
+            ],
+          },
           refetch: ownersRefetch,
         },
       };
@@ -192,6 +199,15 @@ describe("FlagsPage - row navigation", () => {
     expect(link).toHaveAttribute("href", "/flags/flag-abc");
   });
 
+  it.each(["metaKey", "ctrlKey", "shiftKey", "altKey"])(
+    "leaves a %s-click on the row to the browser instead of navigating",
+    (modifier) => {
+      renderPage();
+      fireEvent.click(screen.getByText("alice"), { [modifier]: true });
+      expect(screen.queryByText("DETAIL PAGE")).not.toBeInTheDocument();
+    },
+  );
+
   it("does not navigate when clicking the state toggle switch", async () => {
     const user = userEvent.setup();
     renderPage();
@@ -228,18 +244,26 @@ describe("FlagsPage - query-param filters", () => {
     expect(lastFlagsQuery().has("type")).toBe(false);
   });
 
-  it("writes the selected filter into the URL and the request (two-way sync)", async () => {
-    const user = userEvent.setup();
-    renderPage();
+  // Comboboxes in order: flagset, type, owner, state, tags.
+  const selectTests = [
+    { name: "flagset", combobox: 0, option: "payments", param: "flagset=fs-2", api: ["flagsetId", "fs-2"] },
+    { name: "type", combobox: 1, option: "string", param: "type=string", api: ["type", "string"] },
+    { name: "unnamed owner", combobox: 2, option: "u-noname", param: "owner=u-noname", api: ["owner", "u-noname"] },
+    { name: "state", combobox: 3, option: "flag.disabledLabel", param: "state=disabled", api: ["disabled", "true"] },
+    { name: "tag", combobox: 4, option: "prod", param: "tags=prod", api: ["tags", "prod"] },
+  ];
+  for (const tt of selectTests) {
+    it(`writes the selected ${tt.name} filter into the URL and the request (two-way sync)`, async () => {
+      const user = userEvent.setup();
+      renderPage();
 
-    // The type filter is the second combobox (after flagset).
-    const typeSelect = screen.getAllByRole("combobox")[1];
-    await user.click(typeSelect);
-    await user.click(screen.getByRole("option", { name: "string" }));
+      await user.click(screen.getAllByRole("combobox")[tt.combobox]);
+      await user.click(screen.getByRole("option", { name: tt.option }));
 
-    expect(screen.getByTestId("location-search").textContent).toContain("type=string");
-    expect(lastFlagsQuery().get("type")).toBe("string");
-  });
+      expect(screen.getByTestId("location-search").textContent).toContain(tt.param);
+      expect(lastFlagsQuery().get(tt.api[0])).toBe(tt.api[1]);
+    });
+  }
 
   it("clears the query params when filters are cleared", async () => {
     const user = userEvent.setup();
@@ -338,7 +362,7 @@ describe("FlagsPage - pagination", () => {
   it("moves to the next page", async () => {
     const user = userEvent.setup();
     renderPage("/flags?page=2");
-    await user.click(screen.getByRole("button", { name: "Go to next page" }));
+    await user.click(screen.getByRole("button", { name: "pagination.nextPage" }));
     expect(screen.getByTestId("location-search").textContent).toContain("page=3");
   });
 
@@ -351,6 +375,20 @@ describe("FlagsPage - pagination", () => {
     expect(search).toContain("type=string");
     expect(search).not.toContain("page=");
   });
+
+  const pageSizeTests = [
+    { name: "writes a non-default page size", url: "/flags?page=2", option: "20", want: "?pageSize=20" },
+    { name: "drops the default page size", url: "/flags?pageSize=20", option: "50", want: "" },
+  ];
+  for (const tt of pageSizeTests) {
+    it(`${tt.name} into the URL and restarts from the first page`, async () => {
+      const user = userEvent.setup();
+      renderPage(tt.url);
+      await user.click(screen.getByRole("combobox", { name: "pagination.rowsPerPage" }));
+      await user.click(screen.getByRole("option", { name: tt.option }));
+      expect(screen.getByTestId("location-search").textContent).toBe(tt.want);
+    });
+  }
 
   it("hides the pager when nothing matches", () => {
     mockApi([]);
@@ -573,6 +611,19 @@ describe("FlagsPage - sorting", () => {
     expect(q.get("order")).toBe("desc");
   });
 
+  const sortTests = [
+    { name: "flips a descending column back to its ascending default", url: "/flags?sort=name&order=desc", header: "flag.flag", want: "?sort=name" },
+    { name: "drops the params when going back to the default sort", url: "/flags?sort=name", header: "flag.updated", want: "" },
+  ];
+  for (const tt of sortTests) {
+    it(tt.name, async () => {
+      const user = userEvent.setup();
+      renderPage(tt.url);
+      await user.click(screen.getByRole("button", { name: tt.header }));
+      expect(screen.getByTestId("location-search").textContent).toBe(tt.want);
+    });
+  }
+
   it("ignores an unknown sort value", () => {
     renderPage("/flags?sort=constructor");
     expect(lastFlagsQuery().has("sort")).toBe(false);
@@ -709,7 +760,7 @@ describe("FlagsPage - misc states", () => {
     mockApi(flags, { total: 120, totalPages: 3 });
     const user = userEvent.setup();
     renderPage("/flags?page=2");
-    await user.click(screen.getByRole("button", { name: "Go to previous page" }));
+    await user.click(screen.getByRole("button", { name: "pagination.previousPage" }));
     expect(screen.getByTestId("location-search").textContent).not.toContain("page=");
   });
 });

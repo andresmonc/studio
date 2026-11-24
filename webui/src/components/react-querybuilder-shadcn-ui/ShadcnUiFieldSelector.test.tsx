@@ -115,6 +115,15 @@ describe("ShadcnUiFieldSelector menu", () => {
     expect(screen.getByRole("option", { name: "country" })).toBeInTheDocument();
   });
 
+  it("closes on Escape without picking", async () => {
+    const { handleOnChange } = setup();
+    await open();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("option")).toBeNull();
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-expanded", "false");
+    expect(handleOnChange).not.toHaveBeenCalled();
+  });
+
   it("shows the empty state with no options at all", async () => {
     setup({ options: [] });
     await open();

@@ -208,6 +208,21 @@ describe("RolloutCurve placeholders and boundaries", () => {
     });
   }
 
+  // The end date's precision follows the rollout span: seconds under 5 minutes,
+  // time of day under 3 days, the date alone beyond.
+  const MIN = 60_000;
+  const granularityTests = [
+    { name: "seconds for a span under 5 minutes", span: 2 * MIN, want: /\d:\d\d:\d\d/ },
+    { name: "minutes for a span under 3 days", span: 2 * 60 * MIN, want: /\d:\d\d(?!:)/ },
+    { name: "the date alone for longer spans", span: 5 * DAY, want: /^[^:]+$/ },
+  ];
+  for (const tt of granularityTests) {
+    it(`formats the end date with ${tt.name}`, () => {
+      curve(localDatetime(Date.now() - tt.span / 2), localDatetime(Date.now() + tt.span / 2));
+      expect(screen.getByText("End date").nextElementSibling!.textContent).toMatch(tt.want);
+    });
+  }
+
   it("shows the tooltip popin when hovering the plotted chart", () => {
     chart.sized = true;
     const { container } = curve(

@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { useTranslate } from "@refinedev/core";
 import { Command as CommandPrimitive } from "cmdk";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +57,7 @@ export function TagInput({
   maxTags = MAX_TAGS,
   maxTagLength = MAX_TAG_LENGTH,
 }: TagInputProps) {
+  const t = useTranslate();
   const [draft, setDraft] = useState("");
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -70,9 +72,9 @@ export function TagInput({
       setDraft("");
       return;
     }
-    // At the cap or over the length limit: keep the draft so the user doesn't
-    // lose their typing, and let the hint below explain why nothing was added.
-    if (value.length >= maxTags) return;
+    // Over the length limit: keep the draft so the user doesn't lose their
+    // typing, and let the hint below explain why nothing was added. The tag cap
+    // needs no check: at capacity the input and dropdown aren't rendered.
     if (runeLength(tag) > maxTagLength) return;
     onChange([...value, tag]);
     setDraft("");
@@ -126,6 +128,7 @@ export function TagInput({
 
   return (
     <CommandPrimitive shouldFilter={false} className="relative">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- mouse shortcut to focus the input; keyboard users tab to it directly */}
       <div
         className={cn(
           "flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-transparent px-2 py-1.5 text-sm shadow-xs",
@@ -142,7 +145,7 @@ export function TagInput({
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label={`Remove ${tag}`}
+                aria-label={t("flag.removeTag", { tag })}
                 className="ml-0.5 size-4 rounded-sm text-muted-foreground hover:bg-transparent hover:text-destructive"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -183,7 +186,8 @@ export function TagInput({
         </p>
       )}
 
-      {showDropdown && (
+      {showDropdown ? (
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- mouse-only focus guard; keyboard selection goes through cmdk
         <div
           className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md"
           onMouseDown={(e) => {
@@ -222,6 +226,10 @@ export function TagInput({
             </CommandGroup>
           </CommandList>
         </div>
+      ) : (
+        // cmdk always points the input's aria-controls at its list; keep an
+        // empty one mounted so that reference resolves while closed.
+        <CommandList hidden />
       )}
     </CommandPrimitive>
   );

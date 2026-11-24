@@ -40,7 +40,7 @@ export function FlagsetsTable({ flagsets }: { flagsets: Flagset[] }) {
                     {fs.name}
                   </Link>
                 </TableCell>
-                <TableCell className="text-right tabular-nums">{fs.flagCount ?? 0}</TableCell>
+                <TableCell className="text-right tabular-nums">{fs.flagCount}</TableCell>
                 <TableCell className="pr-5 text-muted-foreground">
                   <time dateTime={fs.updatedAt} title={formatExactDateTime(fs.updatedAt)}>
                     {formatRelativeTime(fs.updatedAt)}

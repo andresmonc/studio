@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   useBack,
   useResourceParams,
+  useTranslate,
   useUserFriendlyName,
 } from "@refinedev/core";
 import { ArrowLeftIcon } from "lucide-react";
@@ -35,6 +36,7 @@ export const CreateViewHeader = ({
   wrapperClassName,
   headerClassName,
 }: CreateHeaderProps) => {
+  const t = useTranslate();
   const back = useBack();
 
   const getUserFriendlyName = useUserFriendlyName();
@@ -67,7 +69,12 @@ export const CreateViewHeader = ({
           headerClassName
         )}
       >
-        <Button variant="ghost" size="icon" onClick={back}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={back}
+          aria-label={t("common.back")}
+        >
           <ArrowLeftIcon className="h-4 w-4" />
         </Button>
         <h2 className="text-2xl font-bold">{title}</h2>

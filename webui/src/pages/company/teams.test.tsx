@@ -181,6 +181,17 @@ describe("CompanyTeamsCard delete", () => {
     expect(h.setActiveTeamId).not.toHaveBeenCalled();
   });
 
+  it("while the delete is in flight, reopening shows it pending", async () => {
+    h.mutate.mockImplementation(() => {});
+    const user = userEvent.setup();
+    renderCard();
+    await user.click(screen.getByRole("button", { name: "company.teams.deleteAria" }));
+    await user.click(screen.getByRole("button", { name: "common.delete" }));
+    await user.click(screen.getByRole("button", { name: "company.teams.deleteAria" }));
+    expect(screen.getByRole("button", { name: "common.deleting" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "common.cancel" })).toBeDisabled();
+  });
+
   it("cancel closes the dialog without calling the API", async () => {
     const user = userEvent.setup();
     renderCard();

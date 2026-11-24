@@ -43,6 +43,10 @@ jobs:
       - name: Build Storybook
         run: pnpm build-storybook
 
+      # The storybook test project renders every story in headless Chromium.
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Test
         run: pnpm test:run --coverage
 

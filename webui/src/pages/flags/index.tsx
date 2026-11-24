@@ -639,7 +639,7 @@ function FilterSelect({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-9 w-[160px] text-sm">
+      <SelectTrigger className="h-9 w-[160px] text-sm" aria-label={allLabel}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

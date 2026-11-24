@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import {
   OutcomeEditor,
   newOutcome,
@@ -131,10 +132,16 @@ describe("OutcomeEditor interactions", () => {
     return onChange;
   };
 
+  // pick opens the nth variation Select and chooses an option.
+  const pick = async (nth: number, option: string) => {
+    await userEvent.click(screen.getAllByRole("combobox")[nth]);
+    await userEvent.click(await screen.findByRole("option", { name: option }));
+  };
+
   const tests: {
     name: string;
     outcome: () => Outcome;
-    act: () => void;
+    act: () => unknown;
     want: (o: Outcome) => void;
   }[] = [
     {
@@ -147,7 +154,7 @@ describe("OutcomeEditor interactions", () => {
       name: "typing a percentage clamps to the remaining room",
       outcome: () => ({ ...percentageOutcome(), percentages: { off: 70 } }),
       act: () =>
-        fireEvent.change(screen.getByLabelText("on percentage"), {
+        fireEvent.change(screen.getAllByLabelText("flag.wizard.variationPercent")[0], {
           target: { value: "50" },
         }),
       want: (o) => expect(o.percentages).toEqual({ on: 30, off: 70 }),
@@ -184,12 +191,30 @@ describe("OutcomeEditor interactions", () => {
         fireEvent.keyDown(screen.getAllByRole("slider")[0], { key: "ArrowRight" }),
       want: (o) => expect([o.prog.initialPct, o.prog.endPct]).toEqual([11, 90]),
     },
+    {
+      name: "picking the single variation reports it",
+      outcome: () => newOutcome(),
+      act: () => pick(0, "off"),
+      want: (o) => expect(o.single).toBe("off"),
+    },
+    {
+      name: "picking the progressive initial variation updates prog",
+      outcome: () => progressiveOutcome({ endVariation: "off" }),
+      act: () => pick(0, "on"),
+      want: (o) => expect([o.prog.initialVariation, o.prog.endVariation]).toEqual(["on", "off"]),
+    },
+    {
+      name: "picking the progressive end variation updates prog",
+      outcome: () => progressiveOutcome({ initialVariation: "off" }),
+      act: () => pick(1, "on"),
+      want: (o) => expect([o.prog.initialVariation, o.prog.endVariation]).toEqual(["off", "on"]),
+    },
   ];
 
   for (const tt of tests) {
-    it(tt.name, () => {
+    it(tt.name, async () => {
       const onChange = renderEditor(tt.outcome());
-      tt.act();
+      await tt.act();
       expect(onChange).toHaveBeenCalledTimes(1);
       tt.want(onChange.mock.calls[0][0]);
     });

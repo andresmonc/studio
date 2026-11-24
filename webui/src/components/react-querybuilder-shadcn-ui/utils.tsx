@@ -10,7 +10,7 @@ export const toSelectOptions = (list: OptionList) =>
           {og.options.map((opt) => (
             <SelectItem
               key={opt.name}
-              value={opt.name ?? ""}
+              value={opt.name}
               disabled={!!opt.disabled}
             >
               {opt.label}
@@ -18,14 +18,12 @@ export const toSelectOptions = (list: OptionList) =>
           ))}
         </SelectGroup>
       ))
-    : Array.isArray(list)
-    ? list.map((opt) => (
+    : list.map((opt) => (
         <SelectItem
           key={opt.name}
-          value={opt.name ?? ""}
+          value={opt.name}
           disabled={!!opt.disabled}
         >
           {opt.label}
         </SelectItem>
-      ))
-    : null;
+      ));

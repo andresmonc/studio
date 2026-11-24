@@ -130,7 +130,7 @@ export function EvaluatePanel({
       },
       {
         onSuccess: (data) => {
-          setResult((data?.data as EvaluationResult) ?? null);
+          setResult(data.data as EvaluationResult);
           setRunning(false);
         },
         onError: (err) => {

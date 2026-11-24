@@ -141,28 +141,26 @@ function makeFlag(disabled = false) {
 
 const refetchFlag = vi.fn();
 
-function wireData(flag: ReturnType<typeof makeFlag> | undefined, isLoading = false) {
+const V1 = {
+  id: "v1",
+  flagId: "flag-1",
+  versionNumber: 1,
+  payload: {},
+  createdByName: "Jane Doe",
+  createdAt: "2024-01-01T00:00:00Z",
+};
+const V2 = { ...V1, id: "v2", versionNumber: 2, createdByName: "Bob" };
+
+function wireData(
+  flag: ReturnType<typeof makeFlag> | undefined,
+  isLoading = false,
+  versions = [V1],
+) {
   h.useCustomImpl = (args: { url: string }) => {
     if (args.url.endsWith("/tags")) return { query: { data: { data: ["beta"] } } };
     if (args.url.endsWith("/versions"))
       return {
-        query: {
-          data: {
-            data: {
-              data: [
-                {
-                  id: "v1",
-                  flagId: "flag-1",
-                  versionNumber: 1,
-                  payload: {},
-                  createdByName: "Jane Doe",
-                  createdAt: "2024-01-01T00:00:00Z",
-                },
-              ],
-            },
-          },
-          isLoading: false,
-        },
+        query: { data: { data: { data: versions } }, isLoading: false, refetch: vi.fn() },
       };
     if (args.url.includes("/flagsets/"))
       return { query: { data: { data: FLAGSET }, isLoading: false } };
@@ -257,16 +255,36 @@ describe("FlagDetailPage settings tab", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows the creator as a read-only 'Created by' field", async () => {
+  const createdByTests = [
+    { name: "the author of the first version", versions: [V2, V1], want: "Jane Doe" },
+    { name: "a dash without any version", versions: [], want: "—" },
+  ];
+  for (const tt of createdByTests) {
+    it(`shows ${tt.name} as a read-only 'Created by' field`, async () => {
+      h.perms = { canEdit: true, role: "editor", admin: true };
+      wireData(makeFlag(false), false, tt.versions);
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      renderPage();
+      await openSettingsTab(user);
+
+      const field = screen.getByText("Created by").parentElement as HTMLElement;
+      expect(within(field).getByText(tt.want)).toBeInTheDocument();
+      // No editable Owner input remains.
+      expect(screen.queryByText("Owner")).not.toBeInTheDocument();
+    });
+  }
+
+  it("edits the description", async () => {
+    const setDescription = vi.fn();
+    h.form = { setDescription };
     h.perms = { canEdit: true, role: "editor", admin: true };
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     renderPage();
     await openSettingsTab(user);
 
-    expect(screen.getByText("Created by")).toBeInTheDocument();
-    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
-    // No editable Owner input remains.
-    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
+    const field = screen.getByText("Description").parentElement as HTMLElement;
+    await user.type(within(field).getByRole("textbox"), "x");
+    expect(setDescription).toHaveBeenCalledWith("x");
   });
 });
 
@@ -687,6 +705,20 @@ describe("FlagDetailPage history and code sample tabs", () => {
     expect(screen.getByText("v1 · changes")).toBeInTheDocument();
   });
 
+  it("refreshes the flag after reverting to an older version", async () => {
+    h.perms = { canEdit: true, role: "editor", admin: true };
+    wireData({ ...makeFlag(false), currentVersion: 2 }, false, [V2, V1]);
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "History" }));
+    await user.click(screen.getByRole("button", { name: "Revert" }));
+
+    const [args, cbs] = h.mutate.mock.calls[0];
+    expect(args.url).toMatch(/\/flags\/flag-1\/versions\/1\/rollback$/);
+    act(() => cbs.onSuccess());
+    expect(refetchFlag).toHaveBeenCalled();
+  });
+
   it("shows the SDK code sample", async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     renderPage();
@@ -781,23 +813,31 @@ describe("FlagDetailPage danger zone results", () => {
     h.perms = { canEdit: true, role: "editor", admin: true };
   });
 
-  async function confirmDisable(user: ReturnType<typeof userEvent.setup>) {
+  async function confirmDisable(user: ReturnType<typeof userEvent.setup>, action = "Disable flag") {
     await openSettingsTab(user);
-    await user.click(screen.getByRole("button", { name: "Disable flag" }));
+    await user.click(screen.getByRole("button", { name: action }));
     const dialog = screen.getByRole("alertdialog");
     await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
   }
 
-  it("refreshes the flag after toggling it", async () => {
-    const user = userEvent.setup({ pointerEventsCheck: 0 });
-    renderPage();
-    await confirmDisable(user);
+  const toggleTests = [
+    { name: "disabling", disabled: false, action: "Disable flag", toast: "Flag disabled" },
+    { name: "enabling", disabled: true, action: "Enable flag", toast: "Flag enabled" },
+  ];
+  for (const tt of toggleTests) {
+    it(`refreshes the flag after ${tt.name} it`, async () => {
+      wireData(makeFlag(tt.disabled));
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      renderPage();
+      await confirmDisable(user, tt.action);
 
-    act(() => h.mutate.mock.calls[0][1].onSuccess());
-    expect(h.toastSuccess).toHaveBeenCalledWith("Flag disabled");
-    expect(refetchFlag).toHaveBeenCalled();
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
-  });
+      expect(h.mutate.mock.calls[0][0].values).toEqual({ disabled: !tt.disabled });
+      act(() => h.mutate.mock.calls[0][1].onSuccess());
+      expect(h.toastSuccess).toHaveBeenCalledWith(tt.toast);
+      expect(refetchFlag).toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    });
+  }
 
   it("reports a failed toggle", async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });

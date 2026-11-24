@@ -11,6 +11,7 @@ const meta = {
     checked: { control: "boolean" },
     disabled: { control: "boolean" },
   },
+  args: { "aria-label": "Airplane mode" },
 } satisfies Meta<typeof Switch>;
 
 export default meta;

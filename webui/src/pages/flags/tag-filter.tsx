@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
 import { useTranslate } from "@refinedev/core";
-import { ChevronsUpDown, TagsIcon } from "lucide-react";
+import { CheckIcon, ChevronsUpDown, TagsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Command,
   CommandEmpty,
@@ -17,6 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 // TagFilter is the GitHub-label-picker-style multi-select in the flags list
 // filter bar: a Popover holding a searchable, checkable list of tags. Selecting a
@@ -53,6 +53,7 @@ export function TagFilter({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          aria-label={t("flag.allTags")}
           className="h-9 w-[160px] justify-between text-sm font-normal"
         >
           <span className="flex items-center gap-1.5 truncate">
@@ -70,34 +71,48 @@ export function TagFilter({
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[240px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder={t("flag.filterTags")} />
-          <CommandList>
-            <CommandEmpty>{t("flag.noTags")}</CommandEmpty>
-            <CommandGroup>
-              {ordered.map((tag) => {
-                const checked = selected.includes(tag);
-                return (
-                  <CommandItem
-                    key={tag}
-                    value={tag}
-                    onSelect={() => onToggle(tag)}
-                  >
-                    {/* Visual only: the CommandItem owns selection and focus. */}
-                    <Checkbox
-                      checked={checked}
-                      tabIndex={-1}
-                      aria-hidden="true"
-                      className="pointer-events-none"
-                    />
-                    <span className="truncate">{tag}</span>
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+      <PopoverContent
+        className="w-[240px] p-0"
+        align="start"
+        aria-label={t("flag.allTags")}
+      >
+        {ordered.length === 0 ? (
+          // No tags at all: show plain text, an empty listbox is invalid.
+          <p className="py-6 text-center text-sm">{t("flag.noTags")}</p>
+        ) : (
+          <Command>
+            <CommandInput placeholder={t("flag.filterTags")} />
+            <CommandList>
+              <CommandEmpty>{t("flag.noTags")}</CommandEmpty>
+              <CommandGroup>
+                {ordered.map((tag) => {
+                  const checked = selected.includes(tag);
+                  return (
+                    <CommandItem
+                      key={tag}
+                      value={tag}
+                      aria-checked={checked}
+                      onSelect={() => onToggle(tag)}
+                    >
+                      {/* Drawn, not a <Checkbox>: a button nested in an option is
+                          invalid; the option's aria-checked carries the state. */}
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input shadow-xs",
+                          checked && "border-primary bg-primary text-primary-foreground",
+                        )}
+                      >
+                        {checked && <CheckIcon className="size-3.5" />}
+                      </span>
+                      <span className="truncate">{tag}</span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        )}
       </PopoverContent>
     </Popover>
   );

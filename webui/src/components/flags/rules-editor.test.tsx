@@ -232,6 +232,11 @@ describe("RulesEditor compact rows", () => {
     { name: "single", outcome: newOutcome("on"), want: "country is 'FR'. flag.wizard.then on" },
     { name: "percentage", outcome: pct(30, 70), want: "country is 'FR'. flag.wizard.then on: 30%, off: 70%" },
     {
+      name: "percentage missing a variation's weight",
+      outcome: { ...pct(100, 0), percentages: { on: 100 } },
+      want: "country is 'FR'. flag.wizard.then on: 100%, off: 0%",
+    },
+    {
       name: "progressive",
       outcome: {
         ...newOutcome(),
@@ -335,6 +340,26 @@ describe("RulesEditor compact rows", () => {
     fireEvent.click(screen.getByRole("button", { name: "common.remove" }));
     expect(rules).toHaveLength(0);
     expect(screen.queryByRole("button", { name: "flag.wizard.ruleDone" })).toBeNull();
+  });
+
+  it("keeps the open rule open when another rule is removed", () => {
+    let rules: Rule[] = [];
+    render(<Harness initial={[makeRule("beta"), makeRule("eu")]} onRules={(r) => (rules = r)} />);
+    fireEvent.click(edit("beta"));
+    fireEvent.click(screen.getAllByRole("button", { name: "common.remove" })[1]);
+    expect(rules.map((r) => r.name)).toEqual(["beta"]);
+    expect(screen.getByDisplayValue("beta")).toBeInTheDocument();
+  });
+
+  it("edits an open rule's name and outcome", () => {
+    let rules: Rule[] = [];
+    render(<Harness initial={[makeRule("beta")]} onRules={(r) => (rules = r)} />);
+    fireEvent.click(edit("beta"));
+    fireEvent.change(screen.getByDisplayValue("beta"), { target: { value: "gamma" } });
+    expect(rules[0].name).toBe("gamma");
+    const rule = screen.getByDisplayValue("gamma").closest<HTMLElement>("[data-slot=collapsible]")!;
+    fireEvent.click(within(rule).getByText("flag.wizard.percentage"));
+    expect(rules[0].outcome.mode).toBe("percentage");
   });
 
   it("toggles a collapsed rule without opening it", () => {

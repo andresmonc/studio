@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { useForm as useRHForm } from "react-hook-form";
@@ -188,6 +188,13 @@ describe("FlagsetsPage create", () => {
     await u.click(screen.getByRole("option", { name: "json" }));
     await u.type(within(dialog).getByPlaceholderText("flagset.value"), "{{");
     expect(within(dialog).getByRole("button", { name: "flagset.createCta" })).toBeDisabled();
+
+    // Submitting the form some other way still sends nothing.
+    await u.type(within(dialog).getByPlaceholderText("checkout-team"), "payments");
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+    });
+    expect(h.mutate).not.toHaveBeenCalled();
   });
 
   it("toasts the error and keeps the dialog open when create fails", async () => {
@@ -244,5 +251,13 @@ describe("FlagsetsPage delete", () => {
     await u.click(screen.getByRole("button", { name: "common.actions" }));
     await u.click(await screen.findByRole("menuitem", { name: "common.delete" }));
     expect(screen.getByRole("button", { name: "flagset.deleteConfirm" })).toBeInTheDocument();
+  });
+
+  it("while the delete is in flight, reopening shows it pending", async () => {
+    await confirmDelete();
+    const u = user();
+    await u.click(screen.getByRole("button", { name: "common.actions" }));
+    await u.click(await screen.findByRole("menuitem", { name: "common.delete" }));
+    expect(screen.getByRole("button", { name: "common.deleting" })).toBeDisabled();
   });
 });

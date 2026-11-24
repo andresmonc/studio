@@ -52,8 +52,12 @@ describe("targeting-attributes", () => {
     expect(list).not.toContain("attr0");
   });
 
-  it("returns [] for corrupt storage", () => {
-    localStorage.setItem("goff:targeting-attributes", "not json");
-    expect(getRememberedAttributes()).toEqual([]);
+  it.each([
+    ["corrupt storage", "not json", []],
+    ["a non-array value", '{"plan":1}', []],
+    ["non-string entries", '["plan",1,null]', ["plan"]],
+  ])("handles %s", (_, raw, want) => {
+    localStorage.setItem("goff:targeting-attributes", raw as string);
+    expect(getRememberedAttributes()).toEqual(want);
   });
 });

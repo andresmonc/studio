@@ -2,11 +2,31 @@ import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type PropsWithChildren } from "react";
+import type { AuditEntry } from "@/types/api";
+
+// useCustom responses keyed by URL path (audit scan / team flags); undefined = not loaded.
+const state = vi.hoisted(() => ({
+  responses: {} as Record<string, unknown>,
+  urls: [] as string[],
+}));
+
+vi.mock("@refinedev/core", () => ({
+  useGetIdentity: () => ({ data: { id: "u1" } }),
+  useCustom: ({ url }: { url: string }) => {
+    state.urls.push(url);
+    const data = state.responses[new URL(url, "http://x").pathname.split("/").pop()!];
+    return { query: { data: data && { data: { data } } } };
+  },
+}));
+vi.mock("@/hooks/use-active-team", () => ({
+  useActiveTeam: () => ({ activeTeamId: "t1" }),
+}));
+
 import {
   selectRecentlyEditedFlags,
   useInvalidateRecentlyEditedFlags,
+  useRecentlyEditedFlags,
 } from "./use-recently-edited-flags";
-import type { AuditEntry } from "@/types/api";
 
 // Minimal AuditEntry factory — only the fields the selector reads matter.
 function entry(
@@ -117,4 +137,36 @@ describe("useInvalidateRecentlyEditedFlags", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["team-flags"] });
     expect(invalidate).toHaveBeenCalledTimes(2);
   });
+});
+
+describe("useRecentlyEditedFlags", () => {
+  const flags = [
+    { id: "f1", name: "flag-one" },
+    { id: "f2", name: "flag-two" },
+  ];
+  const tests: { name: string; audit?: AuditEntry[]; flags?: unknown[]; want: unknown[] }[] = [
+    { name: "audit not loaded", audit: undefined, flags, want: [] },
+    { name: "no audit activity", audit: [], flags, want: [] },
+    { name: "team flags not loaded", audit: [entry("update", "f1")], flags: undefined, want: [] },
+    { name: "team without flags", audit: [entry("update", "f1")], flags: [], want: [] },
+    {
+      name: "maps the user's edits to flag names",
+      audit: [entry("update", "f2"), entry("create", "f1")],
+      flags,
+      want: [
+        { id: "f2", name: "flag-two" },
+        { id: "f1", name: "flag-one" },
+      ],
+    },
+  ];
+  for (const tt of tests) {
+    it(tt.name, () => {
+      state.urls = [];
+      state.responses = { audit: tt.audit, flags: tt.flags };
+      const { result } = renderHook(() => useRecentlyEditedFlags());
+      expect(result.current).toEqual(tt.want);
+      expect(state.urls[0]).toContain("/audit?teamId=t1&actorId=u1&");
+      expect(state.urls[1]).toContain("/teams/t1/flags?");
+    });
+  }
 });

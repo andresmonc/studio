@@ -107,7 +107,12 @@ export function NotifiersTab({ flagsetId, canManage }: { flagsetId: string; canM
         )}
 
         {query.isLoading ? (
-          <div className="flex flex-col gap-2" aria-busy="true" aria-label={t("common.loading")}>
+          <div
+            className="flex flex-col gap-2"
+            role="status"
+            aria-busy="true"
+            aria-label={t("common.loading")}
+          >
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-16 w-full" />
           </div>

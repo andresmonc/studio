@@ -282,7 +282,7 @@ export function buildFlagSample(
 ): CodeSample {
   const base = CODE_SAMPLES.find((s) => s.id === langId) ?? CODE_SAMPLES[0];
   const evaluation =
-    EVALUATIONS[base.id]?.(escapeFlagName(flagName), evalType(type)) ?? "";
+    EVALUATIONS[base.id](escapeFlagName(flagName), evalType(type));
   return { ...base, code: `${base.code}\n\n${evaluation}` };
 }
 

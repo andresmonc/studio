@@ -111,7 +111,18 @@ describe("accessControlProvider.can", () => {
     expect((await call("delete")).can).toBe(true);
   });
 
+  it("falls back to no meta when the resource has none", async () => {
+    mockUser.mockReturnValue({ isSuperAdmin: false });
+    mockCompany.mockReturnValue({ role: "member" });
+    expect(await accessControlProvider.can({ resource: "x", action: "list" })).toEqual({ can: true });
+  });
+
   describe("team-detail", () => {
+    it("denies when not authenticated", async () => {
+      mockUser.mockReturnValue(null);
+      expect(await callTeam("show")).toEqual({ can: false, reason: "rbac.notAuthenticated" });
+    });
+
     it("denies show to non-member with no company role", async () => {
       mockUser.mockReturnValue({ isSuperAdmin: false });
       mockCompany.mockReturnValue(null);
@@ -184,6 +195,8 @@ describe("canWriteTeam", () => {
     { name: "team admin", teamId: "t1", superAdmin: false, company: null, role: "admin", want: true },
     { name: "team editor", teamId: "t1", superAdmin: false, company: null, role: "editor", want: true },
     { name: "team viewer", teamId: "t1", superAdmin: false, company: null, role: "viewer", want: false },
+    { name: "team admin in a company they admin", teamId: "t1", superAdmin: false, company: { role: "admin" }, role: "admin", want: true },
+    { name: "team viewer in a company they admin", teamId: "t1", superAdmin: false, company: { role: "admin" }, role: "viewer", want: true },
     { name: "not a member", teamId: "t1", superAdmin: false, company: null, role: undefined, want: false },
   ];
   for (const tt of tests) {

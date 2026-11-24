@@ -89,21 +89,46 @@ describe("dataProvider contract", () => {
     expect(qs.get("disabled")).toBe("true");
   });
 
-  it("update honors meta.method", async () => {
+  it("getList sends no pagination when it is off and skips empty or non-eq filters", async () => {
+    let url = "";
+    server.use(
+      http.get(`${API_URL}/teams`, ({ request }) => {
+        url = request.url;
+        return HttpResponse.json({});
+      })
+    );
+    const res = await dataProvider.getList({
+      resource: "teams",
+      pagination: { mode: "off", currentPage: 2, pageSize: 10 },
+      filters: [
+        { field: "name", operator: "eq", value: "" },
+        { field: "owner", operator: "eq", value: undefined },
+        { field: "size", operator: "gt", value: 3 },
+        { operator: "or", value: [{ field: "a", operator: "eq", value: "x" }] },
+        { field: "companyId", operator: "eq", value: "c1" },
+      ],
+    });
+    expect(new URL(url).search).toBe("?companyId=c1");
+    expect(res).toEqual({ data: [], total: 0 });
+  });
+
+  it.each([
+    { name: "update honors meta.method", meta: { method: "put" }, want: "PUT" },
+    { name: "update defaults to PATCH", meta: undefined, want: "PATCH" },
+  ])("$name", async ({ meta, want }) => {
     let method = "";
     server.use(
-      http.put(`${API_URL}/flags/f1`, ({ request }) => {
+      http.all(`${API_URL}/flags/f1`, ({ request }) => {
         method = request.method;
         return HttpResponse.json({ data: { id: "f1" } });
       })
     );
-    await dataProvider.update({
-      resource: "flags",
-      id: "f1",
-      variables: {},
-      meta: { method: "put" },
-    });
-    expect(method).toBe("PUT");
+    await dataProvider.update({ resource: "flags", id: "f1", variables: {}, meta });
+    expect(method).toBe(want);
+  });
+
+  it("getApiUrl returns the API base URL", () => {
+    expect(dataProvider.getApiUrl()).toBe(API_URL);
   });
 
   it("custom returns paginated bodies whole and unwraps plain ones", async () => {

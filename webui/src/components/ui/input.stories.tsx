@@ -40,7 +40,7 @@ export const Invalid: Story = {
 };
 
 export const File: Story = {
-  args: { type: "file", placeholder: undefined },
+  args: { type: "file", placeholder: undefined, "aria-label": "Upload file" },
 };
 
 export const WithLabel: Story = {

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { useCustom, useCustomMutation, useTranslate } from "@refinedev/core";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
@@ -102,6 +102,7 @@ const METADATA_TYPES: EnrichType[] = ["string", "float", "int", "boolean"];
 
 export function FlagDetailPage() {
   const t = useTranslate();
+  const fieldId = useId();
   const { id } = useParams();
   const navigate = useNavigate();
   const { activeTeamId } = useActiveTeam();
@@ -151,7 +152,6 @@ export function FlagDetailPage() {
   });
   const createdByName = useMemo(() => {
     const list = versionsQuery.data?.data?.data ?? [];
-    if (!list.length) return "";
     const first = [...list].sort(
       (a, b) => a.versionNumber - b.versionNumber,
     )[0];
@@ -572,8 +572,12 @@ export function FlagDetailPage() {
                               flagsetName={flagsetName}
                             />
                           </Field>
-                          <Field label={t("flag.detail.edit.description")}>
+                          <Field
+                            label={t("flag.detail.edit.description")}
+                            htmlFor={`${fieldId}-description`}
+                          >
                             <Input
+                              id={`${fieldId}-description`}
                               value={form.description}
                               onChange={(e) =>
                                 form.setDescription(e.target.value)
@@ -583,8 +587,10 @@ export function FlagDetailPage() {
                           <Field
                             label={t("flag.tags")}
                             hint={t("flag.detail.tagsHint")}
+                            htmlFor={`${fieldId}-tags`}
                           >
                             <TagInput
+                              id={`${fieldId}-tags`}
                               value={form.tags}
                               onChange={form.setTags}
                               suggestions={tagSuggestions}
@@ -595,8 +601,10 @@ export function FlagDetailPage() {
                           <Field
                             label={t("flag.detail.edit.trackEvents")}
                             hint={t("flag.detail.edit.trackEventsHint")}
+                            htmlFor={`${fieldId}-track-events`}
                           >
                             <Switch
+                              id={`${fieldId}-track-events`}
                               checked={form.trackEvents}
                               onCheckedChange={form.setTrackEvents}
                             />

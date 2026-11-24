@@ -121,14 +121,25 @@ export function RulesEditor({
   // The wizard shows its own tips in a sidebar.
   showTips?: boolean;
 }) {
+  // react-querybuilder's control titles double as their accessible names.
+  const qbTranslations = {
+    fields: { title: t("flag.query.fields") },
+    operators: { title: t("flag.query.operators") },
+    value: { title: t("flag.query.value") },
+    combinators: { title: t("flag.query.combinators") },
+    addRule: { title: t("flag.query.addRule") },
+    addGroup: { title: t("flag.query.addGroup") },
+    removeRule: { title: t("flag.query.removeRule") },
+    removeGroup: { title: t("flag.query.removeGroup") },
+  };
   // Only one rule shows the full editor at a time; the others collapse to a
   // one-line summary so long rule lists stay scannable.
   const [openId, setOpenId] = useState<number | null>(null);
   // Opening and closing unmount the focused control, so focus moves to the
-  // name input (autoFocus) on open and back to the rule's row on close.
+  // name input on open and back to the rule's row on close.
   const refocusId = useRef<number | null>(null);
   const toggleRule = (id: number, open: boolean) => {
-    if (!open) refocusId.current = id;
+    refocusId.current = id;
     setOpenId(open ? id : null);
   };
   const summaryId = useId();
@@ -142,9 +153,10 @@ export function RulesEditor({
         id,
         name: nextRuleName(rs.map((r) => r.name)),
         query: newQuery(),
-        outcome: newOutcome(variationNames[0] ?? ""),
+        outcome: newOutcome(variationNames[0]),
       },
     ]);
+    refocusId.current = id;
     setOpenId(id);
   };
   const patchRule = (id: number, p: Partial<Rule>) =>
@@ -244,7 +256,13 @@ export function RulesEditor({
                     <>
                       {keyword}
                       <Input
-                        autoFocus
+                        ref={(el) => {
+                          if (el && refocusId.current === r.id) {
+                            refocusId.current = null;
+                            el.focus();
+                          }
+                        }}
+                        aria-label={t("flag.wizard.ruleName", { index: i + 1 })}
                         className="h-8 min-w-0 max-w-md flex-1 text-xs"
                         value={r.name}
                         onChange={(e) => patchRule(r.id, { name: e.target.value })}
@@ -323,12 +341,20 @@ export function RulesEditor({
                         role="group"
                         aria-label={t("flag.wizard.ruleConditions", { name: label })}
                         aria-describedby={rangeIssue ? rangeIssueId : undefined}
+                        // react-querybuilder renders an unnamed role="form" with no
+                        // prop to name it; name it so each rule's landmark is distinct.
+                        ref={(el) =>
+                          el
+                            ?.querySelector('[role="form"]')
+                            ?.setAttribute("aria-label", t("flag.wizard.ruleConditions", { name: label }))
+                        }
                       >
                         <QueryBuilderShadcnUi>
                           <QueryBuilder
                             fields={QB_FIELDS}
                             operators={QB_OPERATORS}
                             getDefaultValue={() => undefined}
+                            translations={qbTranslations}
                             query={r.query}
                             onQueryChange={(q) => patchRule(r.id, { query: q })}
                           />

@@ -18,19 +18,15 @@ export function formatVariationValue(value: unknown): string {
 export function inferFlagType(payload?: FlagPayload): string {
   const values = payload?.variations ? Object.values(payload.variations) : [];
   if (values.length === 0) return "unknown";
-  let numeric = false;
   let allInt = true;
   for (const v of values) {
     if (typeof v === "boolean") return "boolean";
     if (typeof v === "string") return "string";
-    if (typeof v === "number") {
-      numeric = true;
-      if (!Number.isInteger(v)) allInt = false;
-    } else {
-      return "json";
-    }
+    if (typeof v !== "number") return "json";
+    if (!Number.isInteger(v)) allInt = false;
   }
-  return numeric ? (allInt ? "int" : "float") : "unknown";
+  // Every value is a number here: anything else returned above.
+  return allInt ? "int" : "float";
 }
 
 export type RuleOutcome =

@@ -12,7 +12,7 @@ const meta = {
     step: { control: "number" },
     disabled: { control: "boolean" },
   },
-  args: { min: 0, max: 100, step: 1 },
+  args: { min: 0, max: 100, step: 1, "aria-label": "Volume" },
   render: (args) => (
     <div className="w-64">
       <Slider {...args} />

@@ -22,7 +22,7 @@ export function PageBreadcrumb({ items }: { items: Crumb[] }) {
   return (
     <div className="relative flex items-center gap-2">
       <div className="z-[2] bg-background pr-4">
-        <Breadcrumb>
+        <Breadcrumb aria-label={t("nav.breadcrumb")}>
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>

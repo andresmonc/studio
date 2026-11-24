@@ -30,8 +30,9 @@ export function VariationsEditor({
       ...vs,
       { id: nextId(), name: `treatment-${vs.length}`, value: "" },
     ]);
+  // The remove button is disabled at 2 variations, so no guard is needed here.
   const remove = (id: number) =>
-    setVariations((vs) => (vs.length > 2 ? vs.filter((v) => v.id !== id) : vs));
+    setVariations((vs) => vs.filter((v) => v.id !== id));
   const nameCounts = variations.reduce<Record<string, number>>((m, v) => {
     m[v.name] = (m[v.name] ?? 0) + 1;
     return m;
@@ -43,7 +44,7 @@ export function VariationsEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      {variations.map((v) => {
+      {variations.map((v, i) => {
         const nameErr = isBoolean
           ? null
           : v.name.trim() === ""
@@ -63,6 +64,7 @@ export function VariationsEditor({
                   "h-8 font-mono text-xs",
                   nameErr && "border-destructive",
                 )}
+                aria-label={t("flag.wizard.variationNameLabel", { index: i + 1 })}
                 value={v.name}
                 onChange={(e) => patch(v.id, { name: e.target.value })}
                 placeholder="name"
@@ -75,6 +77,7 @@ export function VariationsEditor({
             {isBoolean ? (
               <Input
                 className="h-8 font-mono text-xs"
+                aria-label={t("flag.wizard.variationValueLabel", { index: i + 1 })}
                 value={v.value}
                 disabled
               />
@@ -85,6 +88,7 @@ export function VariationsEditor({
                     "h-8 font-mono text-xs",
                     valErr && "border-destructive",
                   )}
+                  aria-label={t("flag.wizard.variationValueLabel", { index: i + 1 })}
                   value={v.value}
                   onChange={(e) => patch(v.id, { value: e.target.value })}
                   placeholder={t("flag.wizard.value")}

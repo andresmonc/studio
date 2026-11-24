@@ -267,12 +267,15 @@ export function CompanyTeamsCard({ companyId }: { companyId: string }) {
           className="group"
         >
           <Card>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="flex flex-row items-center justify-between cursor-pointer select-none">
-                <CardTitle>{t("company.teams.createTitle")}</CardTitle>
+            <CardHeader>
+              {/* A real button, so the header is reachable and togglable from the keyboard. */}
+              <CollapsibleTrigger className="flex w-full items-center justify-between cursor-pointer select-none text-left">
+                <span className="leading-none font-semibold">
+                  {t("company.teams.createTitle")}
+                </span>
                 <ChevronDownIcon className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
-              </CardHeader>
-            </CollapsibleTrigger>
+              </CollapsibleTrigger>
+            </CardHeader>
             <CollapsibleContent>
               <CardContent>
                 <Form {...form}>

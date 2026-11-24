@@ -25,6 +25,7 @@ export function SettingsTab({
       </CardHeader>
       <CardContent>
         <Textarea
+          aria-label={t("flagset.settings.defaultTestingContext")}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           spellCheck={false}

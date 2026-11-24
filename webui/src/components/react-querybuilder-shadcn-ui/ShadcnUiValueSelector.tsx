@@ -47,7 +47,7 @@ export const ShadcnUiValueSelector = ({
       onValueChange={handleOnChange}
       {...extraProps}
     >
-      <SelectTrigger className="w-[180px]">
+      <SelectTrigger className="w-[180px]" aria-label={title}>
         <SelectValue placeholder={title} />
       </SelectTrigger>
       <SelectContent>{toSelectOptions(options)}</SelectContent>

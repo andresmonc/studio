@@ -91,6 +91,8 @@ export function SidebarUserMenu() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
+          // Collapsed, the button shows only the avatar.
+          aria-label={open ? undefined : user.name || user.email}
           className={cn(
             "w-full",
             "h-auto",

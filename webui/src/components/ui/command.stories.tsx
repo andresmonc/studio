@@ -16,7 +16,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
   CommandShortcut,
 } from "./command";
 
@@ -46,7 +45,8 @@ const CommandItems = () => (
         <span>Calculator</span>
       </CommandItem>
     </CommandGroup>
-    <CommandSeparator />
+    {/* No CommandSeparator: cmdk forces role="separator" on it, which a
+        listbox may not contain. */}
     <CommandGroup heading="Settings">
       <CommandItem>
         <User />

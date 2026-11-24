@@ -37,10 +37,7 @@ export function parseQuery(q?: string): RuleGroupType {
   }
 }
 
-export function outcomeFromRule(
-  rule: FlagRule | undefined,
-  fallbackVar = "",
-): Outcome {
+export function outcomeFromRule(rule: FlagRule | undefined): Outcome {
   if (rule?.variation) {
     return { mode: "single", single: rule.variation, percentages: {}, prog: newProg() };
   }
@@ -68,7 +65,7 @@ export function outcomeFromRule(
       },
     };
   }
-  return newOutcome(fallbackVar);
+  return newOutcome();
 }
 
 export function hydrateVariations(payload: FlagPayload): Variation[] {
@@ -94,10 +91,10 @@ export function hydrateRules(payload: FlagPayload): Rule[] {
 // cleanMetadata trims string values and drops empty/undefined ones so we never
 // persist `description: ""` or accidentally blank an attribute.
 export function cleanMetadata(
-  md?: Record<string, unknown>,
+  md: Record<string, unknown>,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(md ?? {})) {
+  for (const [k, v] of Object.entries(md)) {
     if (typeof v === "string") {
       const tr = v.trim();
       if (tr) out[k] = tr;

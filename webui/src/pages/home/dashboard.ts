@@ -20,8 +20,8 @@ export function firstName(name: string | undefined, email = ""): string {
 }
 
 export function flagTotals(flagsets: Flagset[]) {
-  const total = flagsets.reduce((sum, fs) => sum + (fs.flagCount ?? 0), 0);
-  const enabled = flagsets.reduce((sum, fs) => sum + (fs.enabledFlagCount ?? 0), 0);
+  const total = flagsets.reduce((sum, fs) => sum + fs.flagCount, 0);
+  const enabled = flagsets.reduce((sum, fs) => sum + fs.enabledFlagCount, 0);
   return { total, enabled, disabled: total - enabled };
 }
 

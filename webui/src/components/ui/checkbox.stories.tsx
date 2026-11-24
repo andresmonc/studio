@@ -11,6 +11,7 @@ const meta = {
     checked: { control: "boolean" },
     disabled: { control: "boolean" },
   },
+  args: { "aria-label": "Subscribe to the newsletter" },
 } satisfies Meta<typeof Checkbox>;
 
 export default meta;

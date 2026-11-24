@@ -67,8 +67,8 @@ export function FlagsetsPage() {
 
   const { mutate: customMutate } = useCustomMutation();
 
-  const flagsTotal = flagsets.reduce((sum, fs) => sum + (fs.flagCount ?? 0), 0);
-  const apiKeysTotal = flagsets.reduce((sum, fs) => sum + (fs.apiKeyCount ?? 0), 0);
+  const flagsTotal = flagsets.reduce((sum, fs) => sum + fs.flagCount, 0);
+  const apiKeysTotal = flagsets.reduce((sum, fs) => sum + fs.apiKeyCount, 0);
 
   const schema = useMemo(
     () =>
@@ -106,6 +106,8 @@ export function FlagsetsPage() {
   );
 
   const onCreate = form.handleSubmit((values) => {
+    // The disabled button already blocks this; keep the guard so no other submit
+    // path (Enter, a future button) can send an invalid enrichment.
     if (!enrichmentValid) return;
     const hasEnrichment = Object.keys(enrichment).length > 0;
     customMutate(

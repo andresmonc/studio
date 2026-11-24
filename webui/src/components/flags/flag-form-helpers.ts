@@ -113,7 +113,6 @@ const VALUELESS_OPS = new Set(["null", "notNull"]);
 function conditionIssues(g: RuleGroupType): Set<RuleIssue> {
   const issues = new Set<RuleIssue>();
   for (const r of g.rules) {
-    if (typeof r === "string") continue;
     if ("rules" in r) {
       for (const issue of conditionIssues(r)) issues.add(issue);
     } else if (r.operator === "between" || r.operator === "notBetween") {

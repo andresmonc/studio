@@ -53,6 +53,7 @@ describe("CompanyRelayProxyCard", () => {
   ];
   for (const tt of states) {
     it(`shows the ${tt.name} state instead of the config`, () => {
+      h.data = undefined;
       h.isLoading = tt.isLoading;
       h.isError = tt.isError;
       render(<CompanyRelayProxyCard companyId={companyId} />);
