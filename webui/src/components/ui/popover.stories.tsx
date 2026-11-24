@@ -18,7 +18,7 @@ export const Default: Story = {
       <PopoverTrigger asChild>
         <Button variant="outline">Open popover</Button>
       </PopoverTrigger>
-      <PopoverContent>
+      <PopoverContent aria-label="Dimensions">
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
             <h4 className="text-sm font-semibold">Dimensions</h4>
@@ -58,7 +58,7 @@ export const DefaultOpen: Story = {
       <PopoverTrigger asChild>
         <Button variant="outline">Open popover</Button>
       </PopoverTrigger>
-      <PopoverContent>
+      <PopoverContent aria-label="Details">
         Opens on load so the content is visible in the docs canvas.
       </PopoverContent>
     </Popover>

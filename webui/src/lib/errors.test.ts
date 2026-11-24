@@ -15,6 +15,7 @@ describe("errMessage", () => {
     },
     { name: "empty field errors", err: new HttpError("conflict", 409, {}), want: "conflict" },
     { name: "error-like object", err: { message: "boom" }, want: "boom" },
+    { name: "error-like object with a null message", err: { message: null }, want: "" },
     { name: "unknown value", err: 42, want: "Unexpected error" },
   ];
   for (const tt of tests) {

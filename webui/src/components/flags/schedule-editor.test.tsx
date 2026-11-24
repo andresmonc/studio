@@ -15,8 +15,8 @@ import {
   type Tr,
 } from "./flag-form";
 
-const t = ((key: string, p?: { target?: string; timeZone?: string }) =>
-  p?.target || p?.timeZone ? `${key}:${p.target ?? p.timeZone}` : key) as unknown as Tr;
+const t = ((key: string, p?: { target?: string; timeZone?: string; name?: string }) =>
+  p?.target || p?.timeZone || p?.name ? `${key}:${p.target ?? p.timeZone ?? p.name}` : key) as unknown as Tr;
 
 const rule = (name: string, outcome: Outcome): Rule => ({
   id: nextId(),
@@ -170,11 +170,11 @@ describe("ScheduleEditor", () => {
     fireEvent.click(
       within(second).getByRole("button", { name: "flag.detail.schedule.editServe:flag.wizard.defaultRule" }),
     );
-    fireEvent.change(within(second).getByLabelText("off percentage"), { target: { value: "50" } });
-    fireEvent.change(within(second).getByLabelText("on percentage"), { target: { value: "50" } });
+    fireEvent.change(within(second).getByLabelText("flag.wizard.variationPercent:off"), { target: { value: "50" } });
+    fireEvent.change(within(second).getByLabelText("flag.wizard.variationPercent:on"), { target: { value: "50" } });
     expect(latest[1].defaultOutcome?.percentages).toEqual({ on: 50, off: 50 });
-    fireEvent.change(within(second).getByLabelText("on percentage"), { target: { value: "30" } });
-    fireEvent.change(within(second).getByLabelText("off percentage"), { target: { value: "70" } });
+    fireEvent.change(within(second).getByLabelText("flag.wizard.variationPercent:on"), { target: { value: "30" } });
+    fireEvent.change(within(second).getByLabelText("flag.wizard.variationPercent:off"), { target: { value: "70" } });
     expect(latest[1].defaultOutcome).toBeUndefined();
   });
 

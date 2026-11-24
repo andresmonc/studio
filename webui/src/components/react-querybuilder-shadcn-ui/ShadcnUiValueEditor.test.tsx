@@ -101,6 +101,11 @@ describe("ShadcnUiValueEditor", () => {
     expect(handleOnChange).toHaveBeenCalledWith("multi\nline");
   });
 
+  it.each(["text", "textarea"])("%s editor shows an unset value as empty", (type) => {
+    setup({ type: type as "text", value: undefined });
+    expect(screen.getByRole("textbox")).toHaveValue("");
+  });
+
   const toggleTests = [
     { name: "switch off → on", type: "switch", role: "switch", value: false, want: true },
     { name: "switch on → off", type: "switch", role: "switch", value: true, want: false },
@@ -171,7 +176,7 @@ describe("ShadcnUiValueEditor", () => {
         separator: <span>and</span>,
         testID: "between",
       });
-      const inputs = screen.getAllByPlaceholderText("Type…");
+      const inputs = [screen.getByPlaceholderText("flag.wizard.rangeLower"), screen.getByPlaceholderText("flag.wizard.rangeUpper")];
       expect(inputs.map((i) => (i as HTMLInputElement).value)).toEqual(["1", "2"]);
       expect(screen.getByTestId("between")).toHaveTextContent("and");
       fireEvent.change(inputs[tt.idx], { target: { value: tt.want.split(",")[tt.idx] } });
@@ -181,7 +186,7 @@ describe("ShadcnUiValueEditor", () => {
 
   it("between text inputs start empty and honour disabled", () => {
     setup({ operator: "between", value: "", disabled: true });
-    const inputs = screen.getAllByPlaceholderText("Type…");
+    const inputs = [screen.getByPlaceholderText("flag.wizard.rangeLower"), screen.getByPlaceholderText("flag.wizard.rangeUpper")];
     expect(inputs).toHaveLength(2);
     for (const i of inputs) {
       expect(i).toHaveValue("");

@@ -1,3 +1,4 @@
+import { useTranslate } from "@refinedev/core";
 import type { ValueEditorProps } from "react-querybuilder";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -40,6 +41,7 @@ export const ShadcnUiValueEditor = (allProps: ShadcnUiValueEditorProps) => {
     ...props
   } = allProps;
 
+  const t = useTranslate();
   const { valueAsArray, multiValueHandler } = useValueEditor(allProps);
 
   if (operator === "null" || operator === "notNull") {
@@ -62,9 +64,10 @@ export const ShadcnUiValueEditor = (allProps: ShadcnUiValueEditorProps) => {
             key={key}
             type={inputTypeCoerced}
             value={valueAsArray[i] ?? ""}
+            aria-label={`${title} ${key}`}
             disabled={disabled}
             className={standardClassnames.valueListItem}
-            placeholder={placeHolderText}
+            placeholder={t(i === 0 ? "flag.wizard.rangeLower" : "flag.wizard.rangeUpper")}
             onChange={(e) => multiValueHandler(e.target.value, i)}
             {...extraProps}
           />
@@ -127,7 +130,7 @@ export const ShadcnUiValueEditor = (allProps: ShadcnUiValueEditorProps) => {
     case "textarea":
       return (
         <Textarea
-          value={value}
+          value={value ?? ""}
           title={title}
           rows={2}
           disabled={disabled}
@@ -186,8 +189,9 @@ export const ShadcnUiValueEditor = (allProps: ShadcnUiValueEditorProps) => {
   return (
     <Input
       type={inputTypeCoerced}
-      value={value}
+      value={value ?? ""}
       title={title}
+      aria-label={title}
       disabled={disabled}
       className={className}
       placeholder={placeHolderText}

@@ -102,7 +102,9 @@ vi.mock("@/components/flags/flag-form", async () => ({
       {children}
     </div>
   ),
-  RulesEditor: () => <div data-testid="rules-editor" />,
+  RulesEditor: ({ showTips }: { showTips?: boolean }) => (
+    <div data-testid="rules-editor" data-show-tips={showTips} />
+  ),
   ScheduleEditor: () => <div data-testid="schedule-editor" />,
   VariationsEditor: () => <div data-testid="variations-editor" />,
   TagInput: () => <div data-testid="tag-input" />,
@@ -144,28 +146,26 @@ function makeFlag(disabled = false) {
 
 const refetchFlag = vi.fn();
 
-function wireData(flag: ReturnType<typeof makeFlag> | undefined, isLoading = false) {
+const V1 = {
+  id: "v1",
+  flagId: "flag-1",
+  versionNumber: 1,
+  payload: {},
+  createdByName: "Jane Doe",
+  createdAt: "2024-01-01T00:00:00Z",
+};
+const V2 = { ...V1, id: "v2", versionNumber: 2, createdByName: "Bob" };
+
+function wireData(
+  flag: ReturnType<typeof makeFlag> | undefined,
+  isLoading = false,
+  versions = [V1],
+) {
   h.useCustomImpl = (args: { url: string }) => {
     if (args.url.endsWith("/tags")) return { query: { data: { data: ["beta"] } } };
     if (args.url.endsWith("/versions"))
       return {
-        query: {
-          data: {
-            data: {
-              data: [
-                {
-                  id: "v1",
-                  flagId: "flag-1",
-                  versionNumber: 1,
-                  payload: {},
-                  createdByName: "Jane Doe",
-                  createdAt: "2024-01-01T00:00:00Z",
-                },
-              ],
-            },
-          },
-          isLoading: false,
-        },
+        query: { data: { data: { data: versions } }, isLoading: false, refetch: vi.fn() },
       };
     if (args.url.includes("/flagsets/"))
       return { query: { data: { data: FLAGSET }, isLoading: false } };
@@ -260,16 +260,36 @@ describe("FlagDetailPage settings tab", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows the creator as a read-only 'Created by' field", async () => {
+  const createdByTests = [
+    { name: "the author of the first version", versions: [V2, V1], want: "Jane Doe" },
+    { name: "a dash without any version", versions: [], want: "—" },
+  ];
+  for (const tt of createdByTests) {
+    it(`shows ${tt.name} as a read-only 'Created by' field`, async () => {
+      h.perms = { canEdit: true, role: "editor", admin: true };
+      wireData(makeFlag(false), false, tt.versions);
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      renderPage();
+      await openSettingsTab(user);
+
+      const field = screen.getByText("Created by").parentElement as HTMLElement;
+      expect(within(field).getByText(tt.want)).toBeInTheDocument();
+      // No editable Owner input remains.
+      expect(screen.queryByText("Owner")).not.toBeInTheDocument();
+    });
+  }
+
+  it("edits the description", async () => {
+    const setDescription = vi.fn();
+    h.form = { setDescription };
     h.perms = { canEdit: true, role: "editor", admin: true };
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     renderPage();
     await openSettingsTab(user);
 
-    expect(screen.getByText("Created by")).toBeInTheDocument();
-    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
-    // No editable Owner input remains.
-    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
+    const field = screen.getByText("Description").parentElement as HTMLElement;
+    await user.type(within(field).getByRole("textbox"), "x");
+    expect(setDescription).toHaveBeenCalledWith("x");
   });
 });
 
@@ -371,22 +391,16 @@ describe("FlagDetailPage danger zone", () => {
 describe("FlagDetailPage targeting tab", () => {
   // The targeting tab is the default tab, so its content renders on mount.
 
-  it("shows the editor Tips callout for users who can edit", () => {
+  it("shows the editor with its tips for users who can edit", () => {
     h.perms = { canEdit: true, role: "editor", admin: true };
     renderPage();
-    expect(screen.getByText("Tips")).toBeInTheDocument();
-    expect(
-      screen.getByText(/the first one that matches wins/i),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("rules-editor")).toHaveAttribute("data-show-tips", "true");
   });
 
-  it("hides the editor Tips callout for read-only viewers", () => {
+  it("hides the editor for read-only viewers", () => {
     // Default beforeEach perms are read-only.
     renderPage();
-    expect(screen.queryByText("Tips")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/the first one that matches wins/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("rules-editor")).not.toBeInTheDocument();
   });
 
   it("shows a rules-count badge on the Targeting tab when rules exist", () => {
@@ -566,14 +580,14 @@ describe("FlagDetailPage left-menu navigation", () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     renderPage();
 
-    // Targeting is the default section; its editor Tips callout is visible.
-    expect(screen.getByText("Tips")).toBeInTheDocument();
+    // Targeting is the default section; its editor is visible.
+    expect(screen.getByTestId("rules-editor")).toBeInTheDocument();
 
     await openSettingsTab(user);
 
     // Settings content is now shown and the Targeting pane is unmounted.
     expect(screen.getByText("Danger zone")).toBeInTheDocument();
-    expect(screen.queryByText("Tips")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("rules-editor")).not.toBeInTheDocument();
   });
 
   it("marks the active menu button and updates it on navigation", async () => {
@@ -606,6 +620,43 @@ describe("FlagDetailPage evaluate tab", () => {
     await user.click(screen.getByRole("button", { name: "Evaluate" }));
 
     expect(screen.getByText("Test this flag")).toBeInTheDocument();
+    const ta = screen.getByRole("textbox") as HTMLTextAreaElement;
+    expect(ta.value).toBe(DEFAULT_TESTING_CONTEXT);
+  });
+
+  it("keeps an edited context when switching tabs and coming back", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: '{"targetingKey":"edited"}' },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
+
+    const ta = screen.getByRole("textbox") as HTMLTextAreaElement;
+    expect(ta.value).toBe('{"targetingKey":"edited"}');
+  });
+
+  it("drops the edited context when another flag loads on the same page", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const { rerender } = renderPage();
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: '{"targetingKey":"edited"}' },
+    });
+
+    // The route component is reused across ids, so only the flag data changes.
+    wireData({ ...makeFlag(false), id: "flag-2" });
+    rerender(
+      <MemoryRouter initialEntries={["/flags/flag-1"]}>
+        <Routes>
+          <Route path="/flags/:id" element={<FlagDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
     const ta = screen.getByRole("textbox") as HTMLTextAreaElement;
     expect(ta.value).toBe(DEFAULT_TESTING_CONTEXT);
   });
@@ -695,6 +746,20 @@ describe("FlagDetailPage history and code sample tabs", () => {
 
     expect(screen.getByText("Timeline")).toBeInTheDocument();
     expect(screen.getByText("v1 · changes")).toBeInTheDocument();
+  });
+
+  it("refreshes the flag after reverting to an older version", async () => {
+    h.perms = { canEdit: true, role: "editor", admin: true };
+    wireData({ ...makeFlag(false), currentVersion: 2 }, false, [V2, V1]);
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "History" }));
+    await user.click(screen.getByRole("button", { name: "Revert" }));
+
+    const [args, cbs] = h.mutate.mock.calls[0];
+    expect(args.url).toMatch(/\/flags\/flag-1\/versions\/1\/rollback$/);
+    act(() => cbs.onSuccess());
+    expect(refetchFlag).toHaveBeenCalled();
   });
 
   it("shows the SDK code sample", async () => {
@@ -791,23 +856,31 @@ describe("FlagDetailPage danger zone results", () => {
     h.perms = { canEdit: true, role: "editor", admin: true };
   });
 
-  async function confirmDisable(user: ReturnType<typeof userEvent.setup>) {
+  async function confirmDisable(user: ReturnType<typeof userEvent.setup>, action = "Disable flag") {
     await openSettingsTab(user);
-    await user.click(screen.getByRole("button", { name: "Disable flag" }));
+    await user.click(screen.getByRole("button", { name: action }));
     const dialog = screen.getByRole("alertdialog");
     await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
   }
 
-  it("refreshes the flag after toggling it", async () => {
-    const user = userEvent.setup({ pointerEventsCheck: 0 });
-    renderPage();
-    await confirmDisable(user);
+  const toggleTests = [
+    { name: "disabling", disabled: false, action: "Disable flag", toast: "Flag disabled" },
+    { name: "enabling", disabled: true, action: "Enable flag", toast: "Flag enabled" },
+  ];
+  for (const tt of toggleTests) {
+    it(`refreshes the flag after ${tt.name} it`, async () => {
+      wireData(makeFlag(tt.disabled));
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      renderPage();
+      await confirmDisable(user, tt.action);
 
-    act(() => h.mutate.mock.calls[0][1].onSuccess());
-    expect(h.toastSuccess).toHaveBeenCalledWith("Flag disabled");
-    expect(refetchFlag).toHaveBeenCalled();
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
-  });
+      expect(h.mutate.mock.calls[0][0].values).toEqual({ disabled: !tt.disabled });
+      act(() => h.mutate.mock.calls[0][1].onSuccess());
+      expect(h.toastSuccess).toHaveBeenCalledWith(tt.toast);
+      expect(refetchFlag).toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    });
+  }
 
   it("reports a failed toggle", async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });

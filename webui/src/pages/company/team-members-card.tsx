@@ -132,7 +132,6 @@ export function TeamMembersCard({
   });
 
   const onChangeRole = (m: TeamMember, role: Role) => {
-    if (role === m.role) return;
     customMutate(
       {
         url: `${membersUrl}/${m.userId}`,
@@ -280,7 +279,7 @@ export function TeamMembersCard({
                       value={m.role}
                       onValueChange={(v) => onChangeRole(m, v as Role)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger aria-label={t("common.roleOf", { email: m.email })}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

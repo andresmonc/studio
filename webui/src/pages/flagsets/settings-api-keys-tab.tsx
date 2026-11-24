@@ -177,7 +177,11 @@ export function ApiKeysTab({
                 <TableHead>{t("flagset.settings.keyLabel")}</TableHead>
                 <TableHead>{t("flagset.settings.key")}</TableHead>
                 <TableHead className="w-44">{t("common.created")}</TableHead>
-                {canManage && <TableHead className="w-16" />}
+                {canManage && (
+                  <TableHead className="w-16">
+                    <span className="sr-only">{t("common.actions")}</span>
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -207,7 +211,7 @@ export function ApiKeysTab({
                     </div>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {k.createdAt ? new Date(k.createdAt).toLocaleDateString() : ""}
+                    {new Date(k.createdAt).toLocaleDateString()}
                     {k.createdByName ? ` · ${k.createdByName}` : ""}
                   </TableCell>
                   {canManage && (

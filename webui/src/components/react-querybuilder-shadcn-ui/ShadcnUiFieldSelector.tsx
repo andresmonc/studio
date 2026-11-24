@@ -30,12 +30,12 @@ function flattenOptions(list: OptionList): FieldOption[] {
   if (isOptionGroupArray(list)) {
     for (const group of list) {
       for (const o of group.options) {
-        out.push({ name: o.name ?? "", label: String(o.label ?? o.name ?? "") });
+        out.push({ name: o.name, label: o.label });
       }
     }
-  } else if (Array.isArray(list)) {
+  } else {
     for (const o of list) {
-      out.push({ name: o.name ?? "", label: String(o.label ?? o.name ?? "") });
+      out.push({ name: o.name, label: o.label });
     }
   }
   return out;
@@ -124,6 +124,7 @@ export const ShadcnUiFieldSelector = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          aria-label={title}
           disabled={disabled}
           className="w-[180px] justify-between font-normal"
           {...extraProps}
@@ -132,7 +133,7 @@ export const ShadcnUiFieldSelector = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[220px] p-0" align="start">
+      <PopoverContent className="w-[220px] p-0" align="start" aria-label={title}>
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search or type an attribute…"

@@ -23,8 +23,8 @@ describe("EnrichmentEditor seeding", () => {
   }[] = [
     {
       name: "infers string / number / boolean / json with the default types",
-      initial: { plan: "pro", n: 3, beta: true, meta: { a: 1 } },
-      wantTypes: ["string", "number", "boolean", "json"],
+      initial: { plan: "pro", n: 3, beta: true, off: false, meta: { a: 1 } },
+      wantTypes: ["string", "number", "boolean", "boolean", "json"],
     },
     {
       name: "splits numbers into int / float when the caller offers them",
@@ -140,12 +140,13 @@ describe("EnrichmentEditor rows", () => {
 
   it("keeps the value when switching to a non-boolean type", async () => {
     const onChange = vi.fn();
-    render(<EnrichmentEditor initial={{ k: "12" }} onChange={onChange} />);
+    render(<EnrichmentEditor initial={{ k: "12", other: "x" }} onChange={onChange} />);
     const u = user();
 
-    await u.click(screen.getByRole("combobox"));
+    await u.click(screen.getAllByRole("combobox")[0]);
     await u.click(screen.getByRole("option", { name: "number" }));
-    expect(lastCall(onChange)).toEqual([{ k: 12 }, true]);
+    // Only the edited row changes.
+    expect(lastCall(onChange)).toEqual([{ k: 12, other: "x" }, true]);
   });
 
   it("removes a row", async () => {

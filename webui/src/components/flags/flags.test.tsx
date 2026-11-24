@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { render } from "@testing-library/react";
+import { useState } from "react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { variationColor } from "./variation-colors";
 import { diffLines } from "./diff";
 import {
@@ -11,7 +12,7 @@ import {
 import { humanizeQuery } from "./rule-display";
 import { DistributionBar } from "./distribution-bar";
 import { VariationPill } from "./variation-pill";
-import { VariationsEditor, type Tr } from "./flag-form";
+import { VariationsEditor, type Tr, type Variation } from "./flag-form";
 
 describe("variationColor", () => {
   it("maps negative-side keys to a neutral color", () => {
@@ -74,7 +75,14 @@ describe("ruleOutcome", () => {
       startDate: undefined,
       endDate: undefined,
     });
+    expect(ruleOutcome({ progressiveRollout: {} })).toMatchObject({
+      kind: "progressive",
+      from: 0,
+      to: 100,
+    });
     expect(ruleOutcome(undefined)).toEqual({ kind: "none" });
+    // A rule naming no outcome at all (e.g. a hand-edited payload).
+    expect(ruleOutcome({ name: "r" })).toEqual({ kind: "none" });
   });
 });
 
@@ -84,8 +92,12 @@ describe("variationNames / formatVariationValue", () => {
       "on",
       "off",
     ]);
+    expect(variationNames({})).toEqual([]);
   });
   it("formats values for display", () => {
+    // A variation name the payload doesn't define has no value to show.
+    expect(formatVariationValue(undefined)).toBe("");
+    expect(formatVariationValue(null)).toBe("");
     expect(formatVariationValue("hello")).toBe("hello");
     expect(formatVariationValue(true)).toBe("true");
     expect(formatVariationValue({ a: 1 })).toBe('{"a":1}');
@@ -242,5 +254,65 @@ describe("VariationsEditor (boolean)", () => {
     expect(getByText("flag.wizard.errNameRequired")).toBeInTheDocument();
     expect(getAllByText("flag.wizard.errNameDup")).toHaveLength(2);
     expect(getByText("flag.wizard.errValueRequired")).toBeInTheDocument();
+  });
+});
+
+describe("VariationsEditor (editing)", () => {
+  const t = ((key: string) => key) as unknown as Tr;
+
+  function Harness({ initial, onChange }: { initial: Variation[]; onChange: (vs: Variation[]) => void }) {
+    const [variations, setVariations] = useState(initial);
+    onChange(variations);
+    return <VariationsEditor t={t} type="string" variations={variations} setVariations={setVariations} />;
+  }
+
+  const three = (): Variation[] => [
+    { id: 1, name: "a", value: "x" },
+    { id: 2, name: "b", value: "y" },
+    { id: 3, name: "c", value: "z" },
+  ];
+  const removeButtons = () => screen.getAllByRole("button", { name: "common.remove" });
+
+  const tests: { name: string; act: () => void; want: Pick<Variation, "name" | "value">[] }[] = [
+    {
+      name: "renames a variation",
+      act: () => fireEvent.change(screen.getAllByPlaceholderText("name")[1], { target: { value: "beta" } }),
+      want: [{ name: "a", value: "x" }, { name: "beta", value: "y" }, { name: "c", value: "z" }],
+    },
+    {
+      name: "edits a variation value",
+      act: () => fireEvent.change(screen.getAllByPlaceholderText("flag.wizard.value")[2], { target: { value: "w" } }),
+      want: [{ name: "a", value: "x" }, { name: "b", value: "y" }, { name: "c", value: "w" }],
+    },
+    {
+      name: "adds an empty treatment named after its position",
+      act: () => fireEvent.click(screen.getByText("flag.wizard.addVariation")),
+      want: [
+        { name: "a", value: "x" },
+        { name: "b", value: "y" },
+        { name: "c", value: "z" },
+        { name: "treatment-3", value: "" },
+      ],
+    },
+    {
+      name: "removes a variation",
+      act: () => fireEvent.click(removeButtons()[0]),
+      want: [{ name: "b", value: "y" }, { name: "c", value: "z" }],
+    },
+  ];
+  for (const tt of tests) {
+    it(tt.name, () => {
+      let got: Variation[] = [];
+      render(<Harness initial={three()} onChange={(vs) => (got = vs)} />);
+      tt.act();
+      expect(got.map(({ name, value }) => ({ name, value }))).toEqual(tt.want);
+    });
+  }
+
+  it("stops removing at two variations", () => {
+    render(<Harness initial={three()} onChange={() => {}} />);
+    expect(removeButtons().every((b) => !(b as HTMLButtonElement).disabled)).toBe(true);
+    fireEvent.click(removeButtons()[0]);
+    expect(removeButtons().every((b) => (b as HTMLButtonElement).disabled)).toBe(true);
   });
 });

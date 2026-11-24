@@ -76,7 +76,7 @@ const POLLING_INTERVAL_DOCS =
 function seed(fs: Flagset): Draft {
   return {
     name: fs.name,
-    description: fs.description ?? "",
+    description: fs.description,
     testingContext: fs.defaultTestingEvaluationContext
       ? JSON.stringify(fs.defaultTestingEvaluationContext, null, 2)
       : DEFAULT_TESTING_CONTEXT,

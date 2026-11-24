@@ -22,7 +22,7 @@ export function FilterSelect({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-9 w-[150px] text-sm">
+      <SelectTrigger className="h-9 w-[150px] text-sm" aria-label={allLabel}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

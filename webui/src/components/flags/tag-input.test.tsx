@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, fireEvent } from "@testing-library/react";
 import { TagInput } from "./tag-input";
 
+// Echo the key plus the tag, so each remove button keeps a distinct label.
+vi.mock("@refinedev/core", () => ({
+  useTranslate: () => (key: string, o?: { tag?: string }) =>
+    o?.tag ? `${key} ${o.tag}` : key,
+}));
+
 // Controlled harness: TagInput is controlled, so re-render with the new value
 // whenever onChange fires (mirrors how useFlagForm drives it).
 function renderControlled(initial: string[] = [], suggestions: string[] = []) {
@@ -51,7 +57,7 @@ describe("TagInput", () => {
 
   it("removes a tag via its × button", () => {
     const { onChange } = renderControlled(["beta", "prod"]);
-    fireEvent.click(screen.getByLabelText("Remove beta"));
+    fireEvent.click(screen.getByLabelText("flag.removeTag beta"));
     expect(onChange).toHaveBeenCalledWith(["prod"]);
   });
 
@@ -66,7 +72,7 @@ describe("TagInput", () => {
 
   it("hides remove buttons when readOnly", () => {
     render(<TagInput value={["beta"]} onChange={vi.fn()} readOnly />);
-    expect(screen.queryByLabelText("Remove beta")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("flag.removeTag beta")).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
@@ -79,16 +85,32 @@ describe("TagInput", () => {
     expect(screen.getByText("Maximum 2 tags reached")).toBeInTheDocument();
   });
 
-  it("does not add a tag longer than maxTagLength and shows a hint", () => {
-    const onChange = vi.fn();
-    render(<TagInput value={[]} onChange={onChange} maxTagLength={3} />);
-    const input = screen.getByRole("combobox") as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "abcd" } });
-    fireEvent.keyDown(input, { key: "Enter" });
+  for (const key of ["Enter", ","]) {
+    it(`does not add a tag longer than maxTagLength on ${key}, keeps the draft and shows a hint`, () => {
+      const onChange = vi.fn();
+      render(<TagInput value={[]} onChange={onChange} maxTagLength={3} />);
+      const input = screen.getByRole("combobox") as HTMLInputElement;
+      fireEvent.change(input, { target: { value: "abcd" } });
+      fireEvent.keyDown(input, { key });
+      expect(onChange).not.toHaveBeenCalled();
+      expect(input.value).toBe("abcd");
+      expect(
+        screen.getByText("Tags can be at most 3 characters"),
+      ).toBeInTheDocument();
+    });
+  }
+
+  it("ignores a comma on a blank draft", () => {
+    const { onChange, input } = renderControlled([]);
+    fireEvent.change(input(), { target: { value: "   " } });
+    fireEvent.keyDown(input(), { key: "," });
     expect(onChange).not.toHaveBeenCalled();
-    expect(
-      screen.getByText("Tags can be at most 3 characters"),
-    ).toBeInTheDocument();
+  });
+
+  it("focuses the input when the tag area is clicked", () => {
+    renderControlled(["beta"]);
+    fireEvent.click(screen.getByText("beta"));
+    expect(screen.getByRole("combobox")).toHaveFocus();
   });
 });
 
@@ -125,6 +147,14 @@ describe("TagInput draft and dropdown lifecycle", () => {
       name: "a mousedown inside the dropdown cancels the pending close",
       act: (input) => {
         fireEvent.blur(input);
+        fireEvent.mouseDown(screen.getByText("canary"));
+        act(() => vi.advanceTimersByTime(120));
+      },
+      wantOpen: true,
+    },
+    {
+      name: "a mousedown inside the dropdown with no pending close keeps it open",
+      act: () => {
         fireEvent.mouseDown(screen.getByText("canary"));
         act(() => vi.advanceTimersByTime(120));
       },

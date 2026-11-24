@@ -152,6 +152,14 @@ describe("CompanyMembersCard change role", () => {
       }
     });
   }
+
+  it("picking the current role sends nothing", async () => {
+    const user = userEvent.setup();
+    render(<CompanyMembersCard companyId="c1" />);
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(screen.getByRole("option", { name: "company.roles.member" }));
+    expect(h.mutate).not.toHaveBeenCalled();
+  });
 });
 
 describe("CompanyMembersCard remove member", () => {
@@ -182,6 +190,16 @@ describe("CompanyMembersCard remove member", () => {
       }
     });
   }
+
+  it("while the removal is in flight, reopening shows it pending", async () => {
+    h.mutate.mockImplementation(() => {});
+    const user = userEvent.setup();
+    render(<CompanyMembersCard companyId="c1" />);
+    await user.click(screen.getByRole("button", { name: "company.members.removeAria" }));
+    await user.click(screen.getByRole("button", { name: "common.remove" }));
+    await user.click(screen.getByRole("button", { name: "company.members.removeAria" }));
+    expect(screen.getByRole("button", { name: "common.removing" })).toBeDisabled();
+  });
 
   it("cancel closes the dialog without calling the API", async () => {
     const user = userEvent.setup();

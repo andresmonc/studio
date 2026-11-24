@@ -10,14 +10,19 @@ export function Field({
   label,
   children,
   hint,
+  htmlFor,
 }: {
   label: string;
   children: ReactNode;
   hint?: string;
+  /** Id of the single control inside, so the label names it. Omit when children is a composite. */
+  htmlFor?: string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-xs" htmlFor={htmlFor}>
+        {label}
+      </Label>
       {children}
       {hint && <p className="text-2xs text-muted-foreground">{hint}</p>}
     </div>

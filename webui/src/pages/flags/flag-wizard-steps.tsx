@@ -2,7 +2,7 @@
 // header, the Basics step, the validation sidekick, and the Review step.
 // Extracted from flag-wizard.tsx; FlagWizard owns all state and passes it in.
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { dump as yamlDump } from "js-yaml";
 import { CheckIcon, CircleDashedIcon } from "lucide-react";
@@ -100,11 +100,12 @@ export function BasicsStep({
   enableOnSave: boolean;
   setEnableOnSave: (v: boolean) => void;
 }) {
+  const id = useId();
   return (
     <div className="flex flex-col gap-4">
-      <Field label={t("flag.wizard.flagset")}>
+      <Field label={t("flag.wizard.flagset")} htmlFor={`${id}-flagset`}>
         <Select value={flagsetId} onValueChange={setFlagsetId}>
-          <SelectTrigger>
+          <SelectTrigger id={`${id}-flagset`}>
             <SelectValue placeholder={t("flag.allFlagsets")} />
           </SelectTrigger>
           <SelectContent>
@@ -116,19 +117,23 @@ export function BasicsStep({
           </SelectContent>
         </Select>
       </Field>
-      <Field label={t("flag.wizard.key")} hint={t("flag.wizard.keyHint")}>
+      <Field label={t("flag.wizard.key")} hint={t("flag.wizard.keyHint")} htmlFor={`${id}-key`}>
         <Input
+          id={`${id}-key`}
           className="font-mono"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="checkout-progress-banner"
         />
       </Field>
-      <Field label={t("flag.wizard.description")}>
-        <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+      <Field label={t("flag.wizard.description")} htmlFor={`${id}-description`}>
+        <Input
+          id={`${id}-description`}
+          value={description} onChange={(e) => setDescription(e.target.value)} />
       </Field>
-      <Field label={t("flag.wizard.tagsLabel")} hint={t("flag.wizard.tagsHint")}>
+      <Field label={t("flag.wizard.tagsLabel")} hint={t("flag.wizard.tagsHint")} htmlFor={`${id}-tags`}>
         <TagInput
+          id={`${id}-tags`}
           value={tags}
           onChange={setTags}
           suggestions={tagSuggestions}
@@ -152,7 +157,11 @@ export function BasicsStep({
         />
       </Field>
       <div className="flex items-center gap-3 rounded-md border bg-muted/30 p-3">
-        <Switch checked={enableOnSave} onCheckedChange={setEnableOnSave} />
+        <Switch
+          aria-label={t("flag.wizard.enableOnSave")}
+          checked={enableOnSave}
+          onCheckedChange={setEnableOnSave}
+        />
         <div className="text-xs">
           <b>{t("flag.wizard.enableOnSave")}</b>{" "}
           <span className="text-muted-foreground">
@@ -213,13 +222,14 @@ export function ReviewStep({
   comment: string;
   setComment: (v: string) => void;
 }) {
+  const id = useId();
   const [format, setFormat] = useState<"yaml" | "json">("yaml");
   // Real GOFF format keys the flag config by its name, rather than the
   // `{ name, payload }` envelope the management API expects on the wire.
   const preview = useMemo(() => {
     // Mirror the submit path, which keys the flag by `name.trim()`, so the
     // preview never shows a key that differs from what gets created.
-    const goff = { [name.trim() || "flag-name"]: payload };
+    const goff = { [name.trim()]: payload };
     return format === "yaml"
       ? yamlDump(goff, { indent: 2, lineWidth: -1 })
       : JSON.stringify(goff, null, 2);
@@ -242,8 +252,9 @@ export function ReviewStep({
           </div>
         </div>
       </Field>
-      <Field label={t("flag.wizard.commit")}>
+      <Field label={t("flag.wizard.commit")} htmlFor={`${id}-commit`}>
         <Input
+          id={`${id}-commit`}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="feat(flags): add new flag"

@@ -68,4 +68,13 @@ describe("copyToClipboard", () => {
 
     expect(ok).toBe(false);
   });
+
+  it("returns false when the legacy copy throws", async () => {
+    setClipboard(undefined);
+    document.execCommand = vi.fn(() => {
+      throw new Error("blocked");
+    }) as typeof document.execCommand;
+
+    expect(await copyToClipboard("key")).toBe(false);
+  });
 });

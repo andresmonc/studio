@@ -22,4 +22,10 @@ describe("ui-config", () => {
     await loadUIConfig();
     expect(isMonoCompany()).toBe(true);
   });
+
+  it("keeps the current config when /config has no data", async () => {
+    server.use(http.get(configEndpoint, () => HttpResponse.json({})));
+    await loadUIConfig();
+    expect(isMonoCompany()).toBe(true);
+  });
 });

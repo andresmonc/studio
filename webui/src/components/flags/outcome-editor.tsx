@@ -2,6 +2,7 @@
 // percentage sliders + distribution bar, progressive two-step rollout with a
 // curve preview). Extracted from flag-form.tsx.
 
+import { useId } from "react";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { Slider } from "@/components/ui/slider";
@@ -39,6 +40,7 @@ export function OutcomeEditor({
   isCreate?: boolean;
   modes?: OutcomeMode[];
 }) {
+  const id = useId();
   const set = (p: Partial<Outcome>) => onChange({ ...outcome, ...p });
   const setProg = (p: Partial<ProgState>) =>
     onChange({ ...outcome, prog: { ...outcome.prog, ...p } });
@@ -63,7 +65,10 @@ export function OutcomeEditor({
       <div className="mt-3">
         {outcome.mode === "single" && (
           <Select value={outcome.single} onValueChange={(v) => set({ single: v })}>
-            <SelectTrigger className="font-mono text-xs">
+            <SelectTrigger
+              className="font-mono text-xs"
+              aria-label={t("flag.wizard.variation")}
+            >
               <SelectValue placeholder={t("flag.wizard.selectVariation")} />
             </SelectTrigger>
             <SelectContent>{varOptions}</SelectContent>
@@ -111,7 +116,7 @@ export function OutcomeEditor({
                     min={0}
                     max={100}
                     step="any"
-                    aria-label={`${n} percentage`}
+                    aria-label={t("flag.wizard.variationPercent", { name: n })}
                     className="h-8 w-20 text-xs"
                     value={outcome.percentages[n] ?? ""}
                     onChange={(e) =>
@@ -159,12 +164,13 @@ export function OutcomeEditor({
                 <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {t("flag.wizard.initialStep")}
                 </span>
-                <Field label={t("flag.wizard.variation")}>
+                <Field label={t("flag.wizard.variation")} htmlFor={`${id}-initial-variation`}>
                   <Select
                     value={outcome.prog.initialVariation}
                     onValueChange={(v) => setProg({ initialVariation: v })}
                   >
                     <SelectTrigger
+                      id={`${id}-initial-variation`}
                       className="font-mono text-xs"
                       aria-invalid={
                         !variationNames.includes(outcome.prog.initialVariation)
@@ -177,8 +183,9 @@ export function OutcomeEditor({
                     <SelectContent>{varOptions}</SelectContent>
                   </Select>
                 </Field>
-                <Field label={t("flag.wizard.date")}>
+                <Field label={t("flag.wizard.date")} htmlFor={`${id}-initial-date`}>
                   <Input
+                    id={`${id}-initial-date`}
                     type="datetime-local"
                     className="h-8 text-xs"
                     value={outcome.prog.startDate}
@@ -193,12 +200,13 @@ export function OutcomeEditor({
                 <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {t("flag.wizard.endStep")}
                 </span>
-                <Field label={t("flag.wizard.variation")}>
+                <Field label={t("flag.wizard.variation")} htmlFor={`${id}-end-variation`}>
                   <Select
                     value={outcome.prog.endVariation}
                     onValueChange={(v) => setProg({ endVariation: v })}
                   >
                     <SelectTrigger
+                      id={`${id}-end-variation`}
                       className="font-mono text-xs"
                       aria-invalid={
                         !variationNames.includes(outcome.prog.endVariation)
@@ -211,8 +219,9 @@ export function OutcomeEditor({
                     <SelectContent>{varOptions}</SelectContent>
                   </Select>
                 </Field>
-                <Field label={t("flag.wizard.date")}>
+                <Field label={t("flag.wizard.date")} htmlFor={`${id}-end-date`}>
                   <Input
+                    id={`${id}-end-date`}
                     type="datetime-local"
                     className="h-8 text-xs"
                     value={outcome.prog.endDate}

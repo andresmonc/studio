@@ -57,11 +57,12 @@ const older = ev({ id: 0, occurredAt: "2025-01-14T10:00:00Z", action: "delete", 
 
 // Stable response objects per URL, so the page's effects see the same data
 // across re-renders like they would with react-query.
-function mockApi({ isLoading = false, data = entries, total = data.length }: { isLoading?: boolean; data?: AuditEntry[]; total?: number } = {}) {
+// names: false leaves the flags/flagsets lookups unloaded.
+function mockApi({ isLoading = false, data = entries, total = data.length, names = true }: { isLoading?: boolean; data?: AuditEntry[]; total?: number; names?: boolean } = {}) {
   const page1 = { data: { data, total } };
   const page2 = { data: { data: [older], total } };
-  const flags = { data: { data: [{ id: "flag-1", name: "checkout-flag" }] } };
-  const flagsets = { data: [{ id: "fs-2", name: "zeta" }, { id: "fs-1", name: "payments" }] };
+  const flags = names ? { data: { data: [{ id: "flag-1", name: "checkout-flag" }] } } : undefined;
+  const flagsets = names ? { data: [{ id: "fs-2", name: "zeta" }, { id: "fs-1", name: "payments" }] } : undefined;
   h.useCustom.mockImplementation(({ url }: { url: string }) => {
     if (url.includes("/flags?")) return { query: { data: flags } };
     if (url.endsWith("/flagsets")) return { query: { data: flagsets } };
@@ -162,6 +163,39 @@ describe("AuditLogPage stream", () => {
       expect(row).toHaveAccessibleName(tt.want);
     });
   }
+
+  it("shows raw target ids until the flag and flagset names load", () => {
+    mockApi({ names: false });
+    renderPage();
+    expect(rows()[0]).toHaveAccessibleName(/flag-1/);
+    expect(rows()[4]).toHaveAccessibleName(/fs-1/);
+  });
+
+  const keyTargets = [
+    { name: "a deleted key shows the label from its before snapshot", e: { before: { label: "old-key" } }, want: /old-key/ },
+    { name: "a key snapshot without a label falls back to the id", e: { after: { id: "x" } }, want: /key-9/ },
+  ];
+  for (const tt of keyTargets) {
+    it(tt.name, () => {
+      mockApi({ data: [ev({ id: 9, action: "delete", targetType: "api_key", targetId: "key-9", ...tt.e })] });
+      renderPage();
+      expect(rows()[0]).toHaveAccessibleName(tt.want);
+    });
+  }
+
+  it("a refetch of an already merged page doesn't duplicate events", () => {
+    const { rerender } = renderPage();
+    mockApi(); // fresh response objects, like a background refetch
+    rerender(
+      <MemoryRouter initialEntries={["/audit-log"]}>
+        <LocationProbe />
+        <Routes>
+          <Route path="/audit-log" element={<AuditLogPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(rows()).toHaveLength(6);
+  });
 
   it("loads earlier events and appends them", async () => {
     mockApi({ total: 7 });
@@ -320,6 +354,22 @@ describe("AuditLogPage CSV export", () => {
       '"id","occurredAt","actor","action","targetType","target"',
       `"4","${yesterday.toISOString()}","system","create","api_key","'=ci-key"`,
     ]);
+    click.mockRestore();
+  });
+
+  it("names the file after the team id when the team name is unknown", async () => {
+    Object.assign(URL, { createObjectURL: () => "blob:x", revokeObjectURL: () => {} });
+    let download = "";
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        download = this.download;
+      });
+    h.team.activeTeamId = "team-9";
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "auditLog.exportCsv" }));
+    expect(download).toBe("audit-log-team-9.csv");
     click.mockRestore();
   });
 

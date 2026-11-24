@@ -137,6 +137,33 @@ describe("FlagsetSettingsPage", () => {
     });
   }
 
+  it("a flagset without contexts seeds the default testing context and no enrichment", () => {
+    h.flagset = { ...fs, defaultTestingEvaluationContext: undefined, evaluationContextEnrichment: undefined };
+    renderAt();
+    expect(screen.getByDisplayValue(/targetingKey/)).toBeInTheDocument();
+    openTab("flagset.settings.context");
+    expect(screen.queryByPlaceholderText("flagset.value")).toBeNull();
+    expect(saveBtn()).toBeNull();
+  });
+
+  it("falls back to settings when the open secret tab is no longer readable", () => {
+    const { rerender } = renderAt();
+    openTab("flagset.settings.apiKeys");
+    expect(screen.getByTestId("keys")).toBeInTheDocument();
+    // Permissions are refetched: the user is now a viewer.
+    h.canEdit = false;
+    h.role = "viewer";
+    rerender(
+      <MemoryRouter initialEntries={["/flagsets/fs-1"]}>
+        <Routes>
+          <Route path="/flagsets/:id" element={<FlagsetSettingsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.queryByTestId("keys")).toBeNull();
+    expect(nameInput()).toBeDisabled();
+  });
+
   it("switches to the keys tab", () => {
     renderAt();
     openTab("flagset.settings.apiKeys");

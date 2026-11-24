@@ -9,6 +9,7 @@ const meta = {
   args: {
     value: 60,
     className: "w-80",
+    "aria-label": "Upload progress",
   },
 } satisfies Meta<typeof Progress>;
 
@@ -20,11 +21,11 @@ export const Default: Story = {};
 export const Steps: Story = {
   render: () => (
     <div className="flex w-80 flex-col gap-4">
-      <Progress value={0} />
-      <Progress value={25} />
-      <Progress value={50} />
-      <Progress value={75} />
-      <Progress value={100} />
+      <Progress value={0} aria-label="Step progress" />
+      <Progress value={25} aria-label="Step progress" />
+      <Progress value={50} aria-label="Step progress" />
+      <Progress value={75} aria-label="Step progress" />
+      <Progress value={100} aria-label="Step progress" />
     </div>
   ),
 };

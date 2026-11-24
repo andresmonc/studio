@@ -49,6 +49,7 @@ import { GoffLogo } from "@/components/goff-logo";
 import { useRecentlyEditedFlags } from "@/hooks/use-recently-edited-flags";
 
 export function Sidebar() {
+  const t = useTranslate();
   const { open } = useShadcnSidebar();
   const { menuItems, selectedKey } = useMenu();
   const { activeCompanyId } = useActiveCompany();
@@ -99,7 +100,10 @@ export function Sidebar() {
 
   return (
     <ShadcnSidebar collapsible="icon" className={cn("border-none")}>
-      <ShadcnSidebarRail />
+      <ShadcnSidebarRail
+        aria-label={t("nav.toggleSidebar")}
+        title={t("nav.toggleSidebar")}
+      />
       {/* pl-6 lines the badge up with the nav icons (content px-3 + button px-3). */}
       <ShadcnSidebarHeader
         className={cn(

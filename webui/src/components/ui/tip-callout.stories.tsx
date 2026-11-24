@@ -28,3 +28,18 @@ export const PercentageRollout: Story = {
     </TipCallout>
   ),
 };
+
+export const Inline: Story = {
+  render: () => (
+    <TipCallout
+      title="Tips"
+      inline
+      className="max-w-2xl"
+      onDismiss={() => {}}
+      dismissLabel="Hide this tip"
+    >
+      Rules are evaluated top → bottom — the first one that matches wins.
+      Conditions are built visually and stored as jsonlogic.
+    </TipCallout>
+  ),
+};

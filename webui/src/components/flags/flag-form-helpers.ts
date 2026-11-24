@@ -2,14 +2,19 @@
 // validation, datetime-local formatting, and variation diff/reconcile logic.
 // Extracted from flag-form.tsx; no React, no JSX — just data in/out.
 
-import { defaultOperators, type Field as RqbField, type RuleGroupType } from "react-querybuilder";
+import { defaultOperators, isValidValue, toArray, type Field as RqbField, type RuleGroupType } from "react-querybuilder";
 import type { FlagType } from "@/types/api";
-import type { Outcome, OutcomeMode, ProgState, Variation } from "./flag-form-types";
+import type { Outcome, OutcomeMode, ProgState, Rule, Variation } from "./flag-form-types";
 
 let seq = 1;
 export const nextId = () => seq++;
 
 export const EMPTY_QUERY: RuleGroupType = { combinator: "and", rules: [] };
+// Undefined marks an untouched draft; "" and whitespace are valid literals.
+export const newQuery = (): RuleGroupType => ({
+  combinator: "and",
+  rules: [{ field: "targetingKey", operator: "=", value: undefined }],
+});
 // Only targetingKey is predefined; every other attribute is typed by the user
 // and remembered via lib/targeting-attributes (proposed by ShadcnUiFieldSelector).
 export const QB_FIELDS: RqbField[] = [
@@ -106,6 +111,44 @@ export function outcomeValid(o: Outcome, names: string[]): boolean {
     new Date(o.prog.startDate).getTime() < new Date(o.prog.endDate).getTime()
   );
 }
+// "is null" / "is not null" are the only operators that take no value.
+const VALUELESS_OPS = new Set(["null", "notNull"]);
+function conditionIssues(g: RuleGroupType): Set<RuleIssue> {
+  const issues = new Set<RuleIssue>();
+  for (const r of g.rules) {
+    if ("rules" in r) {
+      for (const issue of conditionIssues(r)) issues.add(issue);
+    } else if (r.operator === "between" || r.operator === "notBetween") {
+      // Keep empty positions: dropping them could turn `10,,20` into a valid range.
+      const bounds = toArray(r.value, { retainEmptyStrings: true });
+      if (bounds.length !== 2 || [0, 1].some((i) => bounds[i] === undefined || !isValidValue(bounds[i]))) {
+        issues.add("range");
+      }
+    } else if (
+      (!VALUELESS_OPS.has(r.operator) && r.value === undefined) ||
+      // An empty list never matches (in) or always matches (not in).
+      ((r.operator === "in" || r.operator === "notIn") && toArray(r.value).length === 0)
+    ) {
+      issues.add("value");
+    }
+  }
+  return issues;
+}
+
+// ruleIssues lists what a targeting rule still needs before the flag can be
+// saved: a name, at least one condition with complete values and range bounds, and a
+// complete outcome. Explicit empty-string comparisons must remain editable.
+export type RuleIssue = "name" | "condition" | "value" | "range" | "outcome";
+export function ruleIssues(r: Rule, names: string[]): RuleIssue[] {
+  const issues: RuleIssue[] = [];
+  if (r.name.trim() === "") issues.push("name");
+  if (r.query.rules.length === 0) issues.push("condition");
+  else issues.push(...conditionIssues(r.query));
+  if (!outcomeValid(r.outcome, names)) issues.push("outcome");
+  return issues;
+}
+export const ruleValid = (r: Rule, names: string[]) =>
+  ruleIssues(r, names).length === 0;
 export function buildOutcome(
   o: Outcome,
   names: string[],

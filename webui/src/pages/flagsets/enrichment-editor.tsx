@@ -249,7 +249,10 @@ export function EnrichmentEditor({
                   })
                 }
               >
-                <SelectTrigger className="h-8 font-mono text-xs">
+                <SelectTrigger
+                  className="h-8 font-mono text-xs"
+                  aria-label={t("flagset.type")}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

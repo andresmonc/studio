@@ -23,7 +23,7 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   render: () => (
     <Select>
-      <SelectTrigger className="w-[200px]">
+      <SelectTrigger className="w-[200px]" aria-label="Fruit">
         <SelectValue placeholder="Select a fruit" />
       </SelectTrigger>
       <SelectContent>
@@ -43,7 +43,7 @@ export const Default: Story = {
 export const GroupedWithSeparator: Story = {
   render: () => (
     <Select defaultValue="utc">
-      <SelectTrigger className="w-[240px]">
+      <SelectTrigger className="w-[240px]" aria-label="Timezone">
         <SelectValue placeholder="Select a timezone" />
       </SelectTrigger>
       <SelectContent>

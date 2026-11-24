@@ -55,14 +55,21 @@ describe("dayLabel", () => {
     expect(dayLabel(yesterday, tStub)).toBe("auditLog.yesterday");
   });
 
-  it("formats older dates instead of using a relative label", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 5, 22, 12, 0, 0));
-    const label = dayLabel(new Date(2020, 0, 15), tStub);
-    expect(label).not.toBe("auditLog.today");
-    expect(label).not.toBe("auditLog.yesterday");
-    expect(label).toContain("2020");
-  });
+  const older = [
+    { name: "another year shows the year", d: new Date(2020, 0, 15), wantYear: "2020" },
+    { name: "this year omits the year", d: new Date(2026, 2, 15), wantYear: undefined },
+  ];
+  for (const tt of older) {
+    it(`formats older dates: ${tt.name}`, () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 5, 22, 12, 0, 0));
+      const label = dayLabel(tt.d, tStub);
+      expect(label).not.toBe("auditLog.today");
+      expect(label).not.toBe("auditLog.yesterday");
+      if (tt.wantYear) expect(label).toContain(tt.wantYear);
+      else expect(label).not.toMatch(/2026/);
+    });
+  }
 });
 
 describe("isPrimitive", () => {

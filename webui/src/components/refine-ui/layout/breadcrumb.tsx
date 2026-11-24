@@ -12,11 +12,13 @@ import {
   useBreadcrumb,
   useLink,
   useResourceParams,
+  useTranslate,
 } from "@refinedev/core";
 import { Home } from "lucide-react";
 import { Fragment, useMemo } from "react";
 
 export function Breadcrumb() {
+  const t = useTranslate();
   const Link = useLink();
   const { breadcrumbs } = useBreadcrumb();
   const { resources } = useResourceParams();
@@ -33,7 +35,10 @@ export function Breadcrumb() {
       key: "breadcrumb-item-home",
       href: rootRouteResource.matchedRoute ?? "/",
       Component: (
-        <Link to={rootRouteResource.matchedRoute ?? "/"}>
+        <Link
+          to={rootRouteResource.matchedRoute ?? "/"}
+          aria-label={t("nav.home")}
+        >
           {rootRouteResource?.resource?.meta?.icon ?? (
             <Home className="h-4 w-4" />
           )}
@@ -50,17 +55,17 @@ export function Breadcrumb() {
     }
 
     return list;
-  }, [breadcrumbs, Link, rootRouteResource]);
+  }, [breadcrumbs, Link, rootRouteResource, t]);
 
   return (
-    <ShadcnBreadcrumb>
+    <ShadcnBreadcrumb aria-label={t("nav.breadcrumb")}>
       <ShadcnBreadcrumbList>
         {breadCrumbItems.map((item, index) => {
           if (index === breadCrumbItems.length - 1) {
             return (
-              <ShadcnBreadcrumbPage key={item.key}>
-                {item.Component}
-              </ShadcnBreadcrumbPage>
+              <ShadcnBreadcrumbItem key={item.key}>
+                <ShadcnBreadcrumbPage>{item.Component}</ShadcnBreadcrumbPage>
+              </ShadcnBreadcrumbItem>
             );
           }
 

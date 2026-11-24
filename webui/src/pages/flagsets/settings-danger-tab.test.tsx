@@ -1,9 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Flagset } from "@/types/api";
 
-const h = vi.hoisted(() => ({ mutate: vi.fn() }));
+const h = vi.hoisted(() => ({
+  mutate: vi.fn(),
+  navigate: vi.fn(),
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
+}));
 
 vi.mock("@refinedev/core", async () => {
   const en = (await import("@/i18n/locales/en.json")).default as Record<
@@ -25,10 +30,33 @@ vi.mock("@refinedev/core", async () => {
     useCustomMutation: () => ({ mutate: h.mutate }),
   };
 });
-vi.mock("react-router", () => ({ useNavigate: () => vi.fn() }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("react-router", () => ({ useNavigate: () => h.navigate }));
+vi.mock("sonner", () => ({
+  toast: {
+    success: (...a: unknown[]) => h.toastSuccess(...a),
+    error: (...a: unknown[]) => h.toastError(...a),
+  },
+}));
 
 import { DangerTab } from "./settings-danger-tab";
+
+const confirmDelete = async () => {
+  const user = userEvent.setup({ pointerEventsCheck: 0 });
+  render(
+    <DangerTab flagset={{ id: "fs-1", name: "Prod", flagCount: 2 } as Flagset} />,
+  );
+  await user.click(screen.getByRole("button", { name: /delete/i }));
+  const dialog = screen.getByRole("alertdialog");
+  await user.type(within(dialog).getByRole("textbox"), "Prod");
+  await user.click(within(dialog).getByRole("button", { name: "Delete flagset" }));
+};
+
+beforeEach(() => {
+  h.mutate.mockReset();
+  h.navigate.mockReset();
+  h.toastSuccess.mockReset();
+  h.toastError.mockReset();
+});
 
 describe("DangerTab", () => {
   it("requires typing the exact flagset name before deleting", async () => {
@@ -54,4 +82,24 @@ describe("DangerTab", () => {
     expect(opts.method).toBe("delete");
     expect(opts.url).toMatch(/\/flagsets\/fs-1$/);
   });
+
+  const outcomes = [
+    { name: "success toasts and goes back to the list", ok: true },
+    { name: "failure toasts the error and stays", ok: false },
+  ];
+  for (const tt of outcomes) {
+    it(tt.name, async () => {
+      h.mutate.mockImplementation((_o, cbs) =>
+        tt.ok ? cbs.onSuccess() : cbs.onError(new Error("in use")),
+      );
+      await confirmDelete();
+      if (tt.ok) {
+        expect(h.toastSuccess).toHaveBeenCalledWith("Flagset deleted");
+        expect(h.navigate).toHaveBeenCalledWith("/flagsets");
+      } else {
+        expect(h.toastError).toHaveBeenCalledWith("Failed to delete flagset", { description: "in use" });
+        expect(h.navigate).not.toHaveBeenCalled();
+      }
+    });
+  }
 });

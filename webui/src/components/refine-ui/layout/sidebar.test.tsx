@@ -28,8 +28,10 @@ vi.mock("@refinedev/core", () => ({
   useLogout: () => ({ mutate: vi.fn(), isPending: false }),
   useTranslate: () => (key: string, defaultMessage?: string) =>
     defaultMessage ?? key,
-  useLink: () => ({ to, ...rest }: { to: string } & React.ComponentProps<"a">) => (
-    <a href={to} {...rest} />
+  useLink: () => ({ to, children, ...rest }: { to: string } & React.ComponentProps<"a">) => (
+    <a href={to} {...rest}>
+      {children}
+    </a>
   ),
   useRefineOptions: () => ({ title: { icon: null, text: "GO Feature Flag" } }),
 }));

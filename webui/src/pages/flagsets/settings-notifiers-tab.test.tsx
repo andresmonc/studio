@@ -183,15 +183,21 @@ describe("NotifierDialog add", () => {
     ]);
   });
 
-  it("cancel closes without saving", async () => {
-    h.notifiers = [slack];
-    const u = user();
-    render(<NotifiersTab flagsetId="fs-1" canManage />);
-    const dialog = await pickSlack(u);
-    await u.click(within(dialog).getByRole("button", { name: "common.cancel" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(h.mutate).not.toHaveBeenCalled();
-  });
+  const closes = [
+    { name: "cancel", close: (u: ReturnType<typeof user>, d: HTMLElement) => u.click(within(d).getByRole("button", { name: "common.cancel" })) },
+    { name: "Escape", close: (u: ReturnType<typeof user>) => u.keyboard("{Escape}") },
+  ];
+  for (const tt of closes) {
+    it(`${tt.name} closes without saving`, async () => {
+      h.notifiers = [slack];
+      const u = user();
+      render(<NotifiersTab flagsetId="fs-1" canManage />);
+      const dialog = await pickSlack(u);
+      await tt.close(u, dialog);
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(h.mutate).not.toHaveBeenCalled();
+    });
+  }
 
   it("adds a webhook with a secret and its non-blank headers", async () => {
     const u = user();
@@ -213,6 +219,17 @@ describe("NotifierDialog add", () => {
         secret: "k",
         headers: { "X-Team": "web" },
       },
+    ]);
+  });
+
+  it("adds a webhook without a secret or headers, leaving both out", async () => {
+    const u = user();
+    render(<NotifiersTab flagsetId="fs-1" canManage />);
+    const dialog = await addKind(u, 3);
+    await u.type(within(dialog).getByLabelText(T("endpointUrl")), "https://x.example/hook");
+    await u.click(within(dialog).getByRole("button", { name: T("add") }));
+    expect(saved()).toEqual([
+      { name: T("webhook.label"), kind: "webhook", enabled: true, endpointUrl: "https://x.example/hook" },
     ]);
   });
 });

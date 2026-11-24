@@ -155,6 +155,14 @@ describe("OnboardingSetupPage", () => {
     });
   });
 
+  it("a network failure shows the generic error", async () => {
+    mockApi({ "/companies/c1/teams": () => HttpResponse.error() });
+    renderPage();
+    await submitCompany("Acme");
+    expect(await screen.findByText("onboarding.setup.error")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "onboarding.setup.retry" })).toBeInTheDocument();
+  });
+
   it("retries from the failed step without re-creating the company", async () => {
     let flagsetAttempts = 0;
     const calls = mockApi(

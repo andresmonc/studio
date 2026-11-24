@@ -70,12 +70,30 @@ describe("CompanyCreatePage", () => {
     });
   }
 
-  it("shows the server's adminEmail error on the field", async () => {
-    onFinish = () =>
-      Promise.reject(new HttpError("validation failed", 400, { adminEmail: ["company admin is required"] }));
-    await fill("jane@acme.com");
-    expect(await screen.findByText("company admin is required")).toBeInTheDocument();
-  });
+  // refine's errorNotification toasts the message; only field errors land on the form.
+  const failures = [
+    {
+      name: "shows the server's adminEmail error on the field",
+      err: new HttpError("validation failed", 400, { adminEmail: ["company admin is required"] }),
+      wantField: "company admin is required",
+    },
+    { name: "an HttpError without field errors leaves the fields valid", err: new HttpError("down", 503) },
+    { name: "a network error leaves the fields valid", err: new TypeError("Failed to fetch") },
+  ];
+  for (const tt of failures) {
+    it(tt.name, async () => {
+      let called = false;
+      onFinish = () => {
+        called = true;
+        return Promise.reject(tt.err);
+      };
+      await fill("jane@acme.com");
+      await waitFor(() => expect(called).toBe(true));
+      const email = screen.getByPlaceholderText("companies.create.adminEmailPlaceholder");
+      if (tt.wantField) expect(await screen.findByText(tt.wantField)).toBeInTheDocument();
+      else expect(email).toHaveAttribute("aria-invalid", "false");
+    });
+  }
 
   it("disables the submit button while saving", () => {
     formLoading = true;

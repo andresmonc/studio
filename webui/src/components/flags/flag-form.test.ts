@@ -36,6 +36,44 @@ const payload: FlagPayload = {
 };
 
 describe("hydrate/build round-trip", () => {
+  for (const operator of ["between", "notBetween"]) {
+    it(`blocks partial ${operator} ranges and exports completed bounds`, () => {
+      const { result } = renderHook(() => useFlagForm(payload));
+      const setRange = (value: string) => act(() => result.current.setRules((rules) => rules.map((r) => ({
+        ...r,
+        query: { combinator: "and", rules: [{ field: "age", operator, value }] },
+      }))));
+      setRange("10,");
+      expect(result.current.valid).toBe(false);
+      setRange("10,20");
+      expect(result.current.valid).toBe(true);
+      const built = result.current.buildPayload() as FlagPayload;
+      const comparison = { "<=": [10, { var: "age" }, 20] };
+      expect(JSON.parse(built.targeting![0].query!)).toEqual({
+        and: [operator === "between" ? comparison : { "!": comparison }],
+      });
+      setRange(",20");
+      expect(result.current.valid).toBe(false);
+    });
+  }
+
+  for (const operator of ["==", "!="]) {
+    for (const value of ["", " "]) {
+      it(`allows metadata edits with ${operator} ${JSON.stringify(value)} targeting`, () => {
+        const query = { [operator]: [{ var: "email" }, value] };
+        const { result } = renderHook(() => useFlagForm({
+          ...payload,
+          targeting: [{ name: "beta", query: JSON.stringify(query), variation: "on" }],
+        }));
+        act(() => result.current.setDescription("updated"));
+        expect(result.current.valid).toBe(true);
+        const built = result.current.buildPayload() as FlagPayload;
+        expect(built.metadata?.description).toBe("updated");
+        expect(JSON.parse(built.targeting![0].query!)).toEqual({ and: [query] });
+      });
+    }
+  }
+
   it("rebuilds an equivalent payload", () => {
     const built = buildFlagPayload(hydrateForm(payload));
     expect(built.variations).toEqual({ on: true, off: false });
@@ -234,6 +272,11 @@ describe("percentage sum ignores orphaned variation keys (rename bug)", () => {
     };
     expect(payload.defaultRule?.percentage).toEqual({ a: 60, b: 40 });
   });
+
+  it("buildOutcome weighs a variation without a percentage at 0", () => {
+    const outcome = { mode: "percentage" as const, single: "", percentages: { on: 100 }, prog: newProg() };
+    expect(buildOutcome(outcome, ["on", "off"])).toEqual({ percentage: { on: 100, off: 0 } });
+  });
 });
 
 describe("clampPercentage caps a variation at the remaining room", () => {
@@ -335,6 +378,51 @@ describe("variation rename/remove reconciliation", () => {
     expect(reconciled.percentages).toEqual({ a: 60 });
     expect(reconciled.single).toBe("");
   });
+
+  it("prunes an orphaned weight that matches no current variation", () => {
+    const reconciled = reconcileOutcome(pctOutcome({ a: 60, gone: 40 }), new Map(), new Set(), ["a"]);
+    expect(reconciled.percentages).toEqual({ a: 60 });
+  });
+});
+
+describe("hydrateForm fills in what a hand-written payload leaves out", () => {
+  const tests: { name: string; payload?: FlagPayload; want: Record<string, unknown> }[] = [
+    {
+      name: "no payload starts an empty string flag",
+      payload: undefined,
+      want: { type: "string", variations: [], rules: [], defaultOutcome: { mode: "single", single: "" } },
+    },
+    {
+      name: "string variation values hydrate verbatim",
+      payload: { variations: { a: "x" } },
+      want: { type: "string", variations: [{ name: "a", value: "x" }] },
+    },
+    {
+      name: "a rule without name, query or outcome",
+      payload: { targeting: [{}] },
+      want: { rules: [{ name: "", query: { combinator: "and", rules: [] }, outcome: { mode: "single", single: "" } }] },
+    },
+    {
+      name: "an unparseable query becomes an empty group",
+      payload: { targeting: [{ name: "r", query: "{", variation: "on" }] },
+      want: { rules: [{ name: "r", query: { combinator: "and", rules: [] } }] },
+    },
+    {
+      name: "a progressive rollout without steps",
+      payload: { defaultRule: { progressiveRollout: {} } },
+      want: {
+        defaultOutcome: {
+          mode: "progressive",
+          prog: { initialVariation: "", endVariation: "", initialPct: 0, endPct: 100, startDate: "", endDate: "" },
+        },
+      },
+    },
+  ];
+  for (const tt of tests) {
+    it(tt.name, () => {
+      expect(hydrateForm(tt.payload)).toMatchObject(tt.want);
+    });
+  }
 });
 
 describe("progressive rollout keeps distinct initial/end variations", () => {
@@ -365,6 +453,21 @@ describe("progressive rollout keeps distinct initial/end variations", () => {
     );
     expect(built.progressiveRollout.initial.percentage).toBe(0);
     expect(built.progressiveRollout.end.percentage).toBe(100);
+  });
+
+  it("buildOutcome sends an empty date for a step without one", () => {
+    const outcome = {
+      mode: "progressive" as const,
+      single: "",
+      percentages: {},
+      prog: { initialVariation: "off", endVariation: "on", initialPct: 0, endPct: 100, startDate: "", endDate: "" },
+    };
+    expect(buildOutcome(outcome, ["on", "off"])).toEqual({
+      progressiveRollout: {
+        initial: { variation: "off", percentage: 0, date: "" },
+        end: { variation: "on", percentage: 100, date: "" },
+      },
+    });
   });
 
   it("outcomeFromRule hydrates initial/end variations and round-trips the date instant", () => {

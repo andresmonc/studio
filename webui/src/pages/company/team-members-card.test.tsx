@@ -170,6 +170,14 @@ describe("TeamMembersCard change role", () => {
       }
     });
   }
+
+  it("picking the current role sends nothing", async () => {
+    const user = userEvent.setup();
+    render(<TeamMembersCard teamId="t1" editable />);
+    await user.click(screen.getAllByRole("combobox")[2]);
+    await user.click(screen.getByRole("option", { name: "viewer" }));
+    expect(h.mutate).not.toHaveBeenCalled();
+  });
 });
 
 describe("TeamMembersCard remove member", () => {
@@ -200,6 +208,16 @@ describe("TeamMembersCard remove member", () => {
       }
     });
   }
+
+  it("while the removal is in flight, reopening shows it pending", async () => {
+    h.mutate.mockImplementation(() => {});
+    const user = userEvent.setup();
+    render(<TeamMembersCard teamId="t1" editable />);
+    await user.click(screen.getByRole("button", { name: "team.detail.removeAria" }));
+    await user.click(screen.getByRole("button", { name: "common.remove" }));
+    await user.click(screen.getByRole("button", { name: "team.detail.removeAria" }));
+    expect(screen.getByRole("button", { name: "common.removing" })).toBeDisabled();
+  });
 
   it("cancel closes the dialog without calling the API", async () => {
     const user = userEvent.setup();

@@ -26,6 +26,15 @@ Work in progress; APIs and data model can change freely, no backward-compat shim
 - JSON tags are camelCase; DB tags are snake_case.
 - Comments explain *why* or a non-obvious invariant; no comments restating code.
 
+## WebUI accessibility
+- Every interactive control has an accessible name: a `<Label htmlFor>` (or `Field htmlFor`) when there is
+  visible text, an `aria-label` otherwise. Icon-only buttons and `role="combobox"` triggers (Select, popover
+  pickers) always need an `aria-label`: their visible text does not count as their name.
+- `aria-label` text goes through i18n: `t("key")` with the key in `webui/src/i18n/locales/en.json`, never a
+  string literal or a template string. A shared `ui/` component that can't call `t` takes the label as a prop.
+- Storybook stories run axe in light and dark mode (`pnpm test:run`) and fail on any violation. Fix the
+  component; disable a rule only for a third-party false positive, with the reason in a comment.
+
 ## Tests
 - Every change ships with tests; Codecov requires 80% patch coverage.
 - Test file next to the code (`foo.go` → `foo_test.go`), assertions with `testify/assert`.

@@ -182,7 +182,7 @@ function JumpToFlag({ flags }: { flags: FlagInstance[] }) {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
-  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blurTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const s = q.trim();
   const needle = s.toLowerCase();
@@ -216,13 +216,14 @@ function JumpToFlag({ flags }: { flags: FlagInstance[] }) {
       >
         <Input placeholder={t("home.jump")} className="pl-8" />
       </CommandPrimitive.Input>
-      {open && s && (
+      {open && s ? (
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- mouse-only focus guard; keyboard selection goes through cmdk
         <div
           className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md"
           onMouseDown={(e) => {
             // Keep the input focused through the click.
             e.preventDefault();
-            if (blurTimer.current) clearTimeout(blurTimer.current);
+            clearTimeout(blurTimer.current);
           }}
         >
           <CommandList className="max-h-72">
@@ -242,6 +243,10 @@ function JumpToFlag({ flags }: { flags: FlagInstance[] }) {
             </CommandGroup>
           </CommandList>
         </div>
+      ) : (
+        // cmdk always points the input's aria-controls at its list; keep an
+        // empty one mounted so that reference resolves while closed.
+        <CommandList hidden />
       )}
     </CommandPrimitive>
   );

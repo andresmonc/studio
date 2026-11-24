@@ -33,7 +33,7 @@ function CompanySwitcherMenu() {
     queryOptions: { enabled: !!identity?.isSuperAdmin },
   });
 
-  const companies = result?.data ?? [];
+  const companies = result.data;
   const current = companies.find((c) => c.id === activeCompanyId);
 
   useEffect(() => {

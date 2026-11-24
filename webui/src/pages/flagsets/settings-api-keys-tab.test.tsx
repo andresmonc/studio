@@ -35,7 +35,7 @@ vi.mock("sonner", () => ({
 import { ApiKeysTab } from "./settings-api-keys-tab";
 
 const key = (over: Partial<FlagsetAPIKey>): FlagsetAPIKey =>
-  ({ id: "k1", label: "ci", apiKey: "goff_abc", createdAt: "", ...over }) as FlagsetAPIKey;
+  ({ id: "k1", label: "ci", apiKey: "goff_abc", createdAt: "2025-03-04T10:00:00Z", ...over }) as FlagsetAPIKey;
 const user = () => userEvent.setup({ pointerEventsCheck: 0 });
 
 beforeEach(() => {
@@ -54,16 +54,19 @@ describe("ApiKeysTab list", () => {
     expect(h.url).toMatch(/\/flagsets\/fs-1\/api-keys$/);
   });
 
+  // The placeholder row spans the actions column only when it is shown.
   const tests = [
-    { name: "loading", setup: () => (h.isLoading = true), want: "common.loading", notWant: "flagset.settings.keysEmpty" },
-    { name: "empty", setup: () => {}, want: "flagset.settings.keysEmpty", notWant: "common.loading" },
-    { name: "non-array payload is empty", setup: () => (h.keys = null), want: "flagset.settings.keysEmpty", notWant: "common.loading" },
+    { name: "loading", setup: () => (h.isLoading = true), canManage: true, want: "common.loading", notWant: "flagset.settings.keysEmpty" },
+    { name: "read-only loading", setup: () => (h.isLoading = true), canManage: false, want: "common.loading", notWant: "flagset.settings.keysEmpty" },
+    { name: "empty", setup: () => {}, canManage: true, want: "flagset.settings.keysEmpty", notWant: "common.loading" },
+    { name: "read-only empty", setup: () => {}, canManage: false, want: "flagset.settings.keysEmpty", notWant: "common.loading" },
+    { name: "non-array payload is empty", setup: () => (h.keys = null), canManage: true, want: "flagset.settings.keysEmpty", notWant: "common.loading" },
   ];
   for (const tt of tests) {
     it(tt.name, () => {
       tt.setup();
-      render(<ApiKeysTab flagsetId="fs-1" canManage />);
-      expect(screen.getByText(tt.want)).toBeInTheDocument();
+      render(<ApiKeysTab flagsetId="fs-1" canManage={tt.canManage} />);
+      expect(screen.getByText(tt.want)).toHaveAttribute("colspan", tt.canManage ? "4" : "3");
       expect(screen.queryByText(tt.notWant)).toBeNull();
     });
   }
@@ -77,7 +80,9 @@ describe("ApiKeysTab list", () => {
     const rows = screen.getAllByRole("row").slice(1);
     expect(within(rows[0]).getByText("ci")).toBeInTheDocument();
     expect(within(rows[0]).getByText("goff_1")).toBeInTheDocument();
-    expect(within(rows[0]).getByText(/· Alice/)).toBeInTheDocument();
+    expect(within(rows[0]).getByText(/· Alice/)).toHaveTextContent(
+      new Date("2025-03-04T10:00:00Z").toLocaleDateString(),
+    );
     expect(within(rows[1]).getByText("—")).toBeInTheDocument();
   });
 });

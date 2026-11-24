@@ -92,3 +92,34 @@ export const Disabled: Story = { args: { initial: TWO_RULES, disabled: true } };
 export const RuleTurnedOff: Story = {
   args: { initial: [TWO_RULES[0], { ...TWO_RULES[1], disable: true }] },
 };
+export const ManyRules: Story = {
+  args: {
+    initial: [
+      ...TWO_RULES,
+      {
+        id: nextId(),
+        name: "Progressive rollout",
+        query: {
+          combinator: "and",
+          rules: [{ field: "email", operator: "contains", value: "@acme.co" }],
+        },
+        outcome: {
+          ...newOutcome(),
+          mode: "progressive",
+          prog: { ...newOutcome().prog, initialVariation: "disabled", endVariation: "enabled" },
+        },
+      },
+      { ...TWO_RULES[0], id: nextId(), name: "Old app", disable: true },
+      {
+        id: nextId(),
+        name: "Incomplete split",
+        query: EMPTY_QUERY,
+        outcome: {
+          ...newOutcome(),
+          mode: "percentage",
+          percentages: { enabled: 30, disabled: 30 },
+        },
+      },
+    ],
+  },
+};

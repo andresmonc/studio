@@ -315,19 +315,19 @@ export function SettingsCard({
               )}
             </dd>
           </div>
-          {entries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t("flag.detail.metadataEmpty")}
-            </p>
-          ) : (
-            entries.map(([k, v]) => (
-              <div key={k} className="grid grid-cols-[180px_1fr] gap-3">
-                <dt className="font-mono text-xs text-muted-foreground">{k}</dt>
-                <dd className="font-mono text-xs">{formatVariationValue(v)}</dd>
-              </div>
-            ))
-          )}
+          {entries.map(([k, v]) => (
+            <div key={k} className="grid grid-cols-[180px_1fr] gap-3">
+              <dt className="font-mono text-xs text-muted-foreground">{k}</dt>
+              <dd className="font-mono text-xs">{formatVariationValue(v)}</dd>
+            </div>
+          ))}
         </dl>
+        {/* Outside the <dl>: a list may only hold dt/dd groups. */}
+        {entries.length === 0 && (
+          <p className="mt-2.5 text-sm text-muted-foreground">
+            {t("flag.detail.metadataEmpty")}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

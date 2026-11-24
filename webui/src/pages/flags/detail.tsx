@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { useCustom, useCustomMutation, useTranslate } from "@refinedev/core";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { TipCallout } from "@/components/ui/tip-callout";
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import {
   Tooltip,
@@ -107,6 +106,7 @@ const METADATA_TYPES: EnrichType[] = ["string", "float", "int", "boolean"];
 
 export function FlagDetailPage() {
   const t = useTranslate();
+  const fieldId = useId();
   const { id } = useParams();
   const navigate = useNavigate();
   const { activeTeamId } = useActiveTeam();
@@ -156,7 +156,6 @@ export function FlagDetailPage() {
   });
   const createdByName = useMemo(() => {
     const list = versionsQuery.data?.data?.data ?? [];
-    if (!list.length) return "";
     const first = [...list].sort(
       (a, b) => a.versionNumber - b.versionNumber,
     )[0];
@@ -203,6 +202,12 @@ export function FlagDetailPage() {
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
   const [section, setSection] = useState<SectionKey>("targeting");
+  // Evaluate-tab context edits, tagged with their flag: this page is reused when
+  // the route id changes, and another flag must start from its own default.
+  const [evalContext, setEvalContext] = useState<{
+    flagId: string;
+    value: string;
+  } | null>(null);
   // Custom metadata = the non-reserved keys (owner/description live in Settings).
   const customMetadataInitial = useMemo(
     () =>
@@ -462,20 +467,16 @@ export function FlagDetailPage() {
                 {section === "targeting" && (
                   <div className="flex flex-col gap-4">
                     {canEdit ? (
-                      <>
-                        <TipCallout title={t("flag.detail.targetingTipsTitle")}>
-                          {t("flag.detail.targetingTips")}
-                        </TipCallout>
-                        <RulesEditor
-                          t={t}
-                          variationNames={form.variationNames}
-                          rules={form.rules}
-                          setRules={form.setRules}
-                          defaultOutcome={form.defaultOutcome}
-                          setDefaultOutcome={form.setDefaultOutcome}
-                          disabled={flag.disabled}
-                        />
-                      </>
+                      <RulesEditor
+                        t={t}
+                        variationNames={form.variationNames}
+                        rules={form.rules}
+                        setRules={form.setRules}
+                        defaultOutcome={form.defaultOutcome}
+                        setDefaultOutcome={form.setDefaultOutcome}
+                        disabled={flag.disabled}
+                        showTips
+                      />
                     ) : (
                       <>
                         <TargetingCard
@@ -602,8 +603,12 @@ export function FlagDetailPage() {
                               flagsetName={flagsetName}
                             />
                           </Field>
-                          <Field label={t("flag.detail.edit.description")}>
+                          <Field
+                            label={t("flag.detail.edit.description")}
+                            htmlFor={`${fieldId}-description`}
+                          >
                             <Input
+                              id={`${fieldId}-description`}
                               value={form.description}
                               onChange={(e) =>
                                 form.setDescription(e.target.value)
@@ -613,8 +618,10 @@ export function FlagDetailPage() {
                           <Field
                             label={t("flag.tags")}
                             hint={t("flag.detail.tagsHint")}
+                            htmlFor={`${fieldId}-tags`}
                           >
                             <TagInput
+                              id={`${fieldId}-tags`}
                               value={form.tags}
                               onChange={form.setTags}
                               suggestions={tagSuggestions}
@@ -625,8 +632,10 @@ export function FlagDetailPage() {
                           <Field
                             label={t("flag.detail.edit.trackEvents")}
                             hint={t("flag.detail.edit.trackEventsHint")}
+                            htmlFor={`${fieldId}-track-events`}
                           >
                             <Switch
+                              id={`${fieldId}-track-events`}
                               checked={form.trackEvents}
                               onCheckedChange={form.setTrackEvents}
                             />
@@ -734,18 +743,25 @@ export function FlagDetailPage() {
                 {section === "evaluate" && (
                   <div>
                     <EvaluatePanel
+                      key={flag.id}
                       flagId={flag.id}
                       isDirty={canEdit && form.isDirty}
                       saving={saving}
                       saveAndThen={saveFlag}
                       defaultContext={
-                        flagset?.defaultTestingEvaluationContext
+                        (evalContext?.flagId === flag.id
+                          ? evalContext.value
+                          : null) ??
+                        (flagset?.defaultTestingEvaluationContext
                           ? JSON.stringify(
                               flagset.defaultTestingEvaluationContext,
                               null,
                               2,
                             )
-                          : DEFAULT_TESTING_CONTEXT
+                          : DEFAULT_TESTING_CONTEXT)
+                      }
+                      onContextChange={(value) =>
+                        setEvalContext({ flagId: flag.id, value })
                       }
                     />
                   </div>

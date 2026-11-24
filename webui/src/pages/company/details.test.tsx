@@ -88,17 +88,29 @@ describe("CompanyDetailsCard", () => {
     });
   }
 
-  it("maps server field errors onto the form", async () => {
-    h.onFinish.mockRejectedValue(
-      new HttpError("validation failed", 400, { displayName: ["already used", "too similar"] }),
-    );
-    const user = userEvent.setup();
-    render(<CompanyDetailsCard companyId="c1" />);
-    await user.type(nameInput(), "Acme");
-    await user.click(screen.getByRole("button", { name: "common.save" }));
-    expect(await screen.findByText("already used, too similar")).toBeInTheDocument();
-    expect(h.refreshIdentity).not.toHaveBeenCalled();
-  });
+  // refine's errorNotification toasts the message; only field errors land on the form.
+  const failures = [
+    {
+      name: "maps server field errors onto the form",
+      err: new HttpError("validation failed", 400, { displayName: ["already used", "too similar"] }),
+      wantField: "already used, too similar",
+    },
+    { name: "an HttpError without field errors leaves the fields valid", err: new HttpError("down", 503) },
+    { name: "a network error leaves the fields valid", err: new TypeError("Failed to fetch") },
+  ];
+  for (const tt of failures) {
+    it(tt.name, async () => {
+      h.onFinish.mockRejectedValue(tt.err);
+      const user = userEvent.setup();
+      render(<CompanyDetailsCard companyId="c1" />);
+      await user.type(nameInput(), "Acme");
+      await user.click(screen.getByRole("button", { name: "common.save" }));
+      await waitFor(() => expect(h.onFinish).toHaveBeenCalled());
+      if (tt.wantField) expect(await screen.findByText(tt.wantField)).toBeInTheDocument();
+      else expect(nameInput()).toHaveAttribute("aria-invalid", "false");
+      expect(h.refreshIdentity).not.toHaveBeenCalled();
+    });
+  }
 
   it("disables the button while saving", () => {
     h.formLoading = true;
